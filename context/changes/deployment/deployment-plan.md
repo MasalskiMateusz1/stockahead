@@ -97,7 +97,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 **Done when:** the Docker image runs locally against Postgres 18 with the prod profile and reports healthy.
 
-- [ ] **Phase complete**
+- [x] **Phase complete**
 
 - [x] **1.1 [AI]: Config and dependencies.**
   - `pom.xml`: add `spring-boot-starter-actuator`.
@@ -116,7 +116,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 - [x] **1.3 [AI]: Local prod-like smoke test** (`deploy/compose.local.yml` + `deploy/.env.example`).
   - `postgres:18` plus `stockahead:local` with `SPRING_PROFILES_ACTIVE=prod`, on `127.0.0.1:8080`. This file is for local checks only; Coolify doesn't use it.
   - ✅ Check: `curl localhost:8080/actuator/health/readiness` returns `{"status":"UP"}` (Boot 4 turns the probes on by default), and the log shows Flyway ran.
-- [ ] **1.4 [Human]: Review.**
+- [x] **1.4 [Human]: Review.**
   - Read the diff for 1.1–1.3 (about 5 minutes), then I commit and push.
   - ✅ Check: the commit is on `main` on GitHub.
 
@@ -126,7 +126,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 - [ ] **Phase complete**
 
-- [ ] **2.1 [AI]: `.github/workflows/ci.yml`.**
+- [x] **2.1 [AI]: `.github/workflows/ci.yml`.**
   - Job `verify` runs on PRs and on pushes to `main`: `setup-java` with Temurin 21 and a Maven cache, then `./mvnw -B verify`.
   - Job `image` runs on pushes to `main` and on `workflow_dispatch`, after `verify`: logs in to GHCR, then builds and pushes with the `gha` cache and tag `sha-<short>`.
   - ✅ Check: `actionlint`, if available, and a YAML parse.
