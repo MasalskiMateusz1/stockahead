@@ -1,0 +1,38 @@
+# Local prod-like smoke test only; Coolify does not use this file.
+# docker build -t stockahead:local .
+# docker compose -f deploy/compose.local.yml up -d
+# curl localhost:8080/actuator/health/readiness
+# docker compose -f deploy/compose.local.yml down -v
+name: stockahead-local
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: stockahead
+      POSTGRES_USER: stockahead
+      POSTGRES_PASSWORD: stockahead-local
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stockahead -d stockahead"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    image: stockahead:local
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/stockahead
+      SPRING_DATASOURCE_USERNAME: stockahead
+      SPRING_DATASOURCE_PASSWORD: stockahead-local
+      STOCKAHEAD_SETUP_TOKEN: local-only-setup-token
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  db-data:

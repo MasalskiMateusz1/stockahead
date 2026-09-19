@@ -48,6 +48,7 @@ Every subphase ends with a **✅ Check**. You can stop after any subphase and no
 | D12 | Coolify dashboard | `coolify.<domain>` through the tunnel **behind Cloudflare Access** (email one-time code). CI reaches the API with an Access service token. Coolify had several serious security flaws in 2026 that let a logged-in user take over the server, so the dashboard is never public. |
 | D13 | Tunnel | `cloudflared` as a **host systemd service** with explicit hostnames (no wildcard). SSH keeps working even if Coolify or Docker breaks. |
 | D14 | App access | No Cloudflare Access on `test.<domain>`; only the app's own Spring Security login protects it |
+| D15 | GitHub plan | **GitHub Free** (chosen 2026-09-19). Private repos on Free get no branch protection, rulesets or environment secrets (the API returns 403). So PR-only merges are a habit, not a rule (2.3), and deploy secrets are repository-level (7.1, 7.2). |
 
 **Sub-decisions that follow from the above. Tell me if you disagree with any:**
 - **S1: host firewall for root Docker.** Root Docker publishes ports past ufw, so a rule in the `DOCKER-USER` chain drops new inbound connections on `enp1s0f0`. With ufw also denying all inbound, nothing answers from the internet. The OVH Network Firewall (in the OVH panel) is an optional second layer.
@@ -98,21 +99,21 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 - [ ] **Phase complete**
 
-- [ ] **1.1 [AI]: Config and dependencies.**
+- [x] **1.1 [AI]: Config and dependencies.**
   - `pom.xml`: add `spring-boot-starter-actuator`.
   - `application.properties`: `spring.jpa.hibernate.ddl-auto=validate`, `management.endpoints.web.exposure.include=health`.
   - New `application-prod.properties`: `server.forward-headers-strategy=framework`, `server.servlet.session.cookie.secure=true`.
   - The datasource comes from env vars (`SPRING_DATASOURCE_*`).
   - `TestcontainersConfiguration`: `postgres:latest` → `postgres:18` (S4).
   - ✅ Check: `mvnw.cmd verify` passes.
-- [ ] **1.2 [AI]: Dockerfile and `.dockerignore`.**
+- [x] **1.2 [AI]: Dockerfile and `.dockerignore`.**
   - Build stage on `eclipse-temurin:21-jdk`: `./mvnw dependency:go-offline`, then `package -DskipTests`, then `java -Djarmode=tools -jar app.jar extract --layers --launcher`.
   - Runtime stage on a pinned `eclipse-temurin:21-jre-resolute` (the bare `21-jre` tag moves between Ubuntu releases): non-root user, `-XX:MaxRAMPercentage=75`, starts with `JarLauncher`. The image already ships `curl` and `wget`, which Coolify's healthcheck needs inside the container.
   - ✅ Check:
     - `docker build -t stockahead:local .` succeeds,
     - `docker run --rm --entrypoint id stockahead:local` shows a non-root uid,
     - `docker run --rm --entrypoint curl stockahead:local --version` works.
-- [ ] **1.3 [AI]: Local prod-like smoke test** (`deploy/compose.local.yml` + `deploy/.env.example`).
+- [x] **1.3 [AI]: Local prod-like smoke test** (`deploy/compose.local.yml` + `deploy/.env.example`).
   - `postgres:18` plus `stockahead:local` with `SPRING_PROFILES_ACTIVE=prod`, on `127.0.0.1:8080`. This file is for local checks only; Coolify doesn't use it.
   - ✅ Check: `curl localhost:8080/actuator/health/readiness` returns `{"status":"UP"}` (Boot 4 turns the probes on by default), and the log shows Flyway ran.
 - [ ] **1.4 [Human]: Review.**
@@ -132,9 +133,9 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 - [ ] **2.2 [Human]: First CI run.**
   - Push, or merge my PR, and watch the Actions tab. In GHCR, confirm the `stockahead` package is private and linked to the repo.
   - ✅ Check: both jobs are green and the package shows the tag `sha-XXXXXXX`.
-- [ ] **2.3 [Human]: Branch protection on `main`.**
-  - Require the `verify` status check and require PRs.
-  - ✅ Check: a test PR shows "Required" next to `verify`.
+- [ ] **2.3 [Human]: Merge discipline on `main` (D15: no branch protection on GitHub Free).**
+  - Never push to `main` directly; merge only through a PR whose `verify` check is green.
+  - ✅ Check: a test PR shows the `verify` check running, and it passes before you merge.
 
 ## Phase 3: Server baseline
 
@@ -257,7 +258,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
   - Leave Coolify's **gzip compression off** for this app. Traefik's compress middleware doesn't exclude `text/event-stream` and would hold back SSE events.
   - ✅ Check:
     - `https://test.<domain>` serves the login page with a valid certificate,
-    - `curl -sI https://test.<domain>/` shows a `Location:` starting with `https://`, which proves the 4.3 trusted-headers change works,
+    - `curl -sI -H 'Accept: text/html' https://test.<domain>/` shows a `Location:` starting with `https://`, which proves the 4.3 trusted-headers change works. Without that `Accept` header, Spring Security answers `401` with HTTP Basic instead of redirecting,
     - the app logs show Flyway ran,
     - Coolify shows the container as healthy.
 
@@ -269,7 +270,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 - [ ] **7.1 [AI]: Add a `deploy` job to `ci.yml`.**
   - Runs after `image` on pushes to `main`. Also runs from `workflow_dispatch` with a `tag` input, for manual rollback to any earlier tag.
-  - Uses `environment: test` and `concurrency: deploy-test`.
+  - Uses `concurrency: deploy-test`. There is no `environment:` (D15), so secrets are read at repository level.
   - Sets the image tag with `PATCH /api/v1/applications/$COOLIFY_APP_UUID` and body `{"docker_registry_image_tag":"sha-…"}`.
   - Starts the deploy with **`POST /api/v1/deploy?uuid=$COOLIFY_APP_UUID`** (a `GET` returns 405 since v4.3) and reads `deployments[0].deployment_uuid` from the response.
   - Polls `GET /api/v1/deployments/{deployment_uuid}` until `status` is `finished` (success) or `failed` / `cancelled-by-user` (fail the job).
@@ -277,7 +278,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
   - ✅ Check: the workflow parses.
 - [ ] **7.2 [Human]: Tokens and GitHub environment.**
   - In Coolify, turn on Settings → Configuration → Advanced → **API Access**. Then create an API token with only **`write`** (to set the tag) and **`deploy`**, with an expiry date. Tokens are team-wide, not per app, so the Cloudflare Access service token is the second lock.
-  - Create the GitHub environment `test` with:
+  - Add these at **repository** level (D15):
     - secrets `COOLIFY_TOKEN`, `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`,
     - variables `COOLIFY_URL=https://coolify.<domain>` and `COOLIFY_APP_UUID`.
   - ✅ Check: from your PC, `curl` to `https://coolify.<domain>/api/v1/version` with the three headers returns the version. Without the Access headers it gets blocked.
