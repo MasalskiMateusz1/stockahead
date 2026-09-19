@@ -80,15 +80,15 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 **Done when:** the project is in a private GitHub repo and the runbook holds the exact commands and clicks for every human step.
 
-- [ ] **Phase complete**
+- [x] **Phase complete**
 
-- [ ] **0.1 [AI]: Initialise git.**
+- [x] **0.1 [AI]: Initialise git.**
   - `git init`, add `.env` and `*.dump` to `.gitignore`, first commit.
   - ✅ Check: `git status` is clean and `git log` shows one commit.
-- [ ] **0.2 [Human]: Create the GitHub repo.**
+- [x] **0.2 [Human]: Create the GitHub repo.**
   - Create a private repo `stockahead` and `git push -u origin main`. I can do this with `gh` if you are logged in.
   - ✅ Check: the commit is visible on GitHub.
-- [ ] **0.3 [AI]: Draft the runbook** in `context/foundation/deployment.md`.
+- [x] **0.3 [AI]: Draft the runbook** in `context/foundation/deployment.md`.
   - Decision table, then copy-pasteable commands and click paths for every [Human] subphase (keyed by subphase number), then the restore procedure.
   - ✅ Check: every [Human] subphase in this plan has a matching runbook section.
 

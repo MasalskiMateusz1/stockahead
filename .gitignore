@@ -35,6 +35,13 @@ build/
 ### Secrets and dumps ###
 .env
 *.dump
+*.dmp
 
 ### Claude Code (per-user) ###
 .claude/settings.local.json
+
+### 10xDevs course content (installed by 10x-cli, never published) ###
+.10x-cli.json
+.claude/.10x-cli-manifest.json
+.claude/skills/10x-*/
+.claude/prompts/
