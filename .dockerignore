@@ -1,0 +1,6 @@
+# Allowlist: only what the image build needs.
+*
+!.mvn/
+!mvnw
+!pom.xml
+!src/main/

@@ -39,6 +39,7 @@ Shells: server commands run in bash on the server. Commands marked **PC (PowerSh
 | D12 | Coolify dashboard | `coolify.<domain>` behind Cloudflare Access (email one-time code); CI uses an Access service token |
 | D13 | Tunnel | `cloudflared` as a host systemd service, explicit hostnames |
 | D14 | App access | `test.<domain>` has no Access; Spring Security login only |
+| D15 | GitHub plan | GitHub Free: no branch protection or environment secrets on the private repo; merge via PR by habit; deploy secrets at repository level |
 | S1 | Host firewall | ufw deny-all inbound, plus a `DOCKER-USER` drop of `NEW` connections on `enp1s0f0` |
 | S2 | Root SSH | Key-only, and only from Docker networks (`10.0.0.0/8`, `172.16.0.0/12`) |
 | S3 | `/setup` | Needs `STOCKAHEAD_SETUP_TOKEN`; disables itself once a manager exists |
@@ -83,7 +84,7 @@ Put a calendar reminder two weeks before each expiry. An expired R2 token means 
 
 Done 2026-09-19: `gh repo create stockahead --private --source=. --remote=origin --push` created https://github.com/MasalskiMateusz1/stockahead.
 
-**Your account is on GitHub Free.** For private repos, that blocks two later steps: branch protection (2.3) and environment secrets (7.2). The GitHub API answers `403 Upgrade to GitHub Pro or make this repository public`. Decide before phase 2:
+**Your account is on GitHub Free.** For private repos, that blocks two later steps: branch protection (2.3) and environment secrets (7.2). The GitHub API answers `403 Upgrade to GitHub Pro or make this repository public`. **Chosen 2026-09-19: B, stay on Free (D15).** Options considered:
 
 | Option | Effect |
 |---|---|
@@ -116,37 +117,19 @@ GHCR: open https://github.com/MasalskiMateusz1?tab=packages → `stockahead`.
 
 ✅ Both jobs are green and the package lists `sha-XXXXXXX`.
 
-### 2.3 Branch protection on `main`
+### 2.3 Merge discipline on `main` (D15)
 
-**Only with option A (Pro)** from 0.2. PC (Git Bash), creating a ruleset:
+GitHub Free can't enforce this on a private repo, so it's a habit: never `git push` to `main`, and merge only through a PR with a green `verify`. PC (Git Bash):
 ```bash
-gh api -X POST repos/MasalskiMateusz1/stockahead/rulesets --input - <<'EOF'
-{
-  "name": "main",
-  "target": "branch",
-  "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    { "type": "pull_request", "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": false } },
-    { "type": "required_status_checks", "parameters": {
-        "strict_required_status_checks_policy": false,
-        "required_status_checks": [ { "context": "verify" } ] } }
-  ]
-}
-EOF
+git switch -c <branch>
+git push -u origin <branch>
+gh pr create --fill
+gh pr checks --watch            # wait for verify
+gh pr merge --squash --delete-branch
 ```
-`required_approving_review_count: 0` because you can't approve your own PR. The click path is Settings → Rules → Rulesets → New branch ruleset, with the same options.
+If you move to GitHub Pro later, turn this into a ruleset (Settings → Rules → Rulesets → New branch ruleset on the default branch: require a pull request with 0 approvals, require the `verify` status check, block force pushes and deletion).
 
-✅ Open a test PR: `verify` shows **Required**.
-
-With **option B (Free)**, skip this step and never push to `main` directly.
+✅ A test PR shows the `verify` check, and it's green before you merge.
 
 ### 3.2 OS basics
 
@@ -513,13 +496,14 @@ Once the auth feature adds its own `SecurityFilterChain`, it must `permitAll()` 
 
 ✅ Check, PC (Git Bash):
 ```bash
-curl -sI https://test.<domain>/ | grep -i '^location'     # Location: https://test.<domain>/login
+curl -sI -H 'Accept: text/html' https://test.<domain>/ | grep -i '^location'     # Location: https://test.<domain>/login
+# without Accept: text/html, Spring Security answers 401 + WWW-Authenticate: Basic instead of redirecting
 ```
 - the browser shows the login page with a valid certificate,
 - Coolify → app → Logs shows Flyway ran (`Successfully applied` or `Schema … is up to date`),
 - Coolify shows the container as **healthy**.
 
-### 7.2 Tokens and the GitHub environment
+### 7.2 Tokens and GitHub secrets
 
 Coolify → Settings → Advanced → **API Access: on**.
 Coolify → Keys & Tokens → API tokens → create `github-deploy-test` with permissions **`write`** and **`deploy`** only, and an expiry. Copy it now.
@@ -527,16 +511,15 @@ Get `<app-uuid>` from the app's URL in Coolify.
 
 PC (Git Bash). `gh secret set` prompts for the value, so it stays out of history.
 
-**Option A (Pro), environment `test`:**
+Repository level (D15):
 ```bash
-gh api -X PUT repos/MasalskiMateusz1/stockahead/environments/test
-gh secret set COOLIFY_TOKEN           --env test
-gh secret set CF_ACCESS_CLIENT_ID     --env test
-gh secret set CF_ACCESS_CLIENT_SECRET --env test
-gh variable set COOLIFY_URL      --env test --body 'https://coolify.<domain>'
-gh variable set COOLIFY_APP_UUID --env test --body '<app-uuid>'
+gh secret set COOLIFY_TOKEN
+gh secret set CF_ACCESS_CLIENT_ID
+gh secret set CF_ACCESS_CLIENT_SECRET
+gh variable set COOLIFY_URL      --body 'https://coolify.<domain>'
+gh variable set COOLIFY_APP_UUID --body '<app-uuid>'
 ```
-**Option B (Free), repository level:** the same commands without `--env test`.
+Any workflow on any branch can read these secrets. Only merge workflow changes you've read, and remember the Access service token is the second lock.
 
 ✅ Check, PC (Git Bash):
 ```bash
