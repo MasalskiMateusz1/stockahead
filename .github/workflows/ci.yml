@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing image tag to deploy, e.g. sha-1234abc (rollback). Leave empty to only build this ref.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -15,6 +20,8 @@ concurrency:
 
 jobs:
   verify:
+    # a tag dispatch deploys an image CI already tested, so it skips straight to deploy
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.tag == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -29,7 +36,7 @@ jobs:
 
   image:
     needs: verify
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag == '')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -66,3 +73,110 @@ jobs:
           tag="sha-${GITHUB_SHA::7}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Pushed \`$IMAGE:$tag\`" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    # after image on pushes to main (D5), or on demand with a tag to roll back
+    needs: image
+    if: >-
+      !cancelled()
+      && ((github.event_name == 'push' && needs.image.result == 'success')
+          || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions: {}
+    concurrency:
+      group: deploy-test
+      cancel-in-progress: false
+    env:
+      COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+      COOLIFY_APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+      COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      TAG: ${{ github.event.inputs.tag || needs.image.outputs.tag }}
+    steps:
+      - name: Check the tag and the credentials (runbook 7.2)
+        run: |
+          set -euo pipefail
+          for v in COOLIFY_URL COOLIFY_APP_UUID COOLIFY_TOKEN CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::$v is missing; add it at repository level (runbook 7.2)"
+              exit 1
+            fi
+          done
+          # the tag ends up in a URL and a JSON body, so accept only what CI produces
+          if ! [[ "$TAG" =~ ^sha-[0-9a-f]{7}$ ]]; then
+            echo "::error::tag '$TAG' is not sha-<7 hex digits>"
+            exit 1
+          fi
+          echo "Deploying $TAG to $COOLIFY_URL"
+
+      - name: Set the image tag, deploy, and wait
+        run: |
+          set -euo pipefail
+
+          # api METHOD PATH [JSON-BODY] -> response body on stdout; anything but 2xx fails the job.
+          # Access sits in front of Coolify, so a missing service token shows up as a 302, not an error.
+          api() {
+            local method=$1 path=$2 body=${3:-} code
+            local -a args=(
+              -sS --max-time 60 -o /tmp/api.json -w '%{http_code}'
+              -X "$method" "$COOLIFY_URL$path"
+              -H "Authorization: Bearer $COOLIFY_TOKEN"
+              -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID"
+              -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET"
+              -H 'Accept: application/json'
+            )
+            if [ -n "$body" ]; then
+              args+=(-H 'Content-Type: application/json' --data "$body")
+            fi
+            code=$(curl "${args[@]}")
+            case "$code" in
+              2??) cat /tmp/api.json ;;
+              *)
+                echo "::error::$method $path returned HTTP $code" >&2
+                head -c 800 /tmp/api.json >&2
+                echo >&2
+                return 1
+                ;;
+            esac
+          }
+
+          api PATCH "/api/v1/applications/$COOLIFY_APP_UUID" \
+            "$(jq -nc --arg t "$TAG" '{docker_registry_image_tag: $t}')" > /dev/null
+          echo "image tag set to $TAG"
+
+          # GET /api/v1/deploy returns 405 since Coolify v4.3 (D5)
+          deployment=$(api POST "/api/v1/deploy?uuid=$COOLIFY_APP_UUID" \
+            | jq -r '.deployments[0].deployment_uuid // empty')
+          if [ -z "$deployment" ]; then
+            echo "::error::the deploy call returned no deployment_uuid"
+            exit 1
+          fi
+          echo "deployment $deployment queued"
+
+          status=''
+          deadline=$(( SECONDS + 20 * 60 ))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            api GET "/api/v1/deployments/$deployment" > /tmp/deployment.json
+            status=$(jq -r '.status // empty' /tmp/deployment.json)
+            case "$status" in
+              finished) break ;;
+              failed|cancelled-by-user)
+                echo "::group::Coolify deployment log"
+                jq -r '.logs // "(no logs)"' /tmp/deployment.json \
+                  | jq -r 'if type == "array" then .[].output else . end' 2>/dev/null \
+                  | tail -n 120 || true
+                echo "::endgroup::"
+                echo "::error::deployment $deployment $status; the previous container keeps serving"
+                exit 1
+                ;;
+              *) echo "  $status"; sleep 10 ;;
+            esac
+          done
+
+          if [ "$status" != finished ]; then
+            echo "::error::gave up after 20 min (last status: ${status:-unknown}); check Coolify"
+            exit 1
+          fi
+          echo "Deployed \`$TAG\` (deployment \`$deployment\`)" >> "$GITHUB_STEP_SUMMARY"

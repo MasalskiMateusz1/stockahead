@@ -274,7 +274,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 - [ ] **Phase complete**
 
-- [ ] **7.1 [AI]: Add a `deploy` job to `ci.yml`.**
+- [x] **7.1 [AI]: Add a `deploy` job to `ci.yml`.** Done 2026-09-21. Dispatch has two modes: `gh workflow run ci.yml --ref <branch>` with no `tag` builds only (deploy is skipped), and `-f tag=sha-XXXXXXX` skips `verify` and `image` and deploys that existing tag. The job refuses any tag that isn't `^sha-[0-9a-f]{7}$` before it reaches a URL or a JSON body, and treats every non-2xx as fatal — Access answers a blocked call with `302`, which `curl -f` would pass through as success. On a failed deploy it prints the last 120 lines of Coolify's deployment log. Checked with a YAML parse and `bash -n` over every `run` block; `actionlint` isn't installed here and Docker Desktop was down, so it wasn't run.
   - Runs after `image` on pushes to `main`. Also runs from `workflow_dispatch` with a `tag` input, for manual rollback to any earlier tag.
   - Uses `concurrency: deploy-test`. There is no `environment:` (D15), so secrets are read at repository level.
   - Sets the image tag with `PATCH /api/v1/applications/$COOLIFY_APP_UUID` and body `{"docker_registry_image_tag":"sha-…"}`.
