@@ -410,15 +410,9 @@ Access → Applications → **Add an application** → Self-hosted:
 
 ### 5.3 Point Coolify at its new domain
 
-On the server (keep the `.env` backup readable by root only):
+On the server. `ubuntu`'s login shell is **fish** (4.3), and `/data/coolify/source` is root-only, so `cd` into it fails and the rest of a pasted bash block then runs in your home directory. Wrap the whole thing in `sudo bash -c '…'`, which also keeps the `.env` backup root-only:
 ```bash
-cd /data/coolify/source
-sudo cp -p .env ".env.bak-$(date +%F)"
-for kv in 'PUSHER_HOST=realtime.regavio.com' 'PUSHER_PORT=443'; do
-  k=${kv%%=*}
-  if sudo grep -q "^$k=" .env; then sudo sed -i "s|^$k=.*|$kv|" .env; else echo "$kv" | sudo tee -a .env >/dev/null; fi
-done
-sudo grep -E '^PUSHER_(HOST|PORT)=' .env
+sudo bash -c 'cd /data/coolify/source && cp -p .env ".env.bak-$(date +%F)" && for kv in PUSHER_HOST=realtime.regavio.com PUSHER_PORT=443; do k=${kv%%=*}; if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$kv|" .env; else echo "$kv" >> .env; fi; done; grep -E "^PUSHER_(HOST|PORT)=" .env'
 curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash    # applies .env and upgrades Coolify to latest
 ```
 Then, in the dashboard (now at `https://coolify.regavio.com`, or through the port-forward): Settings → General → **Instance's domain** `https://coolify.regavio.com` → Save.
@@ -450,11 +444,15 @@ If ssh can't find `cloudflared`, use the full path printed above, e.g. `ProxyCom
 
 ### 5.5 Close the last inbound port
 
-**Only after 5.4 passes**, and with a `ssh stockahead` session open:
+**Only after 5.4 passes**, and with a `ssh stockahead` session open. Do **not** stop after the delete: ufw filters bridge→host traffic too, and Coolify's containers SSH to the host at `host.docker.internal` (`10.0.0.1`), so a bare deny-all breaks the web terminal and every deploy with `connect to host host.docker.internal port 7896: Operation timed out`. Replace the rule instead of removing it:
 ```bash
 sudo ufw delete allow 7896/tcp
-sudo ufw status verbose        # no ALLOW rules
+sudo ufw deny in on enp1s0f0 to any port 7896 proto tcp   # not "insert 1": with an empty rule list ufw answers ERROR: Invalid position 
+sudo ufw allow from 10.0.0.0/8 to any port 7896 proto tcp comment "Coolify root SSH from Docker nets (S2)"
+sudo ufw status numbered
 ```
+The deny on `enp1s0f0` comes first, so the public NIC refuses 7896 even for a spoofed `10.x` source; the allow then only covers Docker→host, matching the `root@10.0.0.0/8` rule S2 set in sshd.
+
 ✅ Check:
 - PC (PowerShell):
   ```powershell
@@ -462,7 +460,7 @@ sudo ufw status verbose        # no ALLOW rules
   ```
   all `False`,
 - a **new** `ssh stockahead` works,
-- Coolify still shows `localhost` validated. It connects over the Docker network, not the public IP.
+- Coolify → Servers → `localhost` → **Terminal** opens a prompt. That is the check that catches the ufw mistake above; "validated" alone is cached and can still look green.
 
 **Optional: OVH Edge Network Firewall.** It is stateless and IPv4-only. First move cloudflared off QUIC (UDP 7844):
 ```bash

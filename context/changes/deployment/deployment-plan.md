@@ -203,7 +203,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 **Done when:** the dashboard, realtime and SSH work only through Cloudflare, Access protects them, and the server has no open inbound ports.
 
-- [ ] **Phase complete**
+- [x] **Phase complete** (2026-09-21)
 
 - [x] **5.1 [AI + Human]: Tunnel on the host (D13).** Done 2026-09-21: cloudflared 2026.9.1 (apt, `noble` suite), all five routes live, `coolify.regavio.com/` returns 302 to `/login`, `test.regavio.com` returns Traefik's 404.
   - In Zero Trust, create the tunnel `stockahead-test`. Install `cloudflared` from `pkg.cloudflare.com` and run `sudo cloudflared service install <token>`.
@@ -214,22 +214,22 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
     4. `test.regavio.com` → `http://localhost:80`
     5. `ssh.regavio.com` → `ssh://localhost:7896`
   - ✅ Check: the tunnel shows **HEALTHY**, and `https://test.regavio.com` returns Coolify's proxy 404 (no app yet), which proves the routing works.
-- [ ] **5.2 [Human]: Cloudflare Access (D12).**
+- [x] **5.2 [Human]: Cloudflare Access (D12).** Done 2026-09-21: team domain `shiny-paper-3b05.cloudflareaccess.com`; `coolify`, `realtime` and `ssh` all 302 to the Access login, `test` stays open. The `realtime` hostname first went onto the wrong zone (the domain dropdown defaults to another zone in the account), which reads exactly like Access not applying — verify the saved row, not the form.
   - Access app **"Coolify"** covering `coolify.regavio.com` and `realtime.regavio.com`, with two policies: *Allow* for your email (one-time code), and *Service Auth* for a new service token `github-deploy` (save its ID and secret).
   - Access app **"SSH"** covering `ssh.regavio.com`: *Allow* for your email.
   - ✅ Check: `https://coolify.regavio.com` in a private window shows the Cloudflare Access login, not Coolify.
-- [ ] **5.3 [Human]: Point Coolify at its new domain.**
+- [x] **5.3 [Human]: Point Coolify at its new domain.** Done 2026-09-21: `PUSHER_HOST=realtime.regavio.com` and `PUSHER_PORT=443` are in `/data/coolify/source/.env` (original kept as `.env.bak-2026-09-21`), install script re-run at 12:31 — still 4.3.23, containers recreated — and the instance domain is saved as `https://coolify.regavio.com`. Gotcha: `ubuntu` runs fish and `/data/coolify/source` is root-only, so the runbook snippet must be wrapped in `sudo bash -c` or `cd` fails and the rest of the block runs in the home directory.
   - In `/data/coolify/source/.env`, add `PUSHER_HOST=realtime.regavio.com` and `PUSHER_PORT=443`, then re-run the install script to apply them. The runbook has the exact command. Re-running it also upgrades Coolify to the latest version, while keeping the existing `.env` values.
   - In Coolify Settings, set the instance domain to `https://coolify.regavio.com`.
   - ✅ Check:
     - after Access plus the Coolify login, the dashboard works at `https://coolify.regavio.com`,
     - opening `https://coolify.regavio.com/realtime` in a second tab shows the test notification in the first tab,
     - the web terminal to `localhost` opens.
-- [ ] **5.4 [Human]: SSH through the tunnel from Windows.**
+- [x] **5.4 [Human]: SSH through the tunnel from Windows.** Done 2026-09-21: cloudflared 2026.9.1 via winget under "Program Files (x86)/cloudflared"; `ssh stockahead` logs in as `ubuntu`. A terminal opened *before* the install still has a stale PATH, so `ProxyCommand` dies with `CreateProcessW failed error:2` — open a new one or use the full path.
   - `winget install Cloudflare.cloudflared`.
   - In `~/.ssh/config`, point the `stockahead` entry to `HostName ssh.regavio.com`, `User ubuntu`, `ProxyCommand cloudflared access ssh --hostname %h`. It currently points to a `deploy` user that won't exist.
   - ✅ Check: `ssh stockahead` logs you in after the browser login.
-- [ ] **5.5 [Human]: Close the last inbound port.** Only do this after 5.4 passes.
+- [x] **5.5 [Human]: Close the last inbound port.** Done 2026-09-21: `7896/tcp` removed; ports 7896, 80, 443, 8000, 6001 and 6002 all refuse from the PC, and `ssh stockahead` still works. **Correction, found the same day:** deleting the rule outright also cuts Coolify off from its own host. Its containers SSH to `host.docker.internal` (`10.0.0.1`), which enters the host INPUT chain and hits ufw deny-all, so the web terminal and every deploy fail with `connect to host host.docker.internal port 7896: Operation timed out`. The delete must be replaced by a Docker-only pair: `ufw deny in on enp1s0f0 to any port 7896 proto tcp` (plain `deny`, since `ufw insert 1` fails with `Invalid position` on an empty rule list), then `ufw allow from 10.0.0.0/8 to any port 7896 proto tcp`. The optional OVH Edge Network Firewall layer was not enabled.
   - `sudo ufw delete allow 7896/tcp`.
   - Optional second layer: the OVH Network Firewall, with deny-all inbound and established TCP kept. It is **stateless** and IPv4-only, so first switch cloudflared from QUIC (UDP 7844) to TCP with a systemd override `Environment=TUNNEL_TRANSPORT_PROTOCOL=http2`. Then either allow UDP replies from source ports 53 (DNS) and 123 (NTP), or skip this layer. The IPv6 DROP in `after6.rules` stays the only IPv6 protection.
   - Break-glass access stays through OVH's KVM/IPMI and rescue mode.
