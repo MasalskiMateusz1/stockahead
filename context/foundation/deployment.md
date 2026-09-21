@@ -19,7 +19,7 @@ SSH aliases in `~/.ssh/config` on your PC:
 - `regavio`: `ubuntu@145.239.3.226:7896`, direct. Used until 5.5 closes the port.
 - `stockahead`: the same server through the Cloudflare Tunnel. Set up in 5.4.
 
-Shells: server commands run in bash on the server. Commands marked **PC (PowerShell)** or **PC (Git Bash)** run on your Windows machine.
+Shells: server commands run in **bash** on the server. The `ubuntu` login shell is **fish**, which chokes on `$(…)`, heredocs and `for … do … done`, so type `bash` once after `ssh regavio` and paste into that. Commands marked **PC (PowerShell)** or **PC (Git Bash)** run on your Windows machine.
 
 ## Decisions
 
@@ -174,6 +174,8 @@ ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password regavio   # 
 
 ### 4.1 Docker and the firewall, before Coolify
 
+Log in with `ssh regavio`, then type `bash` before pasting anything below (the login shell is fish).
+
 **Docker CE** (official apt repo, suite `resolute`). On the server:
 ```bash
 sudo apt-get install -y ca-certificates curl
@@ -242,12 +244,12 @@ After install, check that sshd still has the hardened values (the installer may 
 sudo sshd -T | grep -Ei '^(permitrootlogin|allowusers)'
 sudo ls /etc/ssh/sshd_config.d/
 ```
-Open the dashboard **only** through a port-forward. PC (Git Bash): `ssh -N -L 8000:localhost:8000 regavio`, then browse to http://localhost:8000.
+Open the dashboard **only** through a port-forward. PC (PowerShell or Git Bash): `ssh -N -L 8000:localhost:8000 regavio`, then browse to http://localhost:8000. Leave that window open for as long as you use the dashboard.
 
 1. Register the root admin **immediately**; the first account to register owns the instance.
 2. Profile → Two-factor authentication → enable, and save the recovery codes to your password manager.
 3. Settings → Advanced → turn **Registration allowed** off.
-4. Servers → `localhost` → **Validate & configure**, and check that Docker is detected (#11089). If it isn't, stop and use **Fallback: pin Docker**.
+4. Servers → `localhost` → General: fix **User** to `root` and **Port** to `7896` (see 4.3 step 1), Save, then **Validate & configure**, and check that Docker is detected (#11089; this install runs Docker 29.8.1). If it isn't, stop and use **Fallback: pin Docker**.
 
 ✅ Check:
 - Settings (or the footer) shows **≥ v4.3.23**,
@@ -256,6 +258,8 @@ Open the dashboard **only** through a port-forward. PC (Git Bash): `ssh -N -L 80
 - PC (PowerShell): `Test-NetConnection 145.239.3.226 -Port 8000` → `False`.
 
 #### Fallback: pin Docker (if #11089 hits)
+
+*Not needed on 2026-09-21: Docker 29.8.1 was detected fine. Keep this for a future reinstall.*
 
 ```bash
 apt-cache madison docker-ce | head -20
@@ -303,7 +307,7 @@ docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml 
 ### 4.3 Coolify server settings
 
 In the dashboard (still through `ssh -N -L 8000:localhost:8000 regavio`):
-1. Servers → `localhost` → General: **Port** `7896` → Save → **Validate**.
+1. Servers → `localhost` → General: **User** `root` and **Port** `7896` → Save → **Validate**. The installer records `coolify@host.docker.internal:22`; there is no `coolify` OS user on this host, and its key is in `/root/.ssh/authorized_keys`, so validation fails until both fields are corrected. Do this **before** judging the Docker-detection check in 4.2.
 2. Settings → Updates: auto-update **on**.
 3. Settings → set the instance timezone to `Europe/Warsaw`; backup cron times (8.2) use it.
 4. Servers → `localhost` → Proxy → Configuration. In Traefik's `command:` list, add
@@ -320,9 +324,33 @@ Save the whole `.env` too (the DB and Redis passwords help with a restore):
 ```bash
 ssh regavio 'sudo cat /data/coolify/source/.env'
 ```
+**Root's login shell must be bash.** This image gives both `ubuntu` and `root` fish. Coolify sends POSIX shell strings over SSH as root, so fish breaks deploys (server validation still passes, because it only runs simple commands):
+```bash
+sudo chsh -s /bin/bash root
+getent passwd root   # …:/bin/bash
+```
+Done 2026-09-21. Verify with a bash-only construct through Coolify's own key:
+```bash
+K=$(sudo docker exec coolify ls /var/www/html/storage/app/ssh/keys/ | grep -v lock | head -1)
+sudo docker exec coolify ssh -i "/var/www/html/storage/app/ssh/keys/$K" -o StrictHostKeyChecking=no -p 7896   root@host.docker.internal 'V=1; if [ "$V" = "1" ]; then echo bashism-ok; fi'
+```
+
+**Narrow S2.** First confirm where Coolify's root login comes from. On the server:
+```bash
+sudo journalctl -u ssh --since today | grep 'Accepted publickey for root' | tail -3
+```
+Only if the source is `10.x.x.x`, drop the `172.16.0.0/12` range (it covers only the default `docker0` bridge) and keep your first session open:
+```bash
+sudo sed -i -E 's|^[[:space:]]*AllowUsers .*|AllowUsers ubuntu root@10.0.0.0/8|' /etc/ssh/sshd_config.d/10-hardening.conf
+sudo sshd -t && sudo systemctl reload ssh
+sudo sshd -T | grep -i allowusers
+```
+Then click **Validate** on `localhost` again. If the source was `172.x`, leave the file alone and tell me; the address-pool assumption is wrong. Don't narrow to the `coolify` /24: apps and databases join that network by default, so it adds no isolation.
+
 ✅ Check:
 - `localhost` shows validated and usable, and Proxy shows running,
-- on the server: `sudo journalctl -u ssh --since today | grep 'Accepted publickey for root'` shows a `10.x.x.x` source (S2 covers Coolify).
+- the journal shows a `10.x.x.x` source (S2 covers Coolify),
+- `sshd -T` lists only `allowusers ubuntu` and `allowusers root@10.0.0.0/8`, and **Validate** still passes after the reload.
 
 ### 5.1 Tunnel on the host (D13)
 
