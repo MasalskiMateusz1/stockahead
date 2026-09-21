@@ -8,7 +8,7 @@
 - `application.properties` only sets the app name,
 - tests use `postgres:latest`.
 
-Goal: every merge to `main` deploys to your dedicated server through **Coolify** at `https://test.<domain>`. Nothing on the server is reachable from the internet except through Cloudflare, backups go off-site every night, and a runbook lets anyone rebuild the setup.
+Goal: every merge to `main` deploys to your dedicated server through **Coolify** at `https://test.regavio.com`. Nothing on the server is reachable from the internet except through Cloudflare, backups go off-site every night, and a runbook lets anyone rebuild the setup.
 
 Tick the `[ ]` boxes as you go: one per subphase, one "Phase complete" per phase.
 
@@ -45,9 +45,9 @@ Every subphase ends with a **✅ Check**. You can stop after any subphase and no
 | D9 | Secrets | App env vars live in Coolify (encrypted in its DB). GitHub holds only the Coolify API token and the Access service token. `deploy/.env.example` documents the variable names. |
 | D10 | First manager | First-run setup screen |
 | D11 | Admin user | Reuse `ubuntu` (sudo). There is **no separate `deploy` user**: Coolify needs Docker running as root, and CI deploys through the Coolify API instead of SSH. |
-| D12 | Coolify dashboard | `coolify.<domain>` through the tunnel **behind Cloudflare Access** (email one-time code). CI reaches the API with an Access service token. Coolify had several serious security flaws in 2026 that let a logged-in user take over the server, so the dashboard is never public. |
+| D12 | Coolify dashboard | `coolify.regavio.com` through the tunnel **behind Cloudflare Access** (email one-time code). CI reaches the API with an Access service token. Coolify had several serious security flaws in 2026 that let a logged-in user take over the server, so the dashboard is never public. |
 | D13 | Tunnel | `cloudflared` as a **host systemd service** with explicit hostnames (no wildcard). SSH keeps working even if Coolify or Docker breaks. |
-| D14 | App access | No Cloudflare Access on `test.<domain>`; only the app's own Spring Security login protects it |
+| D14 | App access | No Cloudflare Access on `test.regavio.com`; only the app's own Spring Security login protects it |
 | D15 | GitHub plan | **GitHub Free** (chosen 2026-09-19). Private repos on Free get no branch protection, rulesets or environment secrets (the API returns 403). So PR-only merges are a habit, not a rule (2.3), and deploy secrets are repository-level (7.1, 7.2). |
 
 **Sub-decisions that follow from the above. Tell me if you disagree with any:**
@@ -67,10 +67,10 @@ GitHub ─► Actions: verify ─► image ─► ghcr.io/<gh-user>/stockahead:s
                                  └─► deploy: Coolify API (Bearer token + CF Access service token)
 
 Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER drop on enp1s0f0)
-  test.<domain> ───────────────► cloudflared (host systemd) ─► :80  Coolify proxy (Traefik) ─► [stockahead app :8080]
-  coolify.<domain>  [Access] ──► cloudflared ─► :8000 dashboard/API, /terminal/ws ─► :6002
-  realtime.<domain> [Access] ──► cloudflared ─► :6001 Coolify realtime
-  ssh.<domain>      [Access] ──► cloudflared ─► :7896 sshd (ubuntu only; root only from Docker nets)
+  test.regavio.com ───────────────► cloudflared (host systemd) ─► :80  Coolify proxy (Traefik) ─► [stockahead app :8080]
+  coolify.regavio.com  [Access] ──► cloudflared ─► :8000 dashboard/API, /terminal/ws ─► :6002
+  realtime.regavio.com [Access] ──► cloudflared ─► :6001 Coolify realtime
+  ssh.regavio.com      [Access] ──► cloudflared ─► :7896 sshd (ubuntu only; root only from Docker nets)
                                   Coolify network: [app] ─► [postgres:18]
                                   Coolify scheduler 02:30 ─► pg_dump ─► R2; instance backup ─► R2
 ```
@@ -205,29 +205,29 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 - [ ] **Phase complete**
 
-- [ ] **5.1 [Human]: Tunnel on the host (D13).**
+- [x] **5.1 [AI + Human]: Tunnel on the host (D13).** Done 2026-09-21: cloudflared 2026.9.1 (apt, `noble` suite), all five routes live, `coolify.regavio.com/` returns 302 to `/login`, `test.regavio.com` returns Traefik's 404.
   - In Zero Trust, create the tunnel `stockahead-test`. Install `cloudflared` from `pkg.cloudflare.com` and run `sudo cloudflared service install <token>`.
   - Public hostnames, in this order:
-    1. `coolify.<domain>` path `terminal/ws` → `http://localhost:6002`
-    2. `coolify.<domain>` → `http://localhost:8000`
-    3. `realtime.<domain>` → `http://localhost:6001`
-    4. `test.<domain>` → `http://localhost:80`
-    5. `ssh.<domain>` → `ssh://localhost:7896`
-  - ✅ Check: the tunnel shows **HEALTHY**, and `https://test.<domain>` returns Coolify's proxy 404 (no app yet), which proves the routing works.
+    1. `coolify.regavio.com` path `terminal/ws` → `http://localhost:6002`
+    2. `coolify.regavio.com` → `http://localhost:8000`
+    3. `realtime.regavio.com` → `http://localhost:6001`
+    4. `test.regavio.com` → `http://localhost:80`
+    5. `ssh.regavio.com` → `ssh://localhost:7896`
+  - ✅ Check: the tunnel shows **HEALTHY**, and `https://test.regavio.com` returns Coolify's proxy 404 (no app yet), which proves the routing works.
 - [ ] **5.2 [Human]: Cloudflare Access (D12).**
-  - Access app **"Coolify"** covering `coolify.<domain>` and `realtime.<domain>`, with two policies: *Allow* for your email (one-time code), and *Service Auth* for a new service token `github-deploy` (save its ID and secret).
-  - Access app **"SSH"** covering `ssh.<domain>`: *Allow* for your email.
-  - ✅ Check: `https://coolify.<domain>` in a private window shows the Cloudflare Access login, not Coolify.
+  - Access app **"Coolify"** covering `coolify.regavio.com` and `realtime.regavio.com`, with two policies: *Allow* for your email (one-time code), and *Service Auth* for a new service token `github-deploy` (save its ID and secret).
+  - Access app **"SSH"** covering `ssh.regavio.com`: *Allow* for your email.
+  - ✅ Check: `https://coolify.regavio.com` in a private window shows the Cloudflare Access login, not Coolify.
 - [ ] **5.3 [Human]: Point Coolify at its new domain.**
-  - In `/data/coolify/source/.env`, add `PUSHER_HOST=realtime.<domain>` and `PUSHER_PORT=443`, then re-run the install script to apply them. The runbook has the exact command. Re-running it also upgrades Coolify to the latest version, while keeping the existing `.env` values.
-  - In Coolify Settings, set the instance domain to `https://coolify.<domain>`.
+  - In `/data/coolify/source/.env`, add `PUSHER_HOST=realtime.regavio.com` and `PUSHER_PORT=443`, then re-run the install script to apply them. The runbook has the exact command. Re-running it also upgrades Coolify to the latest version, while keeping the existing `.env` values.
+  - In Coolify Settings, set the instance domain to `https://coolify.regavio.com`.
   - ✅ Check:
-    - after Access plus the Coolify login, the dashboard works at `https://coolify.<domain>`,
-    - opening `https://coolify.<domain>/realtime` in a second tab shows the test notification in the first tab,
+    - after Access plus the Coolify login, the dashboard works at `https://coolify.regavio.com`,
+    - opening `https://coolify.regavio.com/realtime` in a second tab shows the test notification in the first tab,
     - the web terminal to `localhost` opens.
 - [ ] **5.4 [Human]: SSH through the tunnel from Windows.**
   - `winget install Cloudflare.cloudflared`.
-  - In `~/.ssh/config`, point the `stockahead` entry to `HostName ssh.<domain>`, `User ubuntu`, `ProxyCommand cloudflared access ssh --hostname %h`. It currently points to a `deploy` user that won't exist.
+  - In `~/.ssh/config`, point the `stockahead` entry to `HostName ssh.regavio.com`, `User ubuntu`, `ProxyCommand cloudflared access ssh --hostname %h`. It currently points to a `deploy` user that won't exist.
   - ✅ Check: `ssh stockahead` logs you in after the browser login.
 - [ ] **5.5 [Human]: Close the last inbound port.** Only do this after 5.4 passes.
   - `sudo ufw delete allow 7896/tcp`.
@@ -241,7 +241,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 ## Phase 6: Postgres and the app in Coolify
 
-**Done when:** the CI-built image runs in Coolify against the managed Postgres, and `https://test.<domain>` serves the login page.
+**Done when:** the CI-built image runs in Coolify against the managed Postgres, and `https://test.regavio.com` serves the login page.
 
 - [ ] **Phase complete**
 
@@ -253,7 +253,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
   - ✅ Check: `sudo docker pull ghcr.io/<gh-user>/stockahead:sha-XXXXXXX` works.
 - [ ] **6.3 [Human]: App resource.**
   - Add an application of type **Docker Image** with `ghcr.io/<gh-user>/stockahead` and tag `sha-XXXXXXX`.
-    - Exposed port `8080`, domain `https://test.<domain>`, **Redirect HTTP→HTTPS disabled** (the tunnel talks plain HTTP to the proxy).
+    - Exposed port `8080`, domain `https://test.regavio.com`, **Redirect HTTP→HTTPS disabled** (the tunnel talks plain HTTP to the proxy).
     - No port mappings, because Coolify's rolling updates need none.
   - Env vars:
     - `SPRING_PROFILES_ACTIVE=prod`,
@@ -262,8 +262,8 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
   - Healthcheck: enabled, path `/actuator/health/readiness`, port `8080`, with a start period long enough for the JVM plus Flyway (start at 60 s). Then **Deploy**.
   - Leave Coolify's **gzip compression off** for this app. Traefik's compress middleware doesn't exclude `text/event-stream` and would hold back SSE events.
   - ✅ Check:
-    - `https://test.<domain>` serves the login page with a valid certificate,
-    - `curl -sI -H 'Accept: text/html' https://test.<domain>/` shows a `Location:` starting with `https://`, which proves the 4.3 trusted-headers change works. Without that `Accept` header, Spring Security answers `401` with HTTP Basic instead of redirecting,
+    - `https://test.regavio.com` serves the login page with a valid certificate,
+    - `curl -sI -H 'Accept: text/html' https://test.regavio.com/` shows a `Location:` starting with `https://`, which proves the 4.3 trusted-headers change works. Without that `Accept` header, Spring Security answers `401` with HTTP Basic instead of redirecting,
     - the app logs show Flyway ran,
     - Coolify shows the container as healthy.
 
@@ -285,15 +285,15 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
   - In Coolify, turn on Settings → Configuration → Advanced → **API Access**. Then create an API token with only **`write`** (to set the tag) and **`deploy`**, with an expiry date. Tokens are team-wide, not per app, so the Cloudflare Access service token is the second lock.
   - Add these at **repository** level (D15):
     - secrets `COOLIFY_TOKEN`, `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`,
-    - variables `COOLIFY_URL=https://coolify.<domain>` and `COOLIFY_APP_UUID`.
-  - ✅ Check: from your PC, `curl` to `https://coolify.<domain>/api/v1/version` with the three headers returns the version. Without the Access headers it gets blocked.
+    - variables `COOLIFY_URL=https://coolify.regavio.com` and `COOLIFY_APP_UUID`.
+  - ✅ Check: from your PC, `curl` to `https://coolify.regavio.com/api/v1/version` with the three headers returns the version. Without the Access headers it gets blocked.
 - [ ] **7.3 [Human]: First auto-deploy.**
   - Merge a trivial PR that I prepare.
   - ✅ Check: `verify` → `image` → `deploy` are all green, and Coolify shows the new `sha-` tag running.
 - [ ] **7.4 [AI + Human]: Failed-deploy drill.**
   - **[AI]** Prepare the branch `drill/broken-start`, with a prod property that crashes startup.
   - **[Human]** Build that branch's image via `workflow_dispatch`, then run `deploy` with that tag. Afterwards, redeploy the good tag and delete the branch.
-  - ✅ Check: the deploy job fails, the old container keeps serving because the rolling update aborts on the failed healthcheck, and `https://test.<domain>` stays up the whole time.
+  - ✅ Check: the deploy job fails, the old container keeps serving because the rolling update aborts on the failed healthcheck, and `https://test.regavio.com` stays up the whole time.
 
 ## Phase 8: Backups
 
@@ -338,8 +338,8 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 ## Final end-to-end check (about 15 minutes)
 
 1. A PR runs only `verify`; its merge deploys automatically.
-2. `https://test.<domain>` loads with a valid certificate.
-3. `https://coolify.<domain>` shows the Cloudflare Access login in a private window.
+2. `https://test.regavio.com` loads with a valid certificate.
+3. `https://coolify.regavio.com` shows the Cloudflare Access login in a private window.
 4. `Test-NetConnection 145.239.3.226` shows no open ports, and `ssh stockahead` works through the tunnel.
 5. Coolify is at v4.3.23 or later, auto-update is on, registration is disabled and 2FA is on.
 6. The latest Postgres dump and instance backup in R2 are less than 24 h old.
