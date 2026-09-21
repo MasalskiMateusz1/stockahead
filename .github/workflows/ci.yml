@@ -110,23 +110,28 @@ jobs:
             exit 1
           fi
           echo "Deploying $TAG to $COOLIFY_URL"
-
       - name: Set the image tag, deploy, and wait
         run: |
           set -euo pipefail
 
           # api METHOD PATH [JSON-BODY] -> response body on stdout; anything but 2xx fails the job.
-          # Access sits in front of Coolify, so a missing service token shows up as a 302, not an error.
+          # Access sits in front of Coolify, so a missing service token shows up as a 302, not an error,
+          # and a Cloudflare bot challenge as a 403 HTML page. Both need the body to diagnose.
+          # GET and PATCH retry: the edge resets a connection now and then (seen 2026-09-21).
+          # POST never retries - a lost response would queue the deployment twice.
           api() {
             local method=$1 path=$2 body=${3:-} code
             local -a args=(
-              -sS --max-time 60 -o /tmp/api.json -w '%{http_code}'
+              -sS --max-time 60 -o /tmp/api.json -D /tmp/api.hdr -w '%{http_code}'
               -X "$method" "$COOLIFY_URL$path"
               -H "Authorization: Bearer $COOLIFY_TOKEN"
               -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID"
               -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET"
               -H 'Accept: application/json'
             )
+            if [ "$method" != POST ]; then
+              args+=(--retry 3 --retry-all-errors --retry-delay 5)
+            fi
             if [ -n "$body" ]; then
               args+=(-H 'Content-Type: application/json' --data "$body")
             fi
@@ -137,16 +142,18 @@ jobs:
                 echo "::error::$method $path returned HTTP $code" >&2
                 head -c 800 /tmp/api.json >&2
                 echo >&2
+                grep -iE '^(cf-ray|cf-mitigated|cf-cache-status|server):' /tmp/api.hdr >&2 || true
                 return 1
                 ;;
             esac
           }
 
+          # needs the token's write permission
           api PATCH "/api/v1/applications/$COOLIFY_APP_UUID" \
             "$(jq -nc --arg t "$TAG" '{docker_registry_image_tag: $t}')" > /dev/null
           echo "image tag set to $TAG"
 
-          # GET /api/v1/deploy returns 405 since Coolify v4.3 (D5)
+          # needs deploy; a GET here returns 405 since Coolify v4.3 (D5)
           deployment=$(api POST "/api/v1/deploy?uuid=$COOLIFY_APP_UUID" \
             | jq -r '.deployments[0].deployment_uuid // empty')
           if [ -z "$deployment" ]; then
@@ -155,10 +162,15 @@ jobs:
           fi
           echo "deployment $deployment queued"
 
+          # needs read. A failed poll is not a failed deploy, so keep polling.
           status=''
           deadline=$(( SECONDS + 20 * 60 ))
           while [ "$SECONDS" -lt "$deadline" ]; do
-            api GET "/api/v1/deployments/$deployment" > /tmp/deployment.json
+            if ! api GET "/api/v1/deployments/$deployment" > /tmp/deployment.json; then
+              echo "  (could not read the status; the deployment is still running)"
+              sleep 10
+              continue
+            fi
             status=$(jq -r '.status // empty' /tmp/deployment.json)
             case "$status" in
               finished) break ;;

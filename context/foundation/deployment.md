@@ -12,7 +12,7 @@ How the test server is built and run. Every **[Human]** step from `context/chang
 | `<gh-user>` | `MasalskiMateusz1`. **GHCR image names must be lowercase:** `ghcr.io/masalskimateusz1/stockahead` |
 | `<your-email>` | the email you log in with at Cloudflare Access and in Coolify notifications |
 | `<pg-uuid>` | the internal hostname of the Coolify Postgres resource (from 6.1) |
-| `<app-uuid>` | the Coolify application UUID (from 6.3; it's the last segment of the app's URL in Coolify) |
+| `<app-uuid>` | the Coolify **application** UUID: `e1wcptzlkub4bjzithvmqagi`. Not the project UUID (`2jiwnumabokbiuqrfpugbda8`) - the app URL carries project, environment and application UUIDs, all 24 characters, and Coolify answers a wrong one with `404 Application not found`. Confirm with `GET /api/v1/applications`. |
 | `sha-XXXXXXX` | an image tag produced by CI (`sha-` + 7-char commit SHA) |
 
 SSH aliases in `~/.ssh/config` on your PC:
@@ -72,7 +72,7 @@ Fill this in as you go. The values themselves go in your password manager, never
 | Access service token `github-deploy` | 5.2 | GitHub secrets | Coolify app in Access | _fill in_ (choose 1 year) |
 | GHCR classic PAT | 6.2 (reissued 2026-09-21) | `/root/.docker/config.json` | `read:packages` | _fill in_ |
 | `STOCKAHEAD_SETUP_TOKEN` | 6.3 | Coolify env var | one-time `/setup` | irrelevant once a manager exists |
-| Coolify API token | 7.2 | GitHub secrets | `write` + `deploy`, team-wide | _fill in_ |
+| Coolify API token | 7.2 | GitHub secrets | `read` + `write` + `deploy`, team-wide | _fill in_ |
 | R2 API token | 8.1 | Coolify S3 storage | Object R/W on `stockahead-backups` | _fill in_ |
 
 Put a calendar reminder two weeks before each expiry. An expired R2 token means backups stop silently (see the risk register in `infrastructure.md`).
@@ -554,9 +554,13 @@ curl -sI -H 'Accept: text/html' https://test.regavio.com/ | grep -i '^location' 
 
 ### 7.2 Tokens and GitHub secrets
 
+**Do this before merging the phase 7 PR.** A merge with the secrets missing burns a deploy run; the job stops on the first step, naming the variable it lacks.
+
+**Cloudflare first:** Security → Bots → **Bot Fight Mode off** for the zone. The bot layer runs *before* Access, so it challenges the runner's Azure IP with `Just a moment...` (HTTP 403) and the `github-deploy` service token is never evaluated. On the Free plan it is zone-wide and WAF *Skip* rules do not exempt it. The same request from your own machine is not challenged, so this cannot be reproduced locally.
+
 Coolify → Settings → Advanced → **API Access: on**.
-Coolify → Keys & Tokens → API tokens → create `github-deploy-test` with permissions **`write`** and **`deploy`** only, and an expiry. Copy it now.
-Get `<app-uuid>` from the app's URL in Coolify.
+Coolify → Keys & Tokens → API tokens → create `github-deploy-test` with **`read`** + **`write`** + **`deploy`**, and an expiry. Copy it now: it is a Sanctum token shaped `<id>|<secret>`, and the leading digits and the pipe are part of the value. Permissions cannot be edited later - a wrong scope means a new token and a new GitHub secret. Leave `read:sensitive` off; it exposes env var values, including the database password and `STOCKAHEAD_SETUP_TOKEN`.
+Get `<app-uuid>` from the app's **Configuration → General → UUID** field, not from the browser URL.
 
 PC (Git Bash). `gh secret set` prompts for the value, so it stays out of history.
 
@@ -569,6 +573,14 @@ gh variable set COOLIFY_URL      --body 'https://coolify.regavio.com'
 gh variable set COOLIFY_APP_UUID --body '<app-uuid>'
 ```
 Any workflow on any branch can read these secrets. Only merge workflow changes you've read, and remember the Access service token is the second lock.
+
+List what the token can actually see. This catches a wrong UUID and a wrong team at once (PC, Git Bash):
+```bash
+read -rsp 'Coolify token: ' T; echo; read -rp 'CF id: ' I; read -rsp 'CF secret: ' S; echo
+curl -s https://coolify.regavio.com/api/v1/applications -H "Authorization: Bearer $T" -H "CF-Access-Client-Id: $I" -H "CF-Access-Client-Secret: $S" |
+  python -c "import json,sys; [print(a['uuid'], a.get('docker_registry_image_name')) for a in json.load(sys.stdin)]"
+```
+An empty list means the token belongs to a team that does not own the project, not that the UUID is wrong.
 
 ✅ Check, PC (Git Bash):
 ```bash
