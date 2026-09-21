@@ -270,7 +270,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 ## Phase 7: Auto-deploy on merge
 
-**Done when:** merging a PR deploys by itself, and a broken image never replaces a healthy one.
+**Done when:** merging a PR deploys by itself, and a broken image does not leave the site down. The original wording was "a broken image never replaces a healthy one"; 7.4 proved that false for this setup, so the guarantee now comes from the deploy job verifying the site and rolling back, not from Coolify.
 
 - [ ] **Phase complete**
 
@@ -293,13 +293,24 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
     - secrets `COOLIFY_TOKEN`, `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`,
     - variables `COOLIFY_URL=https://coolify.regavio.com` and `COOLIFY_APP_UUID`.
   - ✅ Check: from your PC, `curl` to `https://coolify.regavio.com/api/v1/version` with the three headers returns the version. Without the Access headers it gets blocked.
-- [ ] **7.3 [Human]: First auto-deploy.**
+- [x] **7.3 [Human]: First auto-deploy.** Done 2026-09-21: merging PR #8 ran `verify` → `image` → `deploy` green in 1 m 37 s (run 35609393294), deploying `sha-e613c79`. The tag is the **merge** commit's SHA, which only exists once the merge happens. The earlier attempt on PR #7 reached a running deploy only by re-running the failed job, which is why this one was repeated properly from a merge.
   - Merge a trivial PR that I prepare.
   - ✅ Check: `verify` → `image` → `deploy` are all green, and Coolify shows the new `sha-` tag running.
-- [ ] **7.4 [AI + Human]: Failed-deploy drill.**
+- [x] **7.4 [AI + Human]: Failed-deploy drill.** Done 2026-09-21, and **the drill failed the way that matters**: the protection this phase assumed does not exist.
+  - `drill/broken-start` built as `sha-d331d11`. `verify` passed, as designed — tests never load the prod profile.
+  - Deploying it took the site **down for 65 seconds** (16:07:26–16:08:31 local: one `502`, then `404` until the good tag was put back by hand). Coolify stopped the healthy container, started the broken one, and when that died Traefik had no backend at all.
+  - **The deploy job went green in 25 s.** Coolify reported the deployment `finished` (`application_deployment_queues` row 9), because it calls a deployment finished once the container is *created*, not once it is *healthy*. Polling the Coolify API therefore proves nothing about the app.
+  - Cause: the compose Coolify generates for this app has **no `healthcheck:` block**, because Coolify's own Health Checks toggle is off (S7). The image's `HEALTHCHECK` still runs — `docker ps` shows `(healthy)` on the good container — but Docker's health status is not what Coolify's deploy waits on. There is no side-by-side rollout here: one container, stopped and replaced.
+  - Fixed in the deploy job, not in Coolify (7.5): after the deployment reports `finished`, CI polls `APP_HEALTH_URL` for up to 3 minutes, and if the site never returns `200` it restores the tag Coolify had stored **before** the `PATCH` and fails the job. Recovery stops depending on someone watching.
+  - Also found: the Traefik labels apply `traefik.http.middlewares.gzip.compress=true` to this app's router, so **gzip is on** although 6.3 says to leave it off. Harmless today, but it will hold back SSE events (`text/event-stream` is not excluded from the compress middleware). Turn it off before the realtime feature ships.
   - **[AI]** Prepare the branch `drill/broken-start`, with a prod property that crashes startup.
   - **[Human]** Build that branch's image via `workflow_dispatch`, then run `deploy` with that tag. Afterwards, redeploy the good tag and delete the branch.
-  - ✅ Check: the deploy job fails, the old container keeps serving because the rolling update aborts on the failed healthcheck, and `https://test.regavio.com` stays up the whole time.
+  - ✅ Check (**not met** — this is what the drill found): the deploy job fails, the old container keeps serving because the rolling update aborts on the failed healthcheck, and `https://test.regavio.com` stays up the whole time. What actually happened: green job, replaced container, 65 s of downtime.
+- [ ] **7.5 [AI + Human]: Re-run the drill against the guard.**
+  - **[AI]** The deploy job now verifies the site and rolls back; `APP_HEALTH_URL` is a repository variable.
+  - **[Human]** Merge the guard, then dispatch `sha-d331d11` again and watch `https://test.regavio.com` from a second window. Afterwards delete `drill/broken-start` and the drill image version in GHCR.
+  - Worth trying separately: turn Coolify's **Health Checks** on for the app (path `/actuator/health/readiness`, port 8080, start period ≥ 60 s) and re-run the drill again. If Coolify then gates the swap, the outage shrinks to nothing instead of being recovered from; if `Config.Healthcheck` stays null as in 6.3, the CI guard is the whole answer and S7 should say so.
+  - ✅ Check: the deploy job **fails**, the job log shows the rollback to the previous tag, and the site is serving again without anyone touching it. Record the outage length.
 
 ## Phase 8: Backups
 

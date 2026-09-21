@@ -571,7 +571,9 @@ gh secret set CF_ACCESS_CLIENT_ID
 gh secret set CF_ACCESS_CLIENT_SECRET
 gh variable set COOLIFY_URL      --body 'https://coolify.regavio.com'
 gh variable set COOLIFY_APP_UUID --body '<app-uuid>'
+gh variable set APP_HEALTH_URL   --body 'https://test.regavio.com/actuator/health/readiness'
 ```
+`APP_HEALTH_URL` is what the deploy job checks after Coolify says the deployment finished. Coolify calls a deployment `finished` once the container is *created*, not once it is *healthy*, so without this the job goes green over a site that is down (proved by the 7.4 drill).
 Any workflow on any branch can read these secrets. Only merge workflow changes you've read, and remember the Access service token is the second lock.
 
 List what the token can actually see. This catches a wrong UUID and a wrong team at once (PC, Git Bash):

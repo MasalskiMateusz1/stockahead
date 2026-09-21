@@ -93,12 +93,13 @@ jobs:
       COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      APP_HEALTH_URL: ${{ vars.APP_HEALTH_URL }}
       TAG: ${{ github.event.inputs.tag || needs.image.outputs.tag }}
     steps:
       - name: Check the tag and the credentials (runbook 7.2)
         run: |
           set -euo pipefail
-          for v in COOLIFY_URL COOLIFY_APP_UUID COOLIFY_TOKEN CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+          for v in COOLIFY_URL COOLIFY_APP_UUID COOLIFY_TOKEN CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET APP_HEALTH_URL; do
             if [ -z "${!v:-}" ]; then
               echo "::error::$v is missing; add it at repository level (runbook 7.2)"
               exit 1
@@ -110,11 +111,11 @@ jobs:
             exit 1
           fi
           echo "Deploying $TAG to $COOLIFY_URL"
-      - name: Set the image tag, deploy, and wait
+      - name: Deploy, verify it is serving, roll back if it is not
         run: |
           set -euo pipefail
 
-          # api METHOD PATH [JSON-BODY] -> response body on stdout; anything but 2xx fails the job.
+          # api METHOD PATH [JSON-BODY] -> response body on stdout; anything but 2xx fails the call.
           # Access sits in front of Coolify, so a missing service token shows up as a 302, not an error,
           # and a Cloudflare bot challenge as a 403 HTML page. Both need the body to diagnose.
           # GET and PATCH retry: the edge resets a connection now and then (seen 2026-09-21).
@@ -148,47 +149,91 @@ jobs:
             esac
           }
 
-          # needs the token's write permission
-          api PATCH "/api/v1/applications/$COOLIFY_APP_UUID" \
-            "$(jq -nc --arg t "$TAG" '{docker_registry_image_tag: $t}')" > /dev/null
-          echo "image tag set to $TAG"
-
-          # needs deploy; a GET here returns 405 since Coolify v4.3 (D5)
-          deployment=$(api POST "/api/v1/deploy?uuid=$COOLIFY_APP_UUID" \
-            | jq -r '.deployments[0].deployment_uuid // empty')
-          if [ -z "$deployment" ]; then
-            echo "::error::the deploy call returned no deployment_uuid"
-            exit 1
-          fi
-          echo "deployment $deployment queued"
-
-          # needs read. A failed poll is not a failed deploy, so keep polling.
-          status=''
-          deadline=$(( SECONDS + 20 * 60 ))
-          while [ "$SECONDS" -lt "$deadline" ]; do
-            if ! api GET "/api/v1/deployments/$deployment" > /tmp/deployment.json; then
-              echo "  (could not read the status; the deployment is still running)"
-              sleep 10
-              continue
+          # deploy_tag TAG: store the tag (write), start a deployment (deploy), wait for it (read).
+          # Coolify reports "finished" once the container is created, NOT once it is healthy, so a
+          # green result here proves nothing about the app. That is what serving() is for.
+          deploy_tag() {
+            local tag=$1 dep status deadline
+            api PATCH "/api/v1/applications/$COOLIFY_APP_UUID" \
+              "$(jq -nc --arg t "$tag" '{docker_registry_image_tag: $t}')" > /dev/null
+            echo "  stored tag is now $tag"
+            dep=$(api POST "/api/v1/deploy?uuid=$COOLIFY_APP_UUID" \
+              | jq -r '.deployments[0].deployment_uuid // empty')
+            if [ -z "$dep" ]; then
+              echo "::error::the deploy call returned no deployment_uuid"
+              return 1
             fi
-            status=$(jq -r '.status // empty' /tmp/deployment.json)
-            case "$status" in
-              finished) break ;;
-              failed|cancelled-by-user)
-                echo "::group::Coolify deployment log"
-                jq -r '.logs // "(no logs)"' /tmp/deployment.json \
-                  | jq -r 'if type == "array" then .[].output else . end' 2>/dev/null \
-                  | tail -n 120 || true
-                echo "::endgroup::"
-                echo "::error::deployment $deployment $status; the previous container keeps serving"
-                exit 1
-                ;;
-              *) echo "  $status"; sleep 10 ;;
-            esac
-          done
+            echo "  deployment $dep queued"
+            status=''
+            deadline=$(( SECONDS + 20 * 60 ))
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              if ! api GET "/api/v1/deployments/$dep" > /tmp/deployment.json; then
+                echo "  (could not read the status; the deployment is still running)"
+                sleep 10
+                continue
+              fi
+              status=$(jq -r '.status // empty' /tmp/deployment.json)
+              case "$status" in
+                finished) return 0 ;;
+                failed|cancelled-by-user)
+                  echo "::group::Coolify deployment log"
+                  jq -r '.logs // "(no logs)"' /tmp/deployment.json \
+                    | jq -r 'if type == "array" then .[].output else . end' 2>/dev/null \
+                    | tail -n 120 || true
+                  echo "::endgroup::"
+                  echo "::error::deployment $dep $status"
+                  return 1
+                  ;;
+                *) echo "  $status"; sleep 10 ;;
+              esac
+            done
+            echo "::error::gave up after 20 min (last status: ${status:-unknown})"
+            return 1
+          }
 
-          if [ "$status" != finished ]; then
-            echo "::error::gave up after 20 min (last status: ${status:-unknown}); check Coolify"
+          # serving: the only check that means anything - can the outside world use the app?
+          serving() {
+            local deadline=$(( SECONDS + 180 )) code
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$APP_HEALTH_URL" || echo 000)
+              if [ "$code" = 200 ]; then
+                echo "  $APP_HEALTH_URL -> 200"
+                return 0
+              fi
+              echo "  $APP_HEALTH_URL -> $code"
+              sleep 5
+            done
+            return 1
+          }
+
+          # Captured before anything changes: Coolify's stored tag is the only record of what was
+          # meant to be running, and it is what gets restored if the new image does not come up.
+          previous=$(api GET "/api/v1/applications/$COOLIFY_APP_UUID" \
+            | jq -r '.docker_registry_image_tag // empty')
+          echo "currently configured: ${previous:-none}"
+
+          ok=0
+          deploy_tag "$TAG" && serving && ok=1
+
+          if [ "$ok" = 1 ]; then
+            echo "Deployed $TAG and verified it is serving" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Coolify swaps containers without waiting for health - the 7.4 drill put a broken image
+          # live and took the site down for 65 s while the deployment reported "finished" - so
+          # getting back to the last known-good tag is this job's responsibility, not Coolify's.
+          echo "::error::$TAG is not serving"
+          if [ -z "$previous" ] || [ "$previous" = "$TAG" ]; then
+            echo "::error::no earlier tag to fall back to; the site needs manual attention"
             exit 1
           fi
-          echo "Deployed \`$TAG\` (deployment \`$deployment\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "rolling back to $previous"
+          if deploy_tag "$previous" && serving; then
+            echo "::warning::$TAG failed to serve; rolled back to $previous"
+            echo "Rolled back to $previous after $TAG failed to serve" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::the rollback to $previous did not come up either; the site is down"
+            echo "Rollback to $previous FAILED - the site is down" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 1
