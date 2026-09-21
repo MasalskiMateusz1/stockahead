@@ -8,7 +8,7 @@ How the test server is built and run. Every **[Human]** step from `context/chang
 
 | Placeholder | Value |
 |---|---|
-| `<domain>` | your Cloudflare zone, e.g. `example.pl` (not yet chosen) |
+| Zone | **`regavio.com`** (chosen 2026-09-21, already on Cloudflare). Substituted throughout this runbook, so the commands below are copy-pasteable as written. |
 | `<gh-user>` | `MasalskiMateusz1`. **GHCR image names must be lowercase:** `ghcr.io/masalskimateusz1/stockahead` |
 | `<your-email>` | the email you log in with at Cloudflare Access and in Coolify notifications |
 | `<pg-uuid>` | the internal hostname of the Coolify Postgres resource (from 6.1) |
@@ -36,9 +36,9 @@ Shells: server commands run in **bash** on the server. The `ubuntu` login shell 
 | D9 | Secrets | App env vars in Coolify; GitHub holds only the Coolify API token and the Access service token; names in `deploy/.env.example` |
 | D10 | First manager | First-run `/setup` screen |
 | D11 | Admin user | `ubuntu` (sudo); no `deploy` user |
-| D12 | Coolify dashboard | `coolify.<domain>` behind Cloudflare Access (email one-time code); CI uses an Access service token |
+| D12 | Coolify dashboard | `coolify.regavio.com` behind Cloudflare Access (email one-time code); CI uses an Access service token |
 | D13 | Tunnel | `cloudflared` as a host systemd service, explicit hostnames |
-| D14 | App access | `test.<domain>` has no Access; Spring Security login only |
+| D14 | App access | `test.regavio.com` has no Access; Spring Security login only |
 | D15 | GitHub plan | GitHub Free: no branch protection or environment secrets on the private repo; merge via PR by habit; deploy secrets at repository level |
 | S1 | Host firewall | ufw deny-all inbound, plus a `DOCKER-USER` drop of `NEW` connections on `enp1s0f0` |
 | S2 | Root SSH | Key-only, and only from Docker networks (`10.0.0.0/8`, `172.16.0.0/12`) |
@@ -51,11 +51,11 @@ Shells: server commands run in **bash** on the server. The `ubuntu` login shell 
 
 | Hostname | Tunnel target | Cloudflare Access |
 |---|---|---|
-| `coolify.<domain>` path `terminal/ws` | `http://localhost:6002` | yes (app "Coolify") |
-| `coolify.<domain>` | `http://localhost:8000` | yes (app "Coolify") |
-| `realtime.<domain>` | `http://localhost:6001` | yes (app "Coolify") |
-| `test.<domain>` | `http://localhost:80` (Traefik) → app `:8080` | no |
-| `ssh.<domain>` | `ssh://localhost:7896` | yes (app "SSH") |
+| `coolify.regavio.com` path `terminal/ws` | `http://localhost:6002` | yes (app "Coolify") |
+| `coolify.regavio.com` | `http://localhost:8000` | yes (app "Coolify") |
+| `realtime.regavio.com` | `http://localhost:6001` | yes (app "Coolify") |
+| `test.regavio.com` | `http://localhost:80` (Traefik) → app `:8080` | no |
+| `ssh.regavio.com` | `ssh://localhost:7896` | yes (app "SSH") |
 
 After 5.5, nothing answers on the public IP.
 
@@ -356,11 +356,11 @@ Then click **Validate** on `localhost` again. If the source was `172.x`, leave t
 
 Cloudflare dashboard → Zero Trust → Networks → Tunnels → **Create a tunnel** → Cloudflared → name `stockahead-test` → copy the token from the install command it shows.
 
-On the server:
+On the server. The package is **already installed** (cloudflared 2026.9.1, 2026-09-21) and the repo is pinned to the `noble` suite because `pkg.cloudflare.com` has no `resolute` yet; only the `service install` line below is still outstanding:
 ```bash
 sudo mkdir -p --mode=0755 /usr/share/keyrings
 curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' \
+echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared noble main' \
   | sudo tee /etc/apt/sources.list.d/cloudflared.list
 sudo apt-get update && sudo apt-get install -y cloudflared
 read -rsp 'Tunnel token: ' TUNNEL_TOKEN; echo      # keeps the token out of shell history
@@ -371,17 +371,28 @@ Tunnel → **Public hostnames** (also called "Published application routes"). Ad
 
 | # | Subdomain | Domain | Path | Service |
 |---|---|---|---|---|
-| 1 | `coolify` | `<domain>` | `terminal/ws` | `HTTP` `localhost:6002` |
-| 2 | `coolify` | `<domain>` | | `HTTP` `localhost:8000` |
-| 3 | `realtime` | `<domain>` | | `HTTP` `localhost:6001` |
-| 4 | `test` | `<domain>` | | `HTTP` `localhost:80` |
-| 5 | `ssh` | `<domain>` | | `SSH` `localhost:7896` |
+| 1 | `coolify` | `regavio.com` | `terminal/ws` | `HTTP` `localhost:6002` |
+| 2 | `coolify` | `regavio.com` | | `HTTP` `localhost:8000` |
+| 3 | `realtime` | `regavio.com` | | `HTTP` `localhost:6001` |
+| 4 | `test` | `regavio.com` | | `HTTP` `localhost:80` |
+| 5 | `ssh` | `regavio.com` | | `SSH` `localhost:7896` |
 
 If a hostname already has a DNS record, delete it first. Cloudflare creates the tunnel CNAMEs itself.
 
+Row 1 is the one that goes wrong. Both fields matter and neither is the default:
+- **Path** is `terminal/ws`, no leading slash. Leave it empty and row 1 swallows every request to `coolify.regavio.com`, so the dashboard on `:8000` is never reached — you get a plain-text `404` from the terminal service, which looks like a broken tunnel but isn't.
+- **Type** is `HTTP`, not `HTTPS`. Port 6002 speaks plaintext; picking HTTPS gives a `502` and `tls: first record does not look like a TLS handshake` in `journalctl -u cloudflared`.
+
+Confirm what the edge actually pushed, rather than trusting the form:
+```bash
+sudo journalctl -u cloudflared --since '15 min ago' --no-pager \
+  | grep 'Updated to new configuration' | tail -1
+```
+Row 1 must read `"path":"terminal/ws"` and `"service":"http://localhost:6002"`.
+
 **Do 5.2 right after this.** Until then, the Coolify login page is reachable from the internet (registration is off and 2FA is on, but don't leave it that way).
 
-✅ The tunnel shows **HEALTHY**, and PC (Git Bash) `curl -sI https://test.<domain>` returns `404` (Traefik, no app yet).
+✅ The tunnel shows **HEALTHY**, and PC (Git Bash) `curl -sI https://test.regavio.com` returns `404` (Traefik, no app yet).
 
 ### 5.2 Cloudflare Access (D12)
 
@@ -390,12 +401,12 @@ Zero Trust → Settings → Authentication → Login methods: make sure **One-ti
 Zero Trust → Access → Service credentials → Service Tokens → **Create**: name `github-deploy`, duration 1 year. Save the **Client ID** and **Client Secret** now; the secret is shown once. Write the expiry into the credentials inventory.
 
 Access → Applications → **Add an application** → Self-hosted:
-- **"Coolify"**: hostnames `coolify.<domain>` and `realtime.<domain>`, session 24 h. Policies:
+- **"Coolify"**: hostnames `coolify.regavio.com` and `realtime.regavio.com`, session 24 h. Policies:
   1. `owner`, action **Allow**, Include → Emails → `<your-email>`.
   2. `ci`, action **Service Auth**, Include → Service Token → `github-deploy`.
-- **"SSH"**: hostname `ssh.<domain>`. Policy `owner`, action **Allow**, Include → Emails → `<your-email>`.
+- **"SSH"**: hostname `ssh.regavio.com`. Policy `owner`, action **Allow**, Include → Emails → `<your-email>`.
 
-✅ A private window on `https://coolify.<domain>` shows the Cloudflare Access login, not Coolify. So does `https://realtime.<domain>`.
+✅ A private window on `https://coolify.regavio.com` shows the Cloudflare Access login, not Coolify. So does `https://realtime.regavio.com`.
 
 ### 5.3 Point Coolify at its new domain
 
@@ -403,21 +414,21 @@ On the server (keep the `.env` backup readable by root only):
 ```bash
 cd /data/coolify/source
 sudo cp -p .env ".env.bak-$(date +%F)"
-for kv in 'PUSHER_HOST=realtime.<domain>' 'PUSHER_PORT=443'; do
+for kv in 'PUSHER_HOST=realtime.regavio.com' 'PUSHER_PORT=443'; do
   k=${kv%%=*}
   if sudo grep -q "^$k=" .env; then sudo sed -i "s|^$k=.*|$kv|" .env; else echo "$kv" | sudo tee -a .env >/dev/null; fi
 done
 sudo grep -E '^PUSHER_(HOST|PORT)=' .env
 curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash    # applies .env and upgrades Coolify to latest
 ```
-Then, in the dashboard (now at `https://coolify.<domain>`, or through the port-forward): Settings → General → **Instance's domain** `https://coolify.<domain>` → Save.
+Then, in the dashboard (now at `https://coolify.regavio.com`, or through the port-forward): Settings → General → **Instance's domain** `https://coolify.regavio.com` → Save.
 
 ✅ Check:
-- Access login, then Coolify login: the dashboard works at `https://coolify.<domain>`,
-- open `https://coolify.<domain>/realtime` in a second tab, and the first tab shows the test notification,
+- Access login, then Coolify login: the dashboard works at `https://coolify.regavio.com`,
+- open `https://coolify.regavio.com/realtime` in a second tab, and the first tab shows the test notification,
 - Servers → `localhost` → Terminal opens.
 
-If realtime fails but the dashboard works, open `https://realtime.<domain>` once in the same browser so Access sets its cookie for that hostname, then retry. Also check the browser console for a websocket blocked by a redirect.
+If realtime fails but the dashboard works, open `https://realtime.regavio.com` once in the same browser so Access sets its cookie for that hostname, then retry. Also check the browser console for a websocket blocked by a redirect.
 
 ### 5.4 SSH through the tunnel from Windows
 
@@ -429,7 +440,7 @@ winget install --id Cloudflare.cloudflared
 Replace the `stockahead` entry in `~/.ssh/config` (it points to a `deploy` user that won't exist). Keep the same `IdentityFile` line as `regavio`:
 ```
 Host stockahead
-    HostName ssh.<domain>
+    HostName ssh.regavio.com
     User ubuntu
     ProxyCommand cloudflared access ssh --hostname %h
 ```
@@ -504,7 +515,7 @@ Generate the setup token. PC (Git Bash): `openssl rand -hex 24`.
 Coolify → `stockahead` / `test` → **+ New** → **Docker Image** → `ghcr.io/masalskimateusz1/stockahead:sha-XXXXXXX`.
 
 Configuration → General:
-- **Domains:** `https://test.<domain>`
+- **Domains:** `https://test.regavio.com`
 - **Ports Exposes:** `8080`. **Ports Mappings:** empty.
 - Advanced: **Force HTTPS / redirect HTTP→HTTPS: off** (the tunnel talks HTTP to Traefik). **Gzip compression: off** (Traefik would buffer SSE).
 
@@ -524,7 +535,7 @@ Once the auth feature adds its own `SecurityFilterChain`, it must `permitAll()` 
 
 ✅ Check, PC (Git Bash):
 ```bash
-curl -sI -H 'Accept: text/html' https://test.<domain>/ | grep -i '^location'     # Location: https://test.<domain>/login
+curl -sI -H 'Accept: text/html' https://test.regavio.com/ | grep -i '^location'     # Location: https://test.regavio.com/login
 # without Accept: text/html, Spring Security answers 401 + WWW-Authenticate: Basic instead of redirecting
 ```
 - the browser shows the login page with a valid certificate,
@@ -544,7 +555,7 @@ Repository level (D15):
 gh secret set COOLIFY_TOKEN
 gh secret set CF_ACCESS_CLIENT_ID
 gh secret set CF_ACCESS_CLIENT_SECRET
-gh variable set COOLIFY_URL      --body 'https://coolify.<domain>'
+gh variable set COOLIFY_URL      --body 'https://coolify.regavio.com'
 gh variable set COOLIFY_APP_UUID --body '<app-uuid>'
 ```
 Any workflow on any branch can read these secrets. Only merge workflow changes you've read, and remember the Access service token is the second lock.
@@ -552,8 +563,8 @@ Any workflow on any branch can read these secrets. Only merge workflow changes y
 ✅ Check, PC (Git Bash):
 ```bash
 read -rsp 'Coolify token: ' T; echo; read -rp 'CF id: ' I; read -rsp 'CF secret: ' S; echo
-curl -s https://coolify.<domain>/api/v1/version -H "Authorization: Bearer $T" -H "CF-Access-Client-Id: $I" -H "CF-Access-Client-Secret: $S"   # prints the version
-curl -s -o /dev/null -w '%{http_code}\n' https://coolify.<domain>/api/v1/version -H "Authorization: Bearer $T"                               # 302 or 403 (Access)
+curl -s https://coolify.regavio.com/api/v1/version -H "Authorization: Bearer $T" -H "CF-Access-Client-Id: $I" -H "CF-Access-Client-Secret: $S"   # prints the version
+curl -s -o /dev/null -w '%{http_code}\n' https://coolify.regavio.com/api/v1/version -H "Authorization: Bearer $T"                               # 302 or 403 (Access)
 unset T I S
 ```
 
@@ -571,7 +582,7 @@ gh run watch
 
 Watch uptime during the drill. PC (PowerShell), in its own window:
 ```powershell
-while ($true) { try { $c = (Invoke-WebRequest https://test.<domain>/actuator/health/readiness -UseBasicParsing -TimeoutSec 5).StatusCode; "$(Get-Date -f T) $c" } catch { "$(Get-Date -f T) DOWN" }; Start-Sleep 2 }
+while ($true) { try { $c = (Invoke-WebRequest https://test.regavio.com/actuator/health/readiness -UseBasicParsing -TimeoutSec 5).StatusCode; "$(Get-Date -f T) $c" } catch { "$(Get-Date -f T) DOWN" }; Start-Sleep 2 }
 ```
 PC (Git Bash):
 ```bash
