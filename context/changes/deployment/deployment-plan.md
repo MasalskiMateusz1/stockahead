@@ -124,16 +124,16 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 **Done when:** a push to `main` produces a tested image in GHCR, and PRs cannot merge unless tests pass.
 
-- [ ] **Phase complete**
+- [x] **Phase complete**
 
 - [x] **2.1 [AI]: `.github/workflows/ci.yml`.**
   - Job `verify` runs on PRs and on pushes to `main`: `setup-java` with Temurin 21 and a Maven cache, then `./mvnw -B verify`.
   - Job `image` runs on pushes to `main` and on `workflow_dispatch`, after `verify`: logs in to GHCR, then builds and pushes with the `gha` cache and tag `sha-<short>`.
   - ✅ Check: `actionlint`, if available, and a YAML parse.
-- [ ] **2.2 [Human]: First CI run.**
+- [x] **2.2 [Human]: First CI run.**
   - Push, or merge my PR, and watch the Actions tab. In GHCR, confirm the `stockahead` package is private and linked to the repo.
   - ✅ Check: both jobs are green and the package shows the tag `sha-XXXXXXX`.
-- [ ] **2.3 [Human]: Merge discipline on `main` (D15: no branch protection on GitHub Free).**
+- [x] **2.3 [Human]: Merge discipline on `main` (D15: no branch protection on GitHub Free).**
   - Never push to `main` directly; merge only through a PR whose `verify` check is green.
   - ✅ Check: a test PR shows the `verify` check running, and it passes before you merge.
 
@@ -141,15 +141,15 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 **Done when:** the server is up to date and SSH is hardened in the way Coolify needs.
 
-- [ ] **Phase complete**
+- [x] **Phase complete**
 
 - [x] **3.1 [AI]: Server inventory.** Done 2026-09-19; see "Server facts" above.
-- [ ] **3.2 [Human, as ubuntu]: OS basics.**
+- [x] **3.2 [Human, as ubuntu]: OS basics.**
   - OVH dedicated servers have no snapshots, so save the output of `sudo cat /etc/ssh/sshd_config.d/*` somewhere before changing anything.
   - `sudo apt update && sudo apt full-upgrade`, then reboot if a new kernel was installed.
   - `sudo timedatectl set-timezone Europe/Warsaw`.
   - ✅ Check: `apt list --upgradable` is empty, and `timedatectl` shows `Europe/Warsaw`.
-- [ ] **3.3 [Human, as ubuntu]: SSH hardening (S2).**
+- [x] **3.3 [Human, as ubuntu]: SSH hardening (S2).**
   - `/etc/ssh/sshd_config.d/10-hardening.conf`:
     - `PasswordAuthentication no`,
     - `PermitRootLogin prohibit-password`,
@@ -164,9 +164,9 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 **Done when:** Coolify (v4.3.23 or later) runs, only you can log in, and none of its ports answer from the internet.
 
-- [ ] **Phase complete**
+- [x] **Phase complete** (2026-09-21)
 
-- [ ] **4.1 [Human]: Docker and the firewall, before Coolify.**
+- [x] **4.1 [AI]: Docker and the firewall, before Coolify.** Done 2026-09-21: Docker CE **29.8.1** (iptables backend, `DOCKER-USER` present in v4 and v6), ufw active with only `7896/tcp`.
   - Install Docker CE from the official apt repo (suite `resolute`) with `docker-compose-plugin`.
   - ufw: `default deny incoming`, `default allow outgoing`, `allow 7896/tcp` (temporary, removed in 5.5), then `enable`.
   - S1: add the `DOCKER-USER` rules to `/etc/ufw/after.rules` and `after6.rules`, dropping `NEW` connections arriving on `enp1s0f0`. Then `sudo ufw reload`.
@@ -175,24 +175,29 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
     - `curl localhost:8081` on the server works,
     - `Test-NetConnection 145.239.3.226 -Port 8081` from your PC **fails**,
     - `sudo docker stop fwtest`.
-- [ ] **4.2 [Human]: Install Coolify and claim it.**
-  - `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash`. It reuses the Docker you installed. If the script refuses 26.04, stop; the runbook then has the manual install.
+- [x] **4.2 [AI + Human]: Install Coolify and claim it.** Done 2026-09-21: **v4.3.23**, admin registered with 2FA confirmed, registration off, `localhost` validated (`is_reachable`/`is_usable` true) with **Docker 29.8.1 detected** — issue #11089 did not apply, so no version pin was needed.
+  - `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash` — run 2026-09-21, installed **v4.3.23**, all four containers healthy, sshd config untouched. It reuses the Docker you installed. If the script refuses 26.04, stop; the runbook then has the manual install.
   - From your PC, open the dashboard only through SSH port-forwarding: `ssh -L 8000:localhost:8000 regavio`, then `http://localhost:8000`.
   - Immediately register your root admin, turn on **2FA**, and **disable registration** in Settings.
-  - Right away, open Servers → `localhost` and check that Coolify detects Docker (issue #11089: Docker 29.x isn't detected on 26.04). If it isn't detected, stop. The runbook's fallback pins Docker to a version Coolify detects.
+  - Then do 4.3's first step (server **User** `root` and **Port** `7896`) before judging Docker detection: the installer recorded `coolify@…:22`, and no `coolify` OS user exists, so validation fails on SSH before it ever reaches Docker.
+  - With that fixed, open Servers → `localhost` and click **Validate & configure**, then check that Coolify detects Docker (issue #11089: Docker 29.x isn't detected on 26.04 — this install is 29.8.1 and *was* detected on 2026-09-21). If it isn't detected, stop. The runbook's fallback pins Docker to a version Coolify detects.
   - ✅ Check:
     - Settings shows Coolify **≥ 4.3.23** (S6),
     - the `localhost` server shows Docker as detected,
     - a private window on `/register` shows registration disabled,
     - `Test-NetConnection 145.239.3.226 -Port 8000` from your PC fails.
-- [ ] **4.3 [Human]: Coolify server settings.**
-  - Servers → `localhost`: set the SSH port to **7896**, then click **Validate**.
+- [x] **4.3 [AI + Human]: Coolify server settings.** Done 2026-09-21.
+  - Servers → `localhost` → General: set **User** to `root` (the installer wrote `coolify`, which is not an OS user here) and the SSH **Port** to **7896**, Save, then click **Validate**.
   - Settings: confirm auto-update is on (S6; it's the default).
   - Proxy: Servers → `localhost` → Proxy → Configuration. Add `--entrypoints.http.forwardedHeaders.trustedIPs=127.0.0.1/32,10.0.0.0/8,172.16.0.0/12` to Traefik's `command`, then restart the proxy. Without it, Traefik overwrites Cloudflare's `X-Forwarded-Proto: https` with `http`, and Spring Security redirects to `http://…/login`.
   - Save `/data/coolify/source/.env`, which holds `APP_KEY`, in your password manager. Restoring Coolify is impossible without it.
+  - Set **root's login shell to bash** (`sudo chsh -s /bin/bash root`). Both `ubuntu` and `root` ship with fish on this image, and Coolify sends POSIX shell strings (`VAR=…`, `if … then`, heredocs) over SSH as root — validation survives fish because it only runs simple commands, but deploys in Phase 6 would not.
+  - Narrow S2: once the journal shows Coolify's root login coming from `10.x`, remove `root@172.16.0.0/12` from `AllowUsers`, then **Validate** again. That range only covers the default `docker0` bridge, which Coolify doesn't use. Don't narrow further to the `coolify` /24: apps and databases join that network by default, so it would add no isolation and would break if the network were recreated.
   - ✅ Check:
     - the `localhost` server shows validated and usable, and the proxy (Traefik) is running,
-    - `sudo journalctl -u ssh | grep 'Accepted publickey for root'` shows a `10.x` source address, which confirms the S2 `AllowUsers` ranges cover Coolify.
+    - `sudo journalctl -u ssh | grep 'Accepted publickey for root'` shows a `10.x` source address, which confirms the S2 `AllowUsers` ranges cover Coolify,
+    - `sudo sshd -T | grep -i allowusers` lists only `ubuntu` and `root@10.0.0.0/8`, and **Validate** still passes,
+    - a bash-only command survives the trip: `ssh root@host … 'V=1; if [ "$V" = "1" ]; then echo ok; fi'` prints `ok`, not a fish error.
 
 ## Phase 5: Cloudflare Tunnel, Access and lockdown
 
