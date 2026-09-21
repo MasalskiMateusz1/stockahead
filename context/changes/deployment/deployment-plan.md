@@ -56,6 +56,7 @@ Every subphase ends with a **✅ Check**. You can stop after any subphase and no
 - **S3: `/setup` needs a one-time `STOCKAHEAD_SETUP_TOKEN`** (a Coolify env var) and disables itself once a manager exists.
 - **S4: Postgres pinned to `postgres:18`** in Coolify, the local compose file and `TestcontainersConfiguration`.
 - **S5: migrations must be expand/contract,** so the previous image still works on the new schema. Before merging a risky migration, click "Backup now" in Coolify.
+- **S7: the container healthcheck lives in the Dockerfile,** not in Coolify. Coolify's Health Checks tab left `Config.Healthcheck` null on the running container (2026-09-21), and an image-level `HEALTHCHECK` applies wherever the image runs.
 - **S6: Coolify must be at least v4.3.23** (latest stable on 2026-09-18). The 2026 flaws were fixed across several releases; v4.2.0 is only a pre-release and covers just one CVE. Auto-update stays on (it's the default). Registration is disabled and 2FA is on for the only Coolify user.
 
 **Out of scope:** the `/setup` screen and SSE themselves. They belong to the auth and realtime features; this plan only records the rules they must follow. Until auth ships, the deployed app shows Spring Security's default login page, which is enough to verify the deploy.
@@ -245,13 +246,13 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 - [ ] **Phase complete**
 
-- [ ] **6.1 [Human]: Postgres resource (D7).**
+- [x] **6.1 [Human]: Postgres resource (D7).** Done 2026-09-21: Coolify created it as `postgres:18-alpine` with the superuser **`postgres`**, not the `stockahead` user this plan assumed; internal host `z3iff6fasg0qks5r2zp6tokk`, not publicly available, SSL off.
   - Project `stockahead`, environment `test`: add a **PostgreSQL** database with image `postgres:18`, database `stockahead`, and a generated password. Leave "Make it publicly available" **off**, and leave Coolify's SSL for the database **off**: PG18 rejects Coolify's generated certificates (issue #8601), and the database is internal only.
   - ✅ Check: the resource is running and healthy, and you've copied its **internal** connection URL.
-- [ ] **6.2 [Human]: GHCR pull access.**
+- [x] **6.2 [Human]: GHCR pull access.** Done 2026-09-21. The first PAT was pasted into the app's `STOCKAHEAD_SETUP_TOKEN` field instead, so it was revoked and reissued the same day: read the deployed container's env back (`docker exec … env`) before calling a deploy good, because Coolify's UI happily accepts a value in the wrong box.
   - Run `sudo docker login ghcr.io` on the server with a classic PAT that has only `read:packages`. Coolify pulls through root's Docker.
   - ✅ Check: `sudo docker pull ghcr.io/<gh-user>/stockahead:sha-XXXXXXX` works.
-- [ ] **6.3 [Human]: App resource.**
+- [x] **6.3 [Human]: App resource.** Done 2026-09-21 from `ghcr.io/masalskimateusz1/stockahead:sha-265f937`: `/login` returns 200 behind a valid edge certificate, `/actuator/health/readiness` returns `{"status":"UP"}` unauthenticated (Boot's `ManagementWebSecurityAutoConfiguration` permits the health endpoint while no custom chain exists), and Flyway created `flyway_schema_history` against PostgreSQL 18.6 over the internal hostname. Two defects surfaced only by inspecting the running container: `SPRING_PROFILES_ACTIVE` was typed `prd`, so `application-prod.properties` never loaded and Spring answered `Location: http://…/login` — a symptom that reads exactly like the 4.3 Traefik trusted-IP fix having failed. `docker exec <app> curl -sI -H 'X-Forwarded-Proto: https' http://localhost:8080/` isolates app from proxy in one command. And Coolify's healthcheck toggle left `Config.Healthcheck` null, so the check moved into the Dockerfile (S7).
   - Add an application of type **Docker Image** with `ghcr.io/<gh-user>/stockahead` and tag `sha-XXXXXXX`.
     - Exposed port `8080`, domain `https://test.regavio.com`, **Redirect HTTP→HTTPS disabled** (the tunnel talks plain HTTP to the proxy).
     - No port mappings, because Coolify's rolling updates need none.
@@ -259,7 +260,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
     - `SPRING_PROFILES_ACTIVE=prod`,
     - `SPRING_DATASOURCE_URL=jdbc:postgresql://<pg-internal-host>:5432/stockahead`, plus `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`,
     - `STOCKAHEAD_SETUP_TOKEN` from `openssl rand -hex 24`.
-  - Healthcheck: enabled, path `/actuator/health/readiness`, port `8080`, with a start period long enough for the JVM plus Flyway (start at 60 s). Then **Deploy**.
+  - Healthcheck: baked into the image as a Dockerfile `HEALTHCHECK` (S7), with a start period long enough for the JVM plus Flyway (60 s). Coolify's own Health Checks toggle stays off. Then **Deploy**.
   - Leave Coolify's **gzip compression off** for this app. Traefik's compress middleware doesn't exclude `text/event-stream` and would hold back SSE events.
   - ✅ Check:
     - `https://test.regavio.com` serves the login page with a valid certificate,
