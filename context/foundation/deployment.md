@@ -46,6 +46,7 @@ Shells: server commands run in **bash** on the server. The `ubuntu` login shell 
 | S4 | Postgres version | `postgres:18` everywhere (Coolify, local compose, Testcontainers) |
 | S5 | Migrations | Expand/contract only; click "Backup now" before a risky one |
 | S6 | Coolify version | ≥ v4.3.23, auto-update on, registration off, 2FA on |
+| S7 | Healthcheck | Declared in the Dockerfile, not in Coolify's Health Checks tab (that toggle left `Config.Healthcheck` null on 2026-09-21) |
 
 ## Ports and hostnames
 
@@ -69,7 +70,7 @@ Fill this in as you go. The values themselves go in your password manager, never
 | Coolify root admin + 2FA recovery codes | 4.2 | password manager | full Coolify | — |
 | Tunnel token | 5.1 | systemd unit on the server | runs the tunnel | never (rotate by recreating the tunnel) |
 | Access service token `github-deploy` | 5.2 | GitHub secrets | Coolify app in Access | _fill in_ (choose 1 year) |
-| GHCR classic PAT | 6.2 | `/root/.docker/config.json` | `read:packages` | _fill in_ |
+| GHCR classic PAT | 6.2 (reissued 2026-09-21) | `/root/.docker/config.json` | `read:packages` | _fill in_ |
 | `STOCKAHEAD_SETUP_TOKEN` | 6.3 | Coolify env var | one-time `/setup` | irrelevant once a manager exists |
 | Coolify API token | 7.2 | GitHub secrets | `write` + `deploy`, team-wide | _fill in_ |
 | R2 API token | 8.1 | Coolify S3 storage | Object R/W on `stockahead-backups` | _fill in_ |
@@ -487,11 +488,11 @@ Then go to OVH Control Panel → Bare Metal Cloud → Network → IP → `145.23
 
 Coolify → Projects → **+ Add** → `stockahead`. In the project, add environment `test` and switch to it.
 **+ New** → Databases → **PostgreSQL**:
-- Image `postgres:18`, name `stockahead-db`, initial database `stockahead`, user `stockahead`, password: keep the generated one.
+- Image `postgres:18`, name `stockahead-db`, initial database `stockahead`, password: keep the generated one. **Coolify creates the superuser `postgres`**, not a `stockahead` user — read the user back off the internal URL rather than assuming it.
 - **Make it publicly available: off.** **SSL: off** (PG18 rejects Coolify's generated certificates, #8601; the DB is internal only).
 - **Start**.
 
-✅ Running and healthy. Copy the **internal** URL (`postgres://stockahead:…@<pg-uuid>:5432/stockahead`); 6.3 needs its host and password.
+✅ Running and healthy. Copy the **internal** URL (`postgres://postgres:…@<pg-uuid>:5432/stockahead`); 6.3 needs its host, user and password. That URL is libpq-style: JDBC takes `jdbc:postgresql://<pg-uuid>:5432/stockahead` with the user and password as separate properties, never inline.
 
 ### 6.2 GHCR pull access
 
@@ -505,6 +506,8 @@ sudo docker login ghcr.io -u MasalskiMateusz1 --password-stdin
 ✅ `sudo docker pull ghcr.io/masalskimateusz1/stockahead:sha-XXXXXXX` works.
 
 The token is stored base64-encoded (not encrypted) in `/root/.docker/config.json`. It only has `read:packages`, so that's acceptable.
+
+This token belongs on the server only. On 2026-09-21 it went into the app's `STOCKAHEAD_SETUP_TOKEN` box in Coolify instead and had to be revoked and reissued — a `ghp_` prefix anywhere in the app's env is that mistake.
 
 ### 6.3 App resource
 
@@ -521,11 +524,17 @@ Environment Variables (runtime, not build-time):
 ```
 SPRING_PROFILES_ACTIVE=prod
 SPRING_DATASOURCE_URL=jdbc:postgresql://<pg-uuid>:5432/stockahead
-SPRING_DATASOURCE_USERNAME=stockahead
+SPRING_DATASOURCE_USERNAME=postgres
 SPRING_DATASOURCE_PASSWORD=<from 6.1>
 STOCKAHEAD_SETUP_TOKEN=<from openssl above>
 ```
-Healthcheck: **enabled**, GET, scheme `http`, host `localhost`, port `8080`, path `/actuator/health/readiness`, expected code `200`, interval 5 s, timeout 5 s, retries 10, **start period 60 s**.
+Healthcheck: nothing to set here — it ships in the image (S7):
+```dockerfile
+HEALTHCHECK --interval=5s --timeout=5s --start-period=60s --retries=10 \n	CMD curl -fsS http://localhost:8080/actuator/health/readiness || exit 1
+```
+Leave Coolify's **Health Checks** toggle off. Verify with `sudo docker inspect -f '{{.State.Health.Status}}' <container>`; `health=none` means the image predates this line.
+
+**Spell the profile `prod` exactly.** A typo (`prd` on 2026-09-21) loads no profile at all, so `application-prod.properties` is silently skipped and Spring redirects to `http://…/login` — which looks like a Traefik trusted-IP problem, not an env typo.
 
 **Deploy.**
 
@@ -535,6 +544,9 @@ Once the auth feature adds its own `SecurityFilterChain`, it must `permitAll()` 
 ```bash
 curl -sI -H 'Accept: text/html' https://test.regavio.com/ | grep -i '^location'     # Location: https://test.regavio.com/login
 # without Accept: text/html, Spring Security answers 401 + WWW-Authenticate: Basic instead of redirecting
+# if Location comes back http://, isolate app from proxy on the server:
+#   sudo docker exec <app> curl -sI -H 'Accept: text/html' -H 'X-Forwarded-Proto: https' http://localhost:8080/
+# http:// there means the app ignores forwarded headers (wrong profile); https:// means the proxy is at fault
 ```
 - the browser shows the login page with a valid certificate,
 - Coolify → app → Logs shows Flyway ran (`Successfully applied` or `Schema … is up to date`),

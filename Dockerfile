@@ -22,4 +22,7 @@ COPY --from=build /workspace/extracted/snapshot-dependencies/ ./
 COPY --from=build /workspace/extracted/application/ ./
 USER 10001:10001
 EXPOSE 8080
+# Baked into the image, not configured in Coolify: it applies wherever the image runs and survives UI edits.
+HEALTHCHECK --interval=5s --timeout=5s --start-period=60s --retries=10 \
+	CMD curl -fsS http://localhost:8080/actuator/health/readiness || exit 1
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "org.springframework.boot.loader.launch.JarLauncher"]
