@@ -192,8 +192,12 @@ jobs:
           }
 
           # serving: the only check that means anything - can the outside world use the app?
+          # The window has to outlast a legitimate start (JVM plus Flyway, and a normal rollout
+          # also serves 404 for a few seconds while Traefik has no backend), but every second of it
+          # is downtime when the image is broken: the 7.4 re-run sat at 404 for 3 m 26 s, of which
+          # 3 minutes was this timer. 120 s is roughly four times the observed healthy start.
           serving() {
-            local deadline=$(( SECONDS + 180 )) code
+            local deadline=$(( SECONDS + 120 )) code
             while [ "$SECONDS" -lt "$deadline" ]; do
               code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$APP_HEALTH_URL" || echo 000)
               if [ "$code" = 200 ]; then
