@@ -1,7 +1,5 @@
 package pl.regavio.stockahead.account;
 
-import java.security.Principal;
-
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Controller;
@@ -22,12 +20,12 @@ public class HomeController {
 	}
 
 	@GetMapping("/")
-	public String dashboard(Authentication authentication, Principal principal, Model model) {
+	public String dashboard(Authentication authentication, Model model) {
 		boolean isManager = authentication.getAuthorities().stream()
 			.map(GrantedAuthority::getAuthority)
 			.anyMatch("ROLE_MANAGER"::equals);
 
-		model.addAttribute("email", principal.getName());
+		model.addAttribute("email", authentication.getName());
 		model.addAttribute("role", isManager ? "MANAGER" : "TECHNICIAN");
 		return "dashboard";
 	}

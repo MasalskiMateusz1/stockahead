@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.time.Instant;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -67,7 +68,15 @@ public class SetupController {
 		account.setPasswordHash(passwordEncoder.encode(password));
 		account.setRole(Role.MANAGER);
 		account.setCreatedAt(Instant.now());
-		accountRepository.save(account);
+
+		try {
+			accountRepository.save(account);
+		}
+		catch (DataIntegrityViolationException ex) {
+			model.addAttribute("email", email);
+			model.addAttribute("error", "Nie udało się założyć konta. Spróbuj ponownie.");
+			return "setup";
+		}
 
 		return "redirect:/login?setup";
 	}

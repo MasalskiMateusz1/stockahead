@@ -5,17 +5,14 @@ import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
+
+import pl.regavio.stockahead.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
@@ -29,14 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Covers the automated Success Criteria from Phases 3 and 4: the /setup
  * bootstrap flow, form login, and the /manager/ping role check, all against
  * a real Postgres via Testcontainers (per AGENTS.md).
- *
- * <p>Uses a local {@link PostgresTestcontainersConfiguration} instead of the
- * shared {@code pl.regavio.stockahead.TestcontainersConfiguration} because
- * that class is package-private and lives in a different package
- * ({@code pl.regavio.stockahead}), so it is not visible from here
- * ({@code pl.regavio.stockahead.account}). Same container image/pattern.
  */
-@Import(AuthenticationIntegrationTests.PostgresTestcontainersConfiguration.class)
+@Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
@@ -166,17 +157,6 @@ class AuthenticationIntegrationTests {
 		account.setActive(active);
 		account.setCreatedAt(Instant.now());
 		accountRepository.save(account);
-	}
-
-	@TestConfiguration(proxyBeanMethods = false)
-	static class PostgresTestcontainersConfiguration {
-
-		@Bean
-		@ServiceConnection
-		PostgreSQLContainer postgresContainer() {
-			return new PostgreSQLContainer(DockerImageName.parse("postgres:18"));
-		}
-
 	}
 
 }
