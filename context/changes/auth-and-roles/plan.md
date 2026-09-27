@@ -332,19 +332,19 @@ Pierwsza migracja w projekcie — brak istniejących danych do przeniesienia.
 
 #### Automated
 
-- [x] 4.1 Logowanie poprawnymi danymi przekierowuje na `/`
-- [x] 4.2 Logowanie błędnym hasłem przekierowuje na `/login?error`
-- [x] 4.3 Konto nieaktywne nie może się zalogować
-- [x] 4.4 `/manager/ping`: 200 dla MANAGER, 403 dla TECHNICIAN
+- [x] 4.1 Logowanie poprawnymi danymi przekierowuje na `/` — 709806c
+- [x] 4.2 Logowanie błędnym hasłem przekierowuje na `/login?error` — 709806c
+- [x] 4.3 Konto nieaktywne nie może się zalogować — 709806c
+- [x] 4.4 `/manager/ping`: 200 dla MANAGER, 403 dla TECHNICIAN — 709806c
 
 #### Manual
 
-- [x] 4.5 Pełne ręczne przejście: setup → login → pulpit → manager/ping → logout
-- [x] 4.6 Renderowany `/login` zawiera wypełnione pole `_csrf`
+- [x] 4.5 Pełne ręczne przejście: setup → login → pulpit → manager/ping → logout — 709806c
+- [x] 4.6 Renderowany `/login` zawiera wypełnione pole `_csrf` — 709806c
 
 ### Phase 5: Testy
 
 #### Automated
 
-- [ ] 5.1 `./mvnw -B verify` — wszystkie testy Faz 1–5 przechodzą
-- [ ] 5.2 Test przekierowania niezalogowanego nie wymaga Testcontainers
+- [x] 5.1 `./mvnw -B verify` — wszystkie testy Faz 1–5 przechodzą
+- [x] 5.2 Test przekierowania niezalogowanego nie wymaga Testcontainers
