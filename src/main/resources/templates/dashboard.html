@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<title>Pulpit — Stockahead</title>
+</head>
+<body>
+	<h1>Pulpit</h1>
+
+	<p>Zalogowano jako <span th:text="${email}"></span> (<span th:text="${role}"></span>)</p>
+
+	<div sec:authorize="hasRole('MANAGER')">
+		<a th:href="@{/manager/ping}">Sprawdź dostęp kierownika</a>
+	</div>
+
+	<form th:action="@{/logout}" method="post">
+		<button type="submit">Wyloguj</button>
+	</form>
+</body>
+</html>

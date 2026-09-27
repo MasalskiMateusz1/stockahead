@@ -318,29 +318,29 @@ Pierwsza migracja w projekcie — brak istniejących danych do przeniesienia.
 
 #### Automated
 
-- [x] 3.1 `GET /setup` bez kierownika zwraca 200
-- [x] 3.2 `POST /setup` z poprawnym tokenem tworzy konto MANAGER aktywne
-- [x] 3.3 `GET /setup` po utworzeniu kierownika przekierowuje na `/login`
-- [x] 3.4 `POST /setup` z błędnym tokenem nie tworzy konta
+- [x] 3.1 `GET /setup` bez kierownika zwraca 200 — a3ffa13
+- [x] 3.2 `POST /setup` z poprawnym tokenem tworzy konto MANAGER aktywne — a3ffa13
+- [x] 3.3 `GET /setup` po utworzeniu kierownika przekierowuje na `/login` — a3ffa13
+- [x] 3.4 `POST /setup` z błędnym tokenem nie tworzy konta — a3ffa13
 
 #### Manual
 
-- [x] 3.5 Lokalny setup przez compose.local.yml działa end-to-end
-- [x] 3.6 Renderowany `/setup` zawiera wypełnione pole `_csrf`
+- [x] 3.5 Lokalny setup przez compose.local.yml działa end-to-end — a3ffa13
+- [x] 3.6 Renderowany `/setup` zawiera wypełnione pole `_csrf` — a3ffa13
 
 ### Phase 4: Logowanie, pulpit, referencyjna trasa chroniona rolą
 
 #### Automated
 
-- [ ] 4.1 Logowanie poprawnymi danymi przekierowuje na `/`
-- [ ] 4.2 Logowanie błędnym hasłem przekierowuje na `/login?error`
-- [ ] 4.3 Konto nieaktywne nie może się zalogować
-- [ ] 4.4 `/manager/ping`: 200 dla MANAGER, 403 dla TECHNICIAN
+- [x] 4.1 Logowanie poprawnymi danymi przekierowuje na `/`
+- [x] 4.2 Logowanie błędnym hasłem przekierowuje na `/login?error`
+- [x] 4.3 Konto nieaktywne nie może się zalogować
+- [x] 4.4 `/manager/ping`: 200 dla MANAGER, 403 dla TECHNICIAN
 
 #### Manual
 
-- [ ] 4.5 Pełne ręczne przejście: setup → login → pulpit → manager/ping → logout
-- [ ] 4.6 Renderowany `/login` zawiera wypełnione pole `_csrf`
+- [x] 4.5 Pełne ręczne przejście: setup → login → pulpit → manager/ping → logout
+- [x] 4.6 Renderowany `/login` zawiera wypełnione pole `_csrf`
 
 ### Phase 5: Testy
 
