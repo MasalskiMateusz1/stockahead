@@ -306,27 +306,27 @@ Pierwsza migracja w projekcie — brak istniejących danych do przeniesienia.
 
 #### Automated
 
-- [x] 2.1 `./mvnw -B verify` przechodzi z nową konfiguracją bezpieczeństwa
-- [x] 2.4 MANAGER ma zarówno `ROLE_MANAGER`, jak i `ROLE_TECHNICIAN`
+- [x] 2.1 `./mvnw -B verify` przechodzi z nową konfiguracją bezpieczeństwa — 768b3c3
+- [x] 2.4 MANAGER ma zarówno `ROLE_MANAGER`, jak i `ROLE_TECHNICIAN` — 768b3c3
 
 #### Manual
 
-- [x] 2.2 Niezalogowane żądanie do `/` przekierowuje na `/login`
-- [x] 2.3 `/actuator/health/readiness` zwraca 200 bez logowania
+- [x] 2.2 Niezalogowane żądanie do `/` przekierowuje na `/login` — 768b3c3
+- [x] 2.3 `/actuator/health/readiness` zwraca 200 bez logowania — 768b3c3
 
 ### Phase 3: Ekran /setup pierwszego uruchomienia
 
 #### Automated
 
-- [ ] 3.1 `GET /setup` bez kierownika zwraca 200
-- [ ] 3.2 `POST /setup` z poprawnym tokenem tworzy konto MANAGER aktywne
-- [ ] 3.3 `GET /setup` po utworzeniu kierownika przekierowuje na `/login`
-- [ ] 3.4 `POST /setup` z błędnym tokenem nie tworzy konta
+- [x] 3.1 `GET /setup` bez kierownika zwraca 200
+- [x] 3.2 `POST /setup` z poprawnym tokenem tworzy konto MANAGER aktywne
+- [x] 3.3 `GET /setup` po utworzeniu kierownika przekierowuje na `/login`
+- [x] 3.4 `POST /setup` z błędnym tokenem nie tworzy konta
 
 #### Manual
 
-- [ ] 3.5 Lokalny setup przez compose.local.yml działa end-to-end
-- [ ] 3.6 Renderowany `/setup` zawiera wypełnione pole `_csrf`
+- [x] 3.5 Lokalny setup przez compose.local.yml działa end-to-end
+- [x] 3.6 Renderowany `/setup` zawiera wypełnione pole `_csrf`
 
 ### Phase 4: Logowanie, pulpit, referencyjna trasa chroniona rolą
 
