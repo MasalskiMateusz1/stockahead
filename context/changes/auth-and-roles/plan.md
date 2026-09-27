@@ -346,5 +346,5 @@ Pierwsza migracja w projekcie — brak istniejących danych do przeniesienia.
 
 #### Automated
 
-- [x] 5.1 `./mvnw -B verify` — wszystkie testy Faz 1–5 przechodzą
-- [x] 5.2 Test przekierowania niezalogowanego nie wymaga Testcontainers
+- [x] 5.1 `./mvnw -B verify` — wszystkie testy Faz 1–5 przechodzą — 92d5535
+- [x] 5.2 Test przekierowania niezalogowanego nie wymaga Testcontainers — 92d5535
