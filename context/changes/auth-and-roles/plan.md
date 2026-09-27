@@ -295,24 +295,24 @@ Pierwsza migracja w projekcie — brak istniejących danych do przeniesienia.
 
 #### Automated
 
-- [x] 1.1 Migracja aplikuje się czysto: `./mvnw -B verify`
-- [x] 1.2 Kompilacja przechodzi: `./mvnw -B compile`
+- [x] 1.1 Migracja aplikuje się czysto: `./mvnw -B verify` — 5002767
+- [x] 1.2 Kompilacja przechodzi: `./mvnw -B compile` — 5002767
 
 #### Manual
 
-- [x] 1.3 `flyway_schema_history` zawiera wiersz dla `V1` po starcie lokalnym
+- [x] 1.3 `flyway_schema_history` zawiera wiersz dla `V1` po starcie lokalnym — 5002767
 
 ### Phase 2: Konfiguracja Spring Security
 
 #### Automated
 
-- [ ] 2.1 `./mvnw -B verify` przechodzi z nową konfiguracją bezpieczeństwa
-- [ ] 2.4 MANAGER ma zarówno `ROLE_MANAGER`, jak i `ROLE_TECHNICIAN`
+- [x] 2.1 `./mvnw -B verify` przechodzi z nową konfiguracją bezpieczeństwa
+- [x] 2.4 MANAGER ma zarówno `ROLE_MANAGER`, jak i `ROLE_TECHNICIAN`
 
 #### Manual
 
-- [ ] 2.2 Niezalogowane żądanie do `/` przekierowuje na `/login`
-- [ ] 2.3 `/actuator/health/readiness` zwraca 200 bez logowania
+- [x] 2.2 Niezalogowane żądanie do `/` przekierowuje na `/login`
+- [x] 2.3 `/actuator/health/readiness` zwraca 200 bez logowania
 
 ### Phase 3: Ekran /setup pierwszego uruchomienia
 
