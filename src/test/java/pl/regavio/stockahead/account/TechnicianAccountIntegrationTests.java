@@ -235,6 +235,74 @@ class TechnicianAccountIntegrationTests {
 		assertThat(accountRepository.findById(missingId)).isEmpty();
 	}
 
+	@Test
+	void deactivationEndsExistingTechnicianSessionsBeforeGetOrPostAndReactivationRequiresNewLogin() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account technician = seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		MockHttpSession managerSession = loginAs(MANAGER_EMAIL);
+		MockHttpSession getSession = loginAs(TECHNICIAN_EMAIL);
+		MockHttpSession postSession = loginAs(TECHNICIAN_EMAIL);
+
+		mockMvc.perform(get("/parts").session(getSession)).andExpect(status().isOk());
+		mockMvc.perform(get("/manager/technicians").session(managerSession)).andExpect(status().isOk());
+
+		mockMvc.perform(post("/manager/technicians/" + technician.getId() + "/deactivate")
+				.session(managerSession).with(csrf()))
+			.andExpect(status().is3xxRedirection());
+		assertThat(accountRepository.findById(technician.getId()).orElseThrow().isActive()).isFalse();
+
+		mockMvc.perform(get("/parts").session(getSession))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?deactivated"));
+		mockMvc.perform(post("/manager/technicians").session(postSession).with(csrf())
+				.param("email", "blocked@technician-phase2.example")
+				.param("password", PASSWORD)
+				.param("confirmPassword", PASSWORD))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?deactivated"));
+		assertThat(getSession.isInvalid()).isTrue();
+		assertThat(postSession.isInvalid()).isTrue();
+		assertThat(accountRepository.findByEmail("blocked@technician-phase2.example")).isEmpty();
+		assertThat(accountRepository.findById(technician.getId()).orElseThrow().isActive()).isFalse();
+
+		mockMvc.perform(post("/manager/technicians/" + technician.getId() + "/reactivate")
+				.session(managerSession).with(csrf()))
+			.andExpect(status().is3xxRedirection());
+		assertThat(getSession.isInvalid()).isTrue();
+		assertThat(postSession.isInvalid()).isTrue();
+		mockMvc.perform(get("/parts").session(loginAs(TECHNICIAN_EMAIL)))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void deactivationMessageAndPublicEndpointsRemainAvailable() throws Exception {
+		mockMvc.perform(get("/login?deactivated"))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Twoje konto jest nieaktywne")));
+		mockMvc.perform(get("/actuator/health/readiness"))
+			.andExpect(status().isOk());
+
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		mockMvc.perform(get("/manager/technicians").session(loginAs(MANAGER_EMAIL)))
+			.andExpect(status().isOk());
+		mockMvc.perform(get("/parts").session(loginAs(TECHNICIAN_EMAIL)))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void missingAccountAlsoEndsItsExistingSession() throws Exception {
+		Account technician = seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		MockHttpSession session = loginAs(TECHNICIAN_EMAIL);
+		accountRepository.deleteById(technician.getId());
+		accountRepository.flush();
+
+		mockMvc.perform(get("/parts").session(session))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?deactivated"));
+		assertThat(session.isInvalid()).isTrue();
+	}
+
 	private void assertPreserved(Long id, boolean active, String hash, Instant createdAt) {
 		Account reloaded = accountRepository.findById(id).orElseThrow();
 		assertThat(reloaded.getId()).isEqualTo(id);

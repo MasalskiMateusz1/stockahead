@@ -272,29 +272,29 @@ Flyway dodaje tylko V4; wcześniejszych migracji nie zmieniać. W razie istniej�
 
 #### Automated
 
-- [x] 2.1 Kierownik tworzy aktywne konto `TECHNICIAN`; zapisany hash różni się od hasła, a nowe konto może się zalogować.
-- [x] 2.2 Formularz odrzuca hasło krótsze niż 12 znaków i niezgodne potwierdzenie bez utworzenia konta.
-- [x] 2.3 Kanonicznie zajęty e-mail (wariant wielkości liter lub spacji, także konta nieaktywnego i kierownika) trafia w ograniczenie bazy i wraca jako błąd formularza z zachowanym e-mailem, bez odpowiedzi 500 i bez drugiego konta.
-- [x] 2.4 Każda trasa zarządzania zwraca 403 dla zalogowanego technika; id kierownika i nieistniejące id zwracają 404 i nie zmieniają żadnego konta.
-- [x] 2.5 Dezaktywacja i reaktywacja zachowują to samo `id`, e-mail, hash, rolę i `created_at`; nie ma `DELETE`.
-- [x] 2.6 `./mvnw verify` przechodzi.
+- [x] 2.1 Kierownik tworzy aktywne konto `TECHNICIAN`; zapisany hash różni się od hasła, a nowe konto może się zalogować. — be21274
+- [x] 2.2 Formularz odrzuca hasło krótsze niż 12 znaków i niezgodne potwierdzenie bez utworzenia konta. — be21274
+- [x] 2.3 Kanonicznie zajęty e-mail (wariant wielkości liter lub spacji, także konta nieaktywnego i kierownika) trafia w ograniczenie bazy i wraca jako błąd formularza z zachowanym e-mailem, bez odpowiedzi 500 i bez drugiego konta. — be21274
+- [x] 2.4 Każda trasa zarządzania zwraca 403 dla zalogowanego technika; id kierownika i nieistniejące id zwracają 404 i nie zmieniają żadnego konta. — be21274
+- [x] 2.5 Dezaktywacja i reaktywacja zachowują to samo `id`, e-mail, hash, rolę i `created_at`; nie ma `DELETE`. — be21274
+- [x] 2.6 `./mvnw verify` przechodzi. — be21274
 
 #### Manual
 
-- [x] 2.7 Kierownik widzi na pulpicie link do kont techników, listę obu stanów i działające formularze; technik nie widzi linku.
+- [x] 2.7 Kierownik widzi na pulpicie link do kont techników, listę obu stanów i działające formularze; technik nie widzi linku. — be21274
 
 ### Phase 3: Dezaktywacja aktywnej sesji
 
 #### Automated
 
-- [ ] 3.1 Technik zalogowany przed dezaktywacją traci dostęp przy następnym GET oraz POST; te żądania nie wykonują akcji biznesowych.
-- [ ] 3.2 Aktywny kierownik i technik zachowują dostęp do swoich tras, a `/login` i `/actuator/health/readiness` pozostają publiczne.
-- [ ] 3.3 Po reaktywacji technik może utworzyć nową sesję; stara sesja nie odzyskuje dostępu.
-- [ ] 3.4 `./mvnw verify` przechodzi.
+- [x] 3.1 Technik zalogowany przed dezaktywacją traci dostęp przy następnym GET oraz POST; te żądania nie wykonują akcji biznesowych.
+- [x] 3.2 Aktywny kierownik i technik zachowują dostęp do swoich tras, a `/login` i `/actuator/health/readiness` pozostają publiczne.
+- [x] 3.3 Po reaktywacji technik może utworzyć nową sesję; stara sesja nie odzyskuje dostępu.
+- [x] 3.4 `./mvnw verify` przechodzi.
 
 #### Manual
 
-- [ ] 3.5 W dwóch przeglądarkach dezaktywuj zalogowanego technika i sprawdź, że jego następna próba wejścia na `/parts` kończy się ekranem logowania.
+- [x] 3.5 W dwóch przeglądarkach dezaktywuj zalogowanego technika i sprawdź, że jego następna próba wejścia na `/parts` kończy się ekranem logowania.
 
 ### Phase 4: Weryfikacja przepływu i integracji
 
