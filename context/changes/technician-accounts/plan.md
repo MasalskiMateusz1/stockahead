@@ -300,9 +300,9 @@ Flyway dodaje tylko V4; wcześniejszych migracji nie zmieniać. W razie istniej�
 
 #### Automated
 
-- [x] 4.1 `./mvnw verify` przechodzi z testami integracyjnymi PostgreSQL, w tym testami F-01 i S-01.
-- [x] 4.2 Testy potwierdzają 403 na każdej trasie kierownika oraz zachowanie danych konta po dezaktywacji i reaktywacji.
+- [x] 4.1 `./mvnw verify` przechodzi z testami integracyjnymi PostgreSQL, w tym testami F-01 i S-01. — 79234ff
+- [x] 4.2 Testy potwierdzają 403 na każdej trasie kierownika oraz zachowanie danych konta po dezaktywacji i reaktywacji. — 79234ff
 
 #### Manual
 
-- [x] 4.3 Przejście kierownik tworzy technika → technik loguje się → kierownik dezaktywuje → następne żądanie technika kończy sesję → ponowny login jest odrzucony → kierownik reaktywuje → technik loguje się ponownie działa.
+- [x] 4.3 Przejście kierownik tworzy technika → technik loguje się → kierownik dezaktywuje → następne żądanie technika kończy sesję → ponowny login jest odrzucony → kierownik reaktywuje → technik loguje się ponownie działa. — 79234ff
