@@ -80,8 +80,24 @@
 	<ul th:unless="${#lists.isEmpty(links)}">
 		<li th:each="link : ${links}">
 			<a th:href="${link.url}" th:text="${link.label != null and !#strings.isEmpty(link.label)} ? ${link.label} : ${link.url}" rel="noopener noreferrer" target="_blank"></a>
+			<form sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/links/{linkId}/delete(id=${project.id},linkId=${link.id})}" method="post" style="display:inline">
+				<button type="submit">Usuń link</button>
+			</form>
 		</li>
 	</ul>
+
+	<form sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/links(id=${project.id})}" method="post">
+		<h3>Dodaj link</h3>
+		<div>
+			<label for="linkUrl">Adres (http:// lub https://)</label>
+			<input type="url" id="linkUrl" name="url" size="60" maxlength="2048" required th:value="${linkUrl}">
+		</div>
+		<div>
+			<label for="linkLabel">Opis (opcjonalnie)</label>
+			<input type="text" id="linkLabel" name="label" size="40" maxlength="255" th:value="${linkLabel}">
+		</div>
+		<button type="submit">Dodaj link</button>
+	</form>
 
 	<p><a th:href="@{/projects}">Powrót do listy projektów</a></p>
 </body>
