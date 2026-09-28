@@ -10,6 +10,7 @@
 	<p th:if="${param.error}" th:text="#{login.error.badCredentials}"></p>
 	<p th:if="${param.logout}" th:text="#{login.status.loggedOut}"></p>
 	<p th:if="${param.setup}" th:text="#{login.status.managerCreated}"></p>
+	<p th:if="${param.deactivated}" th:text="#{login.status.deactivated}"></p>
 
 	<form th:action="@{/login}" method="post">
 		<div>

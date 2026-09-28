@@ -33,7 +33,7 @@ class AccountUserDetailsServiceTest {
 		manager.setActive(true);
 		manager.setCreatedAt(Instant.now());
 
-		when(accountRepository.findByEmail("manager@example.com")).thenReturn(Optional.of(manager));
+		when(accountRepository.findByCanonicalEmail("manager@example.com")).thenReturn(Optional.of(manager));
 
 		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
 		UserDetails userDetails = service.loadUserByUsername("manager@example.com");
@@ -52,7 +52,7 @@ class AccountUserDetailsServiceTest {
 		technician.setActive(true);
 		technician.setCreatedAt(Instant.now());
 
-		when(accountRepository.findByEmail("technician@example.com")).thenReturn(Optional.of(technician));
+		when(accountRepository.findByCanonicalEmail("technician@example.com")).thenReturn(Optional.of(technician));
 
 		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
 		UserDetails userDetails = service.loadUserByUsername("technician@example.com");
@@ -64,7 +64,7 @@ class AccountUserDetailsServiceTest {
 
 	@Test
 	void unknownEmailThrowsUsernameNotFoundException() {
-		when(accountRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+		when(accountRepository.findByCanonicalEmail("missing@example.com")).thenReturn(Optional.empty());
 
 		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
 
@@ -81,12 +81,29 @@ class AccountUserDetailsServiceTest {
 		inactive.setActive(false);
 		inactive.setCreatedAt(Instant.now());
 
-		when(accountRepository.findByEmail("inactive@example.com")).thenReturn(Optional.of(inactive));
+		when(accountRepository.findByCanonicalEmail("inactive@example.com")).thenReturn(Optional.of(inactive));
 
 		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
 		UserDetails userDetails = service.loadUserByUsername("inactive@example.com");
 
 		assertThat(userDetails.isEnabled()).isFalse();
+	}
+
+	@Test
+	void loginEmailIsCanonicalizedBeforeLookup() {
+		Account manager = new Account();
+		manager.setEmail("manager@example.com");
+		manager.setPasswordHash("hashed-password");
+		manager.setRole(Role.MANAGER);
+		manager.setActive(true);
+		manager.setCreatedAt(Instant.now());
+
+		when(accountRepository.findByCanonicalEmail("manager@example.com")).thenReturn(Optional.of(manager));
+
+		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
+		UserDetails userDetails = service.loadUserByUsername(" Manager@Example.COM ");
+
+		assertThat(userDetails.getUsername()).isEqualTo("manager@example.com");
 	}
 
 }

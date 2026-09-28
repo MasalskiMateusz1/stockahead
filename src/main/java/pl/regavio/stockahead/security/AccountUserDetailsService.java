@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.account.Role;
 
 @Service
@@ -25,7 +26,7 @@ public class AccountUserDetailsService implements UserDetailsService {
 
 	@Override
 	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-		Account account = accountRepository.findByEmail(email)
+		Account account = accountRepository.findByCanonicalEmail(Emails.canonical(email))
 			.orElseThrow(() -> new UsernameNotFoundException("No account with email " + email));
 
 		return User.withUsername(account.getEmail())

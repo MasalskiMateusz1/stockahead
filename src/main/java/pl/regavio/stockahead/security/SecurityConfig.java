@@ -10,6 +10,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+
+import pl.regavio.stockahead.account.AccountRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -17,7 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	public SecurityFilterChain securityFilterChain(HttpSecurity http, AccountRepository accountRepository) throws Exception {
 		http.authorizeHttpRequests(authorize -> authorize
 				.requestMatchers("/login", "/setup/**", "/actuator/health/**").permitAll()
 				.anyRequest().authenticated())
@@ -27,6 +30,7 @@ public class SecurityConfig {
 				.permitAll())
 			.logout(logout -> logout
 				.logoutSuccessUrl("/login?logout"));
+		http.addFilterBefore(new AccountActivityFilter(accountRepository), AuthorizationFilter.class);
 
 		return http.build();
 	}

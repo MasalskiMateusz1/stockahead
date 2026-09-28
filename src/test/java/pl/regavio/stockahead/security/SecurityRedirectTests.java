@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.HomeController;
 
 import static org.hamcrest.Matchers.containsString;
@@ -17,9 +18,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Verifies the security filter chain redirects an unauthenticated request to
  * /login. Deliberately avoids Testcontainers/Postgres: {@code @WebMvcTest}
- * excludes DataSource auto-configuration, and {@code AccountUserDetailsService}
- * is mocked so its real (JPA-backed) implementation is never invoked — an
- * unauthenticated request never reaches the UserDetailsService anyway.
+ * excludes DataSource auto-configuration; the JPA-backed user details service
+ * and account repository are mocked. An unauthenticated request reaches neither.
  */
 @WebMvcTest(controllers = HomeController.class)
 @Import(SecurityConfig.class)
@@ -30,6 +30,9 @@ class SecurityRedirectTests {
 
 	@MockitoBean
 	private AccountUserDetailsService accountUserDetailsService;
+
+	@MockitoBean
+	private AccountRepository accountRepository;
 
 	@Test
 	void unauthenticatedRequestRedirectsToLogin() throws Exception {
