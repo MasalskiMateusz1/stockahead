@@ -113,7 +113,7 @@ public class PartController {
 
 		List<String> parsedLocations;
 		try {
-			parsedLocations = parseLocations(locations, messageSource, locale);
+			parsedLocations = parseLocations(locations, locale);
 		}
 		catch (IllegalArgumentException ex) {
 			return renderNewPartError(model, ex.getMessage(), name, quantity, locations);
@@ -197,7 +197,7 @@ public class PartController {
 
 		List<String> parsedLocations;
 		try {
-			parsedLocations = parseLocations(locations, messageSource, locale);
+			parsedLocations = parseLocations(locations, locale);
 		}
 		catch (IllegalArgumentException ex) {
 			return renderEditPartError(model, id, ex.getMessage(), name, currentQuantity, locations);
@@ -261,7 +261,7 @@ public class PartController {
 	 * drops blank lines, and rejects the submission if any two trimmed lines
 	 * are (case-sensitively) identical.
 	 */
-	private List<String> parseLocations(String rawLocations, MessageSource messageSource, Locale locale) {
+	private List<String> parseLocations(String rawLocations, Locale locale) {
 		String text = rawLocations == null ? "" : rawLocations;
 		List<String> parsed = new ArrayList<>();
 		for (String rawLine : text.split("\r?\n")) {
