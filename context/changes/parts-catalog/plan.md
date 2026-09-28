@@ -294,29 +294,29 @@ None — this is a new schema, no existing data to migrate.
 
 #### Manual
 
-- [x] 3.1 Manager can add, edit, deactivate, and reactivate a part end-to-end
-- [x] 3.2 Technician cannot reach any write action
+- [x] 3.1 Manager can add, edit, deactivate, and reactivate a part end-to-end — f904e15
+- [x] 3.2 Technician cannot reach any write action — f904e15
 
 #### Automated
 
-- [x] 3.3 `./mvnw verify` — full suite passes after manager CRUD changes
+- [x] 3.3 `./mvnw verify` — full suite passes after manager CRUD changes — f904e15
 
 ### Phase 4: Tests
 
 #### Automated
 
-- [ ] 4.1 CHECK constraint rejects a direct negative-quantity insert
-- [ ] 4.2 Manager create with valid data persists an active part
-- [ ] 4.3 Duplicate name on create re-renders with a friendly error, no duplicate row
-- [ ] 4.4 Zero locations on create is rejected
-- [ ] 4.5 Duplicate location lines on create are rejected
-- [ ] 4.6 Technician gets 403 on every write route
-- [ ] 4.7 Both roles get 200 on `GET /parts`
-- [ ] 4.8 Search matches by name substring and by location substring
-- [ ] 4.9 Deactivated part excluded/included correctly across roles and `showInactive`
-- [ ] 4.10 Reactivate restores default-list visibility
-- [ ] 4.11 Edit never changes quantity, even with an injected `quantity` param
-- [ ] 4.12 `./mvnw verify` — full suite passes, including PartsCatalogIntegrationTests
-- [ ] 4.13 Unchanged-location edits preserve location row IDs
-- [ ] 4.14 Overlapping location edits retain matching rows and persist the intended final set
-- [ ] 4.15 Duplicate-name edits roll back all aggregate changes and render a friendly error
+- [x] 4.1 CHECK constraint rejects a direct negative-quantity insert
+- [x] 4.2 Manager create with valid data persists an active part
+- [x] 4.3 Duplicate name on create re-renders with a friendly error, no duplicate row
+- [x] 4.4 Zero locations on create is rejected
+- [x] 4.5 Duplicate location lines on create are rejected
+- [x] 4.6 Technician gets 403 on every write route
+- [x] 4.7 Both roles get 200 on `GET /parts`
+- [x] 4.8 Search matches by name substring and by location substring
+- [x] 4.9 Deactivated part excluded/included correctly across roles and `showInactive`
+- [x] 4.10 Reactivate restores default-list visibility
+- [x] 4.11 Edit never changes quantity, even with an injected `quantity` param
+- [x] 4.12 `./mvnw verify` — full suite passes, including PartsCatalogIntegrationTests
+- [x] 4.13 Unchanged-location edits preserve location row IDs
+- [x] 4.14 Overlapping location edits retain matching rows and persist the intended final set
+- [x] 4.15 Duplicate-name edits roll back all aggregate changes and render a friendly error
