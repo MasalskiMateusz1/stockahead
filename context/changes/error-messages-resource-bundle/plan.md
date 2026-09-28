@@ -200,10 +200,10 @@ Brak — nowy plik, żadne dane nie migrują.
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` — pełny zestaw testów przechodzi
+- [x] 2.1 `./mvnw verify` — pełny zestaw testów przechodzi — 46526e2
 
 #### Manual
 
-- [x] 2.2 Błędne hasło przy logowaniu pokazuje identyczny komunikat jak przed zmianą
-- [x] 2.3 Wylogowanie pokazuje identyczny komunikat jak przed zmianą
-- [x] 2.4 Zakończenie `/setup` pokazuje identyczny komunikat jak przed zmianą
+- [x] 2.2 Błędne hasło przy logowaniu pokazuje identyczny komunikat jak przed zmianą — 46526e2
+- [x] 2.3 Wylogowanie pokazuje identyczny komunikat jak przed zmianą — 46526e2
+- [x] 2.4 Zakończenie `/setup` pokazuje identyczny komunikat jak przed zmianą — 46526e2

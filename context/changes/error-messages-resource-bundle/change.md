@@ -1,7 +1,7 @@
 ---
 change_id: error-messages-resource-bundle
 title: Wydzielenie komunikatów błędów do resource bundle
-status: implementing
+status: implemented
 created: 2026-09-28
 updated: 2026-09-28
 archived_at: null
