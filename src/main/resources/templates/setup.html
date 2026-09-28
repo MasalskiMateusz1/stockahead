@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>Pierwsze uruchomienie — Stockahead</title>
+</head>
+<body>
+	<h1>Załóż konto kierownika</h1>
+
+	<p th:if="${error}" th:text="${error}"></p>
+
+	<form th:action="@{/setup}" method="post">
+		<div>
+			<label for="email">E-mail</label>
+			<input type="email" id="email" name="email" th:value="${email}" required>
+		</div>
+		<div>
+			<label for="password">Hasło</label>
+			<input type="password" id="password" name="password" required>
+		</div>
+		<div>
+			<label for="confirmPassword">Potwierdź hasło</label>
+			<input type="password" id="confirmPassword" name="confirmPassword" required>
+		</div>
+		<div>
+			<label for="token">Token konfiguracyjny</label>
+			<input type="text" id="token" name="token" required>
+		</div>
+		<button type="submit">Załóż konto</button>
+	</form>
+</body>
+</html>

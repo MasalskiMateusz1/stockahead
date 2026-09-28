@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>Logowanie — Stockahead</title>
+</head>
+<body>
+	<h1>Zaloguj się</h1>
+
+	<p th:if="${param.error}">Nieprawidłowy e-mail lub hasło.</p>
+	<p th:if="${param.logout}">Wylogowano.</p>
+	<p th:if="${param.setup}">Konto kierownika zostało założone. Zaloguj się.</p>
+
+	<form th:action="@{/login}" method="post">
+		<div>
+			<label for="username">E-mail</label>
+			<input type="email" id="username" name="username" required>
+		</div>
+		<div>
+			<label for="password">Hasło</label>
+			<input type="password" id="password" name="password" required>
+		</div>
+		<button type="submit">Zaloguj</button>
+	</form>
+</body>
+</html>
