@@ -13,6 +13,7 @@
 
 	<div sec:authorize="hasRole('MANAGER')">
 		<a th:href="@{/manager/ping}">Sprawdź dostęp kierownika</a>
+		<a th:href="@{/manager/technicians}">Konta techników</a>
 	</div>
 
 	<form th:action="@{/logout}" method="post">

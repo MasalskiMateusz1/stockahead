@@ -1,5 +1,6 @@
 package pl.regavio.stockahead.account;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,5 +15,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 	Optional<Account> findByCanonicalEmail(@Param("canonicalEmail") String canonicalEmail);
 
 	boolean existsByRole(Role role);
+
+	List<Account> findByRoleOrderByEmailAsc(Role role);
 
 }

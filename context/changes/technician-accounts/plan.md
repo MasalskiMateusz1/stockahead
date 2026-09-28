@@ -259,29 +259,29 @@ Flyway dodaje tylko V4; wcześniejszych migracji nie zmieniać. W razie istniej�
 
 #### Automated
 
-- [x] 1.1 Migracja na PostgreSQL zachowuje istniejący identyfikator konta (`V4MigrationTests`) i pozwala zalogować się e-mailem o innej wielkości liter (`AuthenticationIntegrationTests`).
-- [x] 1.2 PostgreSQL odrzuca dwa konta z e-mailami różniącymi się tylko wielkością liter lub otaczającymi spacjami (`V4MigrationTests`).
-- [x] 1.3 Migracja wykrywa istniejącą kolizję kanonicznych e-maili bez utraty wierszy (`V4MigrationTests`).
-- [x] 1.4 `./mvnw verify` przechodzi.
+- [x] 1.1 Migracja na PostgreSQL zachowuje istniejący identyfikator konta (`V4MigrationTests`) i pozwala zalogować się e-mailem o innej wielkości liter (`AuthenticationIntegrationTests`). — c6c2040
+- [x] 1.2 PostgreSQL odrzuca dwa konta z e-mailami różniącymi się tylko wielkością liter lub otaczającymi spacjami (`V4MigrationTests`). — c6c2040
+- [x] 1.3 Migracja wykrywa istniejącą kolizję kanonicznych e-maili bez utraty wierszy (`V4MigrationTests`). — c6c2040
+- [x] 1.4 `./mvnw verify` przechodzi. — c6c2040
 
 #### Manual
 
-- [x] 1.5 Kierownik może zalogować się istniejącym e-mailem niezależnie od wielkości liter.
+- [x] 1.5 Kierownik może zalogować się istniejącym e-mailem niezależnie od wielkości liter. — c6c2040
 
 ### Phase 2: Zarządzanie kontami przez kierownika
 
 #### Automated
 
-- [ ] 2.1 Kierownik tworzy aktywne konto `TECHNICIAN`; zapisany hash różni się od hasła, a nowe konto może się zalogować.
-- [ ] 2.2 Formularz odrzuca hasło krótsze niż 12 znaków i niezgodne potwierdzenie bez utworzenia konta.
-- [ ] 2.3 Kanonicznie zajęty e-mail (wariant wielkości liter lub spacji, także konta nieaktywnego i kierownika) trafia w ograniczenie bazy i wraca jako błąd formularza z zachowanym e-mailem, bez odpowiedzi 500 i bez drugiego konta.
-- [ ] 2.4 Każda trasa zarządzania zwraca 403 dla zalogowanego technika; id kierownika i nieistniejące id zwracają 404 i nie zmieniają żadnego konta.
-- [ ] 2.5 Dezaktywacja i reaktywacja zachowują to samo `id`, e-mail, hash, rolę i `created_at`; nie ma `DELETE`.
-- [ ] 2.6 `./mvnw verify` przechodzi.
+- [x] 2.1 Kierownik tworzy aktywne konto `TECHNICIAN`; zapisany hash różni się od hasła, a nowe konto może się zalogować.
+- [x] 2.2 Formularz odrzuca hasło krótsze niż 12 znaków i niezgodne potwierdzenie bez utworzenia konta.
+- [x] 2.3 Kanonicznie zajęty e-mail (wariant wielkości liter lub spacji, także konta nieaktywnego i kierownika) trafia w ograniczenie bazy i wraca jako błąd formularza z zachowanym e-mailem, bez odpowiedzi 500 i bez drugiego konta.
+- [x] 2.4 Każda trasa zarządzania zwraca 403 dla zalogowanego technika; id kierownika i nieistniejące id zwracają 404 i nie zmieniają żadnego konta.
+- [x] 2.5 Dezaktywacja i reaktywacja zachowują to samo `id`, e-mail, hash, rolę i `created_at`; nie ma `DELETE`.
+- [x] 2.6 `./mvnw verify` przechodzi.
 
 #### Manual
 
-- [ ] 2.7 Kierownik widzi na pulpicie link do kont techników, listę obu stanów i działające formularze; technik nie widzi linku.
+- [x] 2.7 Kierownik widzi na pulpicie link do kont techników, listę obu stanów i działające formularze; technik nie widzi linku.
 
 ### Phase 3: Dezaktywacja aktywnej sesji
 
