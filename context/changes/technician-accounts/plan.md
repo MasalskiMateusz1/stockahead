@@ -287,22 +287,22 @@ Flyway dodaje tylko V4; wcześniejszych migracji nie zmieniać. W razie istniej�
 
 #### Automated
 
-- [x] 3.1 Technik zalogowany przed dezaktywacją traci dostęp przy następnym GET oraz POST; te żądania nie wykonują akcji biznesowych.
-- [x] 3.2 Aktywny kierownik i technik zachowują dostęp do swoich tras, a `/login` i `/actuator/health/readiness` pozostają publiczne.
-- [x] 3.3 Po reaktywacji technik może utworzyć nową sesję; stara sesja nie odzyskuje dostępu.
-- [x] 3.4 `./mvnw verify` przechodzi.
+- [x] 3.1 Technik zalogowany przed dezaktywacją traci dostęp przy następnym GET oraz POST; te żądania nie wykonują akcji biznesowych. — 8a11bd9
+- [x] 3.2 Aktywny kierownik i technik zachowują dostęp do swoich tras, a `/login` i `/actuator/health/readiness` pozostają publiczne. — 8a11bd9
+- [x] 3.3 Po reaktywacji technik może utworzyć nową sesję; stara sesja nie odzyskuje dostępu. — 8a11bd9
+- [x] 3.4 `./mvnw verify` przechodzi. — 8a11bd9
 
 #### Manual
 
-- [x] 3.5 W dwóch przeglądarkach dezaktywuj zalogowanego technika i sprawdź, że jego następna próba wejścia na `/parts` kończy się ekranem logowania.
+- [x] 3.5 W dwóch przeglądarkach dezaktywuj zalogowanego technika i sprawdź, że jego następna próba wejścia na `/parts` kończy się ekranem logowania. — 8a11bd9
 
 ### Phase 4: Weryfikacja przepływu i integracji
 
 #### Automated
 
-- [ ] 4.1 `./mvnw verify` przechodzi z testami integracyjnymi PostgreSQL, w tym testami F-01 i S-01.
-- [ ] 4.2 Testy potwierdzają 403 na każdej trasie kierownika oraz zachowanie danych konta po dezaktywacji i reaktywacji.
+- [x] 4.1 `./mvnw verify` przechodzi z testami integracyjnymi PostgreSQL, w tym testami F-01 i S-01.
+- [x] 4.2 Testy potwierdzają 403 na każdej trasie kierownika oraz zachowanie danych konta po dezaktywacji i reaktywacji.
 
 #### Manual
 
-- [ ] 4.3 Przejście kierownik tworzy technika → technik loguje się → kierownik dezaktywuje → następne żądanie technika kończy sesję → ponowny login jest odrzucony → kierownik reaktywuje → technik loguje się ponownie działa.
+- [x] 4.3 Przejście kierownik tworzy technika → technik loguje się → kierownik dezaktywuje → następne żądanie technika kończy sesję → ponowny login jest odrzucony → kierownik reaktywuje → technik loguje się ponownie działa.
