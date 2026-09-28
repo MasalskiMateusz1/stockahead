@@ -150,4 +150,40 @@ class MessagesBundleTests {
 			.isEqualTo("Ta część jest już w liście materiałowej. Zmień ilość w istniejącej pozycji.");
 	}
 
+	@Test
+	void projectsBomErrorSaveFailed() {
+		assertThat(messageSource.getMessage("projects.bom.error.saveFailed", null, PL))
+			.isEqualTo("Nie udało się zapisać pozycji. Spróbuj ponownie.");
+	}
+
+	@Test
+	void projectsLinksErrorUrlRequired() {
+		assertThat(messageSource.getMessage("projects.links.error.urlRequired", null, PL))
+			.isEqualTo("Adres linku jest wymagany.");
+	}
+
+	@Test
+	void projectsLinksErrorUrlTooLong() {
+		assertThat(messageSource.getMessage("projects.links.error.urlTooLong", new Object[] { 2048 }, PL))
+			.isEqualTo("Adres linku może mieć maksymalnie 2048 znaków.");
+	}
+
+	@Test
+	void projectsLinksErrorUrlInvalid() {
+		assertThat(messageSource.getMessage("projects.links.error.urlInvalid", null, PL))
+			.isEqualTo("Adres linku musi zaczynać się od http:// lub https://, zawierać poprawną nazwę hosta (bez podkreśleń i polskich znaków) i nie może zawierać spacji.");
+	}
+
+	@Test
+	void projectsLinksErrorLabelTooLong() {
+		assertThat(messageSource.getMessage("projects.links.error.labelTooLong", new Object[] { 255 }, PL))
+			.isEqualTo("Opis linku może mieć maksymalnie 255 znaków.");
+	}
+
+	@Test
+	void projectsLinksErrorSaveFailed() {
+		assertThat(messageSource.getMessage("projects.links.error.saveFailed", null, PL))
+			.isEqualTo("Nie udało się zapisać linku. Sprawdź adres i spróbuj ponownie.");
+	}
+
 }

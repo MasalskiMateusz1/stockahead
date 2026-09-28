@@ -15,9 +15,12 @@ import pl.regavio.stockahead.parts.PartRepository;
 /**
  * Fills the {@code project-detail} page model so every controller that
  * renders the detail page (project lifecycle, BOM, links) does it the same
- * way. Always loads in its own fresh read-only transaction and copies the
- * data into plain view records, so a caller can safely use it after a
- * rolled-back write without touching the failed managed entity. Callers add
+ * way. Always re-reads inside its own read-only transaction and copies the
+ * data into plain view records, never reusing the caller's entities. With
+ * open-in-view enabled (the default) that read shares the request-bound
+ * EntityManager with the caller's write; calling it after a rolled-back write
+ * is safe because {@code JpaTransactionManager} clears that EntityManager on
+ * rollback, so the failed changes are not seen. Callers add
  * their own submitted form values to the model after calling
  * {@link #render}.
  */
@@ -81,9 +84,11 @@ class ProjectDetailModel {
 			.map(link -> new LinkView(link.getId(), link.getUrl(), link.getLabel()))
 			.sorted(Comparator.comparing(LinkView::id))
 			.toList();
-		List<PartOption> activeParts = partRepository.search("", false).stream()
-			.map(part -> new PartOption(part.getId(), part.getName()))
-			.toList();
+		// Only the manager's add-line form offers parts; skip the catalog query otherwise.
+		List<PartOption> activeParts = !isManager ? List.of()
+				: partRepository.search("", false).stream()
+					.map(part -> new PartOption(part.getId(), part.getName()))
+					.toList();
 		return new DetailData(new ProjectView(project.getId(), project.getName(), project.isActive()), lines,
 				links, activeParts);
 	}

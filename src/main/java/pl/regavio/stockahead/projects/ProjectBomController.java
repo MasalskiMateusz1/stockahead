@@ -118,18 +118,21 @@ public class ProjectBomController {
 
 		String quantityError = validateQuantity(quantityPerUnit, locale);
 		if (quantityError != null) {
-			projectDetailModel.render(model, id, true, quantityError);
-			model.addAttribute("errorLineId", lineId);
-			model.addAttribute("quantityPerUnit", quantityPerUnit);
-			return ProjectDetailModel.VIEW;
+			return renderChangeQuantityError(model, id, lineId, quantityError, quantityPerUnit);
 		}
 		int parsedQuantity = Integer.parseInt(quantityPerUnit.trim());
 
-		transactionTemplate.executeWithoutResult(status -> {
-			BomLine line = findLine(id, lineId);
-			line.setQuantityPerUnit(parsedQuantity);
-			projectRepository.saveAndFlush(line.getProject());
-		});
+		try {
+			transactionTemplate.executeWithoutResult(status -> {
+				BomLine line = findLine(id, lineId);
+				line.setQuantityPerUnit(parsedQuantity);
+				projectRepository.saveAndFlush(line.getProject());
+			});
+		}
+		catch (DataIntegrityViolationException ex) {
+			return renderChangeQuantityError(model, id, lineId,
+					messageSource.getMessage("projects.bom.error.saveFailed", null, locale), quantityPerUnit);
+		}
 
 		return "redirect:/projects/" + id;
 	}
@@ -193,6 +196,14 @@ public class ProjectBomController {
 	private String renderAddLineError(Model model, Long id, String error, String partId, String quantityPerUnit) {
 		projectDetailModel.render(model, id, true, error);
 		model.addAttribute("partId", partId);
+		model.addAttribute("quantityPerUnit", quantityPerUnit);
+		return ProjectDetailModel.VIEW;
+	}
+
+	private String renderChangeQuantityError(Model model, Long id, Long lineId, String error,
+			String quantityPerUnit) {
+		projectDetailModel.render(model, id, true, error);
+		model.addAttribute("errorLineId", lineId);
 		model.addAttribute("quantityPerUnit", quantityPerUnit);
 		return ProjectDetailModel.VIEW;
 	}

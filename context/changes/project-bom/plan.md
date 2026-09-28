@@ -180,6 +180,10 @@ Project lifecycle screens: everyone browses, the manager creates, renames, deact
 
 - As a manager: the dashboard link opens `/projects`; create, rename, deactivate and reactivate a project; "Dodaj projekt" and "pokaż nieaktywne" are visible. As a technician: the list and detail page load, and no manager controls are shown.
 
+#### Deviation (recorded after implementation):
+
+- Rename moved onto the detail page during the Phase 3 manual check (commit 9062d67), so all project editing is one screen. `GET /projects/{id}/edit` and `projects-edit.html` no longer exist; the list's "Edytuj" links to `/projects/{id}`, and `POST /projects/{id}` errors re-render `project-detail`. The technician-403 test for the removed route was replaced by an assertion that the rename form is absent from a technician's detail page.
+
 ---
 
 ## Phase 3: BOM lines

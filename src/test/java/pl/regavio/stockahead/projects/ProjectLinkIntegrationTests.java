@@ -60,7 +60,7 @@ class ProjectLinkIntegrationTests {
 	private static final String URL_TOO_LONG_ERROR = "Adres linku może mieć maksymalnie 2048 znaków.";
 
 	private static final String URL_INVALID_ERROR =
-			"Adres linku musi zaczynać się od http:// lub https:// i zawierać nazwę hosta.";
+			"Adres linku musi zaczynać się od http:// lub https://, zawierać poprawną nazwę hosta (bez podkreśleń i polskich znaków) i nie może zawierać spacji.";
 
 	private static final String LABEL_TOO_LONG_ERROR = "Opis linku może mieć maksymalnie 255 znaków.";
 
@@ -220,6 +220,8 @@ class ProjectLinkIntegrationTests {
 		for (String[] attempt : new String[][] { { "javascript:alert(1)", URL_INVALID_ERROR },
 				{ "ftp://example.com/x", URL_INVALID_ERROR }, { "http://", URL_INVALID_ERROR },
 				{ "https:///no-host", URL_INVALID_ERROR }, { "not a url", URL_INVALID_ERROR },
+				{ "http://file_server/docs", URL_INVALID_ERROR }, { "https://żółw.pl/x", URL_INVALID_ERROR },
+				{ "http://nas:8080/a b", URL_INVALID_ERROR },
 				{ "   ", URL_REQUIRED_ERROR } }) {
 			mockMvc.perform(post("/projects/" + projectId + "/links").session(session).with(csrf())
 				.param("url", attempt[0])

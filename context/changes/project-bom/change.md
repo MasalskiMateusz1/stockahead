@@ -1,7 +1,7 @@
 ---
 change_id: project-bom
 title: Projekty urządzeń i BOM
-status: implemented
+status: impl_reviewed
 created: 2026-09-28
 updated: 2026-09-28
 archived_at: null
