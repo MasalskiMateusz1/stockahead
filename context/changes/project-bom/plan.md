@@ -338,32 +338,32 @@ New tables only; no existing data changes. `V5` must land on `main` after S-02's
 
 #### Automated
 
-- [x] 2.1 Manager creates a project → redirect to its detail page, row persisted with `active = true`; blank or > 255-character name re-renders the form with an error and no row.
-- [x] 2.2 Duplicate project name on create and on rename returns the form with a friendly error (DB constraint path, no 500) and leaves the original rows unchanged.
-- [x] 2.3 A deactivated project is excluded from the default list, listed together with active projects for a manager with `showInactive=true`, still excluded for a technician with `showInactive=true`, 404 on its detail page for a technician, and back in the default list after reactivation.
-- [x] 2.4 Both roles get 200 on `GET /projects` and on an active project's `GET /projects/{id}`; a technician gets 403 on every manager route.
-- [x] 2.5 `./mvnw verify` passes.
+- [x] 2.1 Manager creates a project → redirect to its detail page, row persisted with `active = true`; blank or > 255-character name re-renders the form with an error and no row. — 866ff22
+- [x] 2.2 Duplicate project name on create and on rename returns the form with a friendly error (DB constraint path, no 500) and leaves the original rows unchanged. — 866ff22
+- [x] 2.3 A deactivated project is excluded from the default list, listed together with active projects for a manager with `showInactive=true`, still excluded for a technician with `showInactive=true`, 404 on its detail page for a technician, and back in the default list after reactivation. — 866ff22
+- [x] 2.4 Both roles get 200 on `GET /projects` and on an active project's `GET /projects/{id}`; a technician gets 403 on every manager route. — 866ff22
+- [x] 2.5 `./mvnw verify` passes. — 866ff22
 
 #### Manual
 
-- [x] 2.6 Manager can create, rename, deactivate and reactivate from the UI; technician sees list and detail with no manager controls.
+- [x] 2.6 Manager can create, rename, deactivate and reactivate from the UI; technician sees list and detail with no manager controls. — 866ff22
 
 ### Phase 3: BOM lines
 
 #### Automated
 
-- [ ] 3.1 Adding a line with an active part and quantity 3 persists one `bom_lines` row and the detail page shows it.
-- [ ] 3.2 Adding the same part a second time returns the detail page with a friendly error (DB constraint path, no 500) and exactly one row remains.
-- [ ] 3.3 Quantity `0`, `-1` and `abc` on add and on change are rejected with an error and no change in the database.
-- [ ] 3.4 Adding an inactive or nonexistent part is rejected with an error and no row; the select offers only active parts.
-- [ ] 3.5 A line whose part was deactivated stays, is marked "nieaktywna", and its quantity can still be changed.
-- [ ] 3.6 Changing a quantity and removing a line persist; a `lineId` of another project returns 404 and changes nothing.
-- [ ] 3.7 A technician gets 403 on all three BOM routes.
-- [ ] 3.8 `./mvnw verify` passes.
+- [x] 3.1 Adding a line with an active part and quantity 3 persists one `bom_lines` row and the detail page shows it.
+- [x] 3.2 Adding the same part a second time returns the detail page with a friendly error (DB constraint path, no 500) and exactly one row remains.
+- [x] 3.3 Quantity `0`, `-1` and `abc` on add and on change are rejected with an error and no change in the database.
+- [x] 3.4 Adding an inactive or nonexistent part is rejected with an error and no row; the select offers only active parts.
+- [x] 3.5 A line whose part was deactivated stays, is marked "nieaktywna", and its quantity can still be changed.
+- [x] 3.6 Changing a quantity and removing a line persist; a `lineId` of another project returns 404 and changes nothing.
+- [x] 3.7 A technician gets 403 on all three BOM routes.
+- [x] 3.8 `./mvnw verify` passes.
 
 #### Manual
 
-- [ ] 3.9 Manager builds, edits and trims a BOM; a deactivated part's line is marked; technician sees the BOM without edit forms.
+- [x] 3.9 Manager builds, edits and trims a BOM; a deactivated part's line is marked; technician sees the BOM without edit forms.
 
 ### Phase 4: Documentation links
 

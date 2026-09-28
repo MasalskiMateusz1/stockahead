@@ -126,4 +126,28 @@ class MessagesBundleTests {
 			.isEqualTo("Konto kierownika zostało założone. Zaloguj się.");
 	}
 
+	@Test
+	void projectsBomErrorQuantityNotInteger() {
+		assertThat(messageSource.getMessage("projects.bom.error.quantityNotInteger", null, PL))
+			.isEqualTo("Ilość na sztukę musi być liczbą całkowitą.");
+	}
+
+	@Test
+	void projectsBomErrorQuantityNotPositive() {
+		assertThat(messageSource.getMessage("projects.bom.error.quantityNotPositive", null, PL))
+			.isEqualTo("Ilość na sztukę musi wynosić co najmniej 1.");
+	}
+
+	@Test
+	void projectsBomErrorPartUnavailable() {
+		assertThat(messageSource.getMessage("projects.bom.error.partUnavailable", null, PL))
+			.isEqualTo("Część nieaktywna lub nie istnieje.");
+	}
+
+	@Test
+	void projectsBomErrorDuplicatePart() {
+		assertThat(messageSource.getMessage("projects.bom.error.duplicatePart", null, PL))
+			.isEqualTo("Ta część jest już w liście materiałowej. Zmień ilość w istniejącej pozycji.");
+	}
+
 }

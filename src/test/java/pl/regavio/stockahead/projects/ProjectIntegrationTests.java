@@ -229,9 +229,10 @@ class ProjectIntegrationTests {
 		Long id = seedProject("Old Name", true);
 		MockHttpSession session = loginAs(MANAGER_EMAIL);
 
-		mockMvc.perform(get("/projects/" + id + "/edit").session(session))
+		mockMvc.perform(get("/projects/" + id).session(session))
 			.andExpect(status().isOk())
-			.andExpect(content().string(containsString("Old Name")));
+			.andExpect(content().string(containsString("action=\"/projects/" + id + "\"")))
+			.andExpect(content().string(containsString("value=\"Old Name\"")));
 
 		mockMvc.perform(post("/projects/" + id).session(session).with(csrf()).param("name", " New Name "))
 			.andExpect(status().is3xxRedirection())
@@ -277,7 +278,7 @@ class ProjectIntegrationTests {
 		mockMvc.perform(get("/projects/999999").session(session))
 			.andExpect(status().isNotFound());
 
-		mockMvc.perform(get("/projects/999999/edit").session(session))
+		mockMvc.perform(post("/projects/999999").session(session).with(csrf()).param("name", "Anything"))
 			.andExpect(status().isNotFound());
 	}
 
@@ -400,8 +401,9 @@ class ProjectIntegrationTests {
 		mockMvc.perform(post("/projects").session(session).with(csrf()).param("name", "Should Not Be Created"))
 			.andExpect(status().isForbidden());
 
-		mockMvc.perform(get("/projects/" + id + "/edit").session(session))
-			.andExpect(status().isForbidden());
+		mockMvc.perform(get("/projects/" + id).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("action=\"/projects/" + id + "\""))));
 
 		mockMvc.perform(post("/projects/" + id).session(session).with(csrf()).param("name", "Renamed"))
 			.andExpect(status().isForbidden());

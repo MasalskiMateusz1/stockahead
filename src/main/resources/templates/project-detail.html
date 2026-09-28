@@ -11,9 +11,11 @@
 
 	<p>Status: <span th:text="${project.active} ? 'aktywny' : 'nieaktywny'"></span></p>
 
-	<p sec:authorize="hasRole('MANAGER')">
-		<a th:href="@{/projects/{id}/edit(id=${project.id})}">Zmień nazwę</a>
-	</p>
+	<form sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}(id=${project.id})}" method="post">
+		<label for="name">Nazwa</label>
+		<input type="text" id="name" name="name" required th:value="${name != null} ? ${name} : ${project.name}">
+		<button type="submit">Zmień nazwę</button>
+	</form>
 
 	<h2>Lista materiałowa</h2>
 
@@ -24,6 +26,7 @@
 			<tr>
 				<th>Część</th>
 				<th>Ilość na sztukę</th>
+				<th sec:authorize="hasRole('MANAGER')">Akcje</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -32,10 +35,43 @@
 					<span th:text="${line.partName}"></span>
 					<span th:unless="${line.partActive}">(nieaktywna)</span>
 				</td>
-				<td th:text="${line.quantityPerUnit}"></td>
+				<td sec:authorize="!hasRole('MANAGER')" th:text="${line.quantityPerUnit}"></td>
+				<td sec:authorize="hasRole('MANAGER')">
+					<form th:action="@{/projects/{id}/bom/{lineId}(id=${project.id},lineId=${line.id})}" method="post" style="display:inline">
+						<input type="text" name="quantityPerUnit" size="6" required
+							th:id="'quantityPerUnit-' + ${line.id}"
+							th:value="${errorLineId != null and errorLineId == line.id} ? ${quantityPerUnit} : ${line.quantityPerUnit}">
+						<button type="submit">Zmień ilość</button>
+					</form>
+				</td>
+				<td sec:authorize="hasRole('MANAGER')">
+					<form th:action="@{/projects/{id}/bom/{lineId}/delete(id=${project.id},lineId=${line.id})}" method="post" style="display:inline">
+						<button type="submit">Usuń</button>
+					</form>
+				</td>
 			</tr>
 		</tbody>
 	</table>
+
+	<form sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/bom(id=${project.id})}" method="post">
+		<h3>Dodaj pozycję</h3>
+		<div>
+			<label for="partId">Część</label>
+			<select id="partId" name="partId" required>
+				<option value="">— wybierz część —</option>
+				<option th:each="option : ${activeParts}"
+					th:value="${option.id}"
+					th:text="${option.name}"
+					th:selected="${partId != null and partId == ('' + option.id)}"></option>
+			</select>
+		</div>
+		<div>
+			<label for="quantityPerUnit">Ilość na sztukę</label>
+			<input type="text" id="quantityPerUnit" name="quantityPerUnit" size="6" required
+				th:value="${errorLineId == null} ? ${quantityPerUnit} : ''">
+		</div>
+		<button type="submit">Dodaj pozycję</button>
+	</form>
 
 	<h2>Dokumentacja</h2>
 

@@ -21,7 +21,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Project list and detail screens, open to any authenticated user, plus
- * manager-only create/rename/deactivate/reactivate actions.
+ * manager-only create/rename/deactivate/reactivate actions. Renaming is a
+ * form on the detail page, next to the BOM and links, not a separate screen.
  * {@code showInactive} is honored only for managers, and an inactive
  * project's detail page is 404 for a technician. The DB {@code UNIQUE}
  * constraint on {@code projects.name} is the only duplicate-name check.
@@ -97,16 +98,6 @@ public class ProjectController {
 		}
 
 		return "redirect:/projects/" + newId;
-	}
-
-	@GetMapping("/projects/{id}/edit")
-	@PreAuthorize("hasRole('MANAGER')")
-	public String editForm(@PathVariable Long id, Model model) {
-		Project project = projectRepository.findById(id)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-		model.addAttribute("id", project.getId());
-		model.addAttribute("name", project.getName());
-		return "projects-edit";
 	}
 
 	@PostMapping("/projects/{id}")
@@ -187,11 +178,14 @@ public class ProjectController {
 		return "projects-new";
 	}
 
+	/**
+	 * Re-renders the detail page, where the rename form lives, with the error
+	 * and the submitted name. Routes calling this are manager-only.
+	 */
 	private String renderEditProjectError(Model model, Long id, String error, String name) {
-		model.addAttribute("id", id);
-		model.addAttribute("error", error);
+		projectDetailModel.render(model, id, true, error);
 		model.addAttribute("name", name);
-		return "projects-edit";
+		return ProjectDetailModel.VIEW;
 	}
 
 }

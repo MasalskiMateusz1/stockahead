@@ -36,7 +36,7 @@
 				<td><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}"></a></td>
 				<td th:text="${project.active} ? 'aktywny' : 'nieaktywny'"></td>
 				<td sec:authorize="hasRole('MANAGER')">
-					<a th:href="@{/projects/{id}/edit(id=${project.id})}">Edytuj</a>
+					<a th:href="@{/projects/{id}(id=${project.id})}">Edytuj</a>
 					<form th:if="${project.active}" th:action="@{/projects/{id}/deactivate(id=${project.id})}" method="post" style="display:inline">
 						<button type="submit">Dezaktywuj</button>
 					</form>
