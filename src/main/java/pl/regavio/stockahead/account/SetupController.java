@@ -3,8 +3,10 @@ package pl.regavio.stockahead.account;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.Locale;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
@@ -27,11 +29,14 @@ public class SetupController {
 
 	private final String setupToken;
 
+	private final MessageSource messageSource;
+
 	public SetupController(AccountRepository accountRepository, PasswordEncoder passwordEncoder,
-			@Value("${app.setup-token}") String setupToken) {
+			@Value("${app.setup-token}") String setupToken, MessageSource messageSource) {
 		this.accountRepository = accountRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.setupToken = setupToken;
+		this.messageSource = messageSource;
 	}
 
 	@GetMapping("/setup")
@@ -44,16 +49,16 @@ public class SetupController {
 
 	@PostMapping("/setup")
 	public String createManagerAccount(@RequestParam String email, @RequestParam String password,
-			@RequestParam String confirmPassword, @RequestParam String token, Model model) {
+			@RequestParam String confirmPassword, @RequestParam String token, Model model, Locale locale) {
 		if (!isTokenValid(token)) {
 			model.addAttribute("email", email);
-			model.addAttribute("error", "Nieprawidłowy token konfiguracyjny.");
+			model.addAttribute("error", messageSource.getMessage("setup.error.invalidToken", null, locale));
 			return "setup";
 		}
 
 		if (!password.equals(confirmPassword)) {
 			model.addAttribute("email", email);
-			model.addAttribute("error", "Hasła nie są identyczne.");
+			model.addAttribute("error", messageSource.getMessage("setup.error.passwordMismatch", null, locale));
 			return "setup";
 		}
 
@@ -74,7 +79,7 @@ public class SetupController {
 		}
 		catch (DataIntegrityViolationException ex) {
 			model.addAttribute("email", email);
-			model.addAttribute("error", "Nie udało się założyć konta. Spróbuj ponownie.");
+			model.addAttribute("error", messageSource.getMessage("setup.error.accountCreationFailed", null, locale));
 			return "setup";
 		}
 

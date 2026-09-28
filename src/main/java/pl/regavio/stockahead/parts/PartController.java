@@ -3,9 +3,11 @@ package pl.regavio.stockahead.parts;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,9 +38,13 @@ public class PartController {
 
 	private final TransactionTemplate transactionTemplate;
 
-	public PartController(PartRepository partRepository, PlatformTransactionManager transactionManager) {
+	private final MessageSource messageSource;
+
+	public PartController(PartRepository partRepository, PlatformTransactionManager transactionManager,
+			MessageSource messageSource) {
 		this.partRepository = partRepository;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
+		this.messageSource = messageSource;
 	}
 
 	@GetMapping("/parts")
@@ -72,18 +78,22 @@ public class PartController {
 			@RequestParam String name,
 			@RequestParam String quantity,
 			@RequestParam String locations,
-			Model model) {
+			Model model,
+			Locale locale) {
 		String trimmedName = name == null ? "" : name.trim();
 		if (trimmedName.isEmpty()) {
-			return renderNewPartError(model, "Nazwa jest wymagana.", name, quantity, locations);
+			return renderNewPartError(model, messageSource.getMessage("parts.error.nameRequired", null, locale), name,
+					quantity, locations);
 		}
 		if (trimmedName.length() > MAX_FIELD_LENGTH) {
-			return renderNewPartError(model, "Nazwa może mieć maksymalnie " + MAX_FIELD_LENGTH + " znaków.", name,
-					quantity, locations);
+			return renderNewPartError(model,
+					messageSource.getMessage("parts.error.nameTooLong", new Object[] { MAX_FIELD_LENGTH }, locale),
+					name, quantity, locations);
 		}
 
 		if (partRepository.findByName(trimmedName).isPresent()) {
-			return renderNewPartError(model, "Część o tej nazwie już istnieje.", name, quantity, locations);
+			return renderNewPartError(model, messageSource.getMessage("parts.error.duplicateName", null, locale),
+					name, quantity, locations);
 		}
 
 		int parsedQuantity;
@@ -91,27 +101,32 @@ public class PartController {
 			parsedQuantity = Integer.parseInt(quantity.trim());
 		}
 		catch (NumberFormatException ex) {
-			return renderNewPartError(model, "Stan magazynowy musi być liczbą całkowitą.", name, quantity, locations);
+			return renderNewPartError(model,
+					messageSource.getMessage("parts.error.quantityNotInteger", null, locale), name, quantity,
+					locations);
 		}
 
 		if (parsedQuantity < 0) {
-			return renderNewPartError(model, "Stan magazynowy nie może być ujemny.", name, quantity, locations);
+			return renderNewPartError(model, messageSource.getMessage("parts.error.quantityNegative", null, locale),
+					name, quantity, locations);
 		}
 
 		List<String> parsedLocations;
 		try {
-			parsedLocations = parseLocations(locations);
+			parsedLocations = parseLocations(locations, messageSource, locale);
 		}
 		catch (IllegalArgumentException ex) {
 			return renderNewPartError(model, ex.getMessage(), name, quantity, locations);
 		}
 
 		if (parsedLocations.isEmpty()) {
-			return renderNewPartError(model, "Podaj co najmniej jedną lokalizację.", name, quantity, locations);
+			return renderNewPartError(model, messageSource.getMessage("parts.error.locationsRequired", null, locale),
+					name, quantity, locations);
 		}
 
 		if (parsedLocations.stream().anyMatch(location -> location.length() > MAX_FIELD_LENGTH)) {
-			return renderNewPartError(model, "Lokalizacja może mieć maksymalnie " + MAX_FIELD_LENGTH + " znaków.",
+			return renderNewPartError(model,
+					messageSource.getMessage("parts.error.locationTooLong", new Object[] { MAX_FIELD_LENGTH }, locale),
 					name, quantity, locations);
 		}
 
@@ -131,7 +146,8 @@ public class PartController {
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderNewPartError(model, "Część o tej nazwie już istnieje.", name, quantity, locations);
+			return renderNewPartError(model, messageSource.getMessage("parts.error.duplicateName", null, locale),
+					name, quantity, locations);
 		}
 
 		return "redirect:/parts";
@@ -155,41 +171,47 @@ public class PartController {
 			@PathVariable Long id,
 			@RequestParam String name,
 			@RequestParam String locations,
-			Model model) {
+			Model model,
+			Locale locale) {
 		Part existing = partRepository.findById(id)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		int currentQuantity = existing.getQuantity();
 
 		String trimmedName = name == null ? "" : name.trim();
 		if (trimmedName.isEmpty()) {
-			return renderEditPartError(model, id, "Nazwa jest wymagana.", name, currentQuantity, locations);
+			return renderEditPartError(model, id, messageSource.getMessage("parts.error.nameRequired", null, locale),
+					name, currentQuantity, locations);
 		}
 		if (trimmedName.length() > MAX_FIELD_LENGTH) {
-			return renderEditPartError(model, id, "Nazwa może mieć maksymalnie " + MAX_FIELD_LENGTH + " znaków.",
+			return renderEditPartError(model, id,
+					messageSource.getMessage("parts.error.nameTooLong", new Object[] { MAX_FIELD_LENGTH }, locale),
 					name, currentQuantity, locations);
 		}
 
 		Optional<Part> conflict = partRepository.findByName(trimmedName)
 			.filter(other -> !other.getId().equals(id));
 		if (conflict.isPresent()) {
-			return renderEditPartError(model, id, "Część o tej nazwie już istnieje.", name, currentQuantity, locations);
+			return renderEditPartError(model, id, messageSource.getMessage("parts.error.duplicateName", null, locale),
+					name, currentQuantity, locations);
 		}
 
 		List<String> parsedLocations;
 		try {
-			parsedLocations = parseLocations(locations);
+			parsedLocations = parseLocations(locations, messageSource, locale);
 		}
 		catch (IllegalArgumentException ex) {
 			return renderEditPartError(model, id, ex.getMessage(), name, currentQuantity, locations);
 		}
 
 		if (parsedLocations.isEmpty()) {
-			return renderEditPartError(model, id, "Podaj co najmniej jedną lokalizację.", name, currentQuantity,
+			return renderEditPartError(model, id,
+					messageSource.getMessage("parts.error.locationsRequired", null, locale), name, currentQuantity,
 					locations);
 		}
 
 		if (parsedLocations.stream().anyMatch(location -> location.length() > MAX_FIELD_LENGTH)) {
-			return renderEditPartError(model, id, "Lokalizacja może mieć maksymalnie " + MAX_FIELD_LENGTH + " znaków.",
+			return renderEditPartError(model, id,
+					messageSource.getMessage("parts.error.locationTooLong", new Object[] { MAX_FIELD_LENGTH }, locale),
 					name, currentQuantity, locations);
 		}
 
@@ -203,8 +225,8 @@ public class PartController {
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderEditPartError(model, id, "Część o tej nazwie już istnieje.", name, currentQuantity,
-					locations);
+			return renderEditPartError(model, id, messageSource.getMessage("parts.error.duplicateName", null, locale),
+					name, currentQuantity, locations);
 		}
 
 		return "redirect:/parts";
@@ -239,7 +261,7 @@ public class PartController {
 	 * drops blank lines, and rejects the submission if any two trimmed lines
 	 * are (case-sensitively) identical.
 	 */
-	private List<String> parseLocations(String rawLocations) {
+	private List<String> parseLocations(String rawLocations, MessageSource messageSource, Locale locale) {
 		String text = rawLocations == null ? "" : rawLocations;
 		List<String> parsed = new ArrayList<>();
 		for (String rawLine : text.split("\r?\n")) {
@@ -249,7 +271,7 @@ public class PartController {
 			}
 			if (parsed.contains(trimmed)) {
 				throw new IllegalArgumentException(
-						"Lokalizacja „" + trimmed + "” została podana więcej niż raz.");
+						messageSource.getMessage("parts.error.locationDuplicate", new Object[] { trimmed }, locale));
 			}
 			parsed.add(trimmed);
 		}
