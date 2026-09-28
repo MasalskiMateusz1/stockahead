@@ -54,7 +54,7 @@ class AuthenticationIntegrationTests {
 	void setupWithCorrectTokenCreatesActiveManagerAccount() throws Exception {
 		mockMvc.perform(post("/setup")
 				.with(csrf())
-				.param("email", "new-manager@example.com")
+				.param("email", " New-Manager@Example.COM ")
 				.param("password", "s3cret-password")
 				.param("confirmPassword", "s3cret-password")
 				.param("token", SETUP_TOKEN))
@@ -94,6 +94,21 @@ class AuthenticationIntegrationTests {
 
 		MockHttpSession session = (MockHttpSession) mockMvc.perform(formLogin()
 				.user("manager@example.com")
+				.password("correct-password"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/"))
+			.andReturn().getRequest().getSession();
+
+		mockMvc.perform(get("/").session(session))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void loginAcceptsDifferentCaseAndSurroundingSpaces() throws Exception {
+		seedAccount("manager-case@example.com", "correct-password", Role.MANAGER, true);
+
+		MockHttpSession session = (MockHttpSession) mockMvc.perform(formLogin()
+				.user(" Manager-Case@Example.COM ")
 				.password("correct-password"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/"))

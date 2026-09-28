@@ -69,7 +69,7 @@ public class SetupController {
 		}
 
 		Account account = new Account();
-		account.setEmail(email);
+		account.setEmail(Emails.canonical(email));
 		account.setPasswordHash(passwordEncoder.encode(password));
 		account.setRole(Role.MANAGER);
 		account.setCreatedAt(Instant.now());
