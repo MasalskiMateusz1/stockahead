@@ -283,23 +283,23 @@ None — this is a new schema, no existing data to migrate.
 
 #### Manual
 
-- [x] 2.1 Technician can load `/parts` and search by name or location
-- [x] 2.2 Manager-only controls (toggle, add link) hidden from technician
+- [x] 2.1 Technician can load `/parts` and search by name or location — 768a74d
+- [x] 2.2 Manager-only controls (toggle, add link) hidden from technician — 768a74d
 
 #### Automated
 
-- [x] 2.3 `./mvnw verify` — full suite passes after search/browse changes
+- [x] 2.3 `./mvnw verify` — full suite passes after search/browse changes — 768a74d
 
 ### Phase 3: Manager CRUD
 
 #### Manual
 
-- [ ] 3.1 Manager can add, edit, deactivate, and reactivate a part end-to-end
-- [ ] 3.2 Technician cannot reach any write action
+- [x] 3.1 Manager can add, edit, deactivate, and reactivate a part end-to-end
+- [x] 3.2 Technician cannot reach any write action
 
 #### Automated
 
-- [ ] 3.3 `./mvnw verify` — full suite passes after manager CRUD changes
+- [x] 3.3 `./mvnw verify` — full suite passes after manager CRUD changes
 
 ### Phase 4: Tests
 

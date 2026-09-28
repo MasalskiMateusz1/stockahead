@@ -1,14 +1,29 @@
 package pl.regavio.stockahead.parts;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Parts catalog search/browse screen, open to any authenticated user.
+ * Parts catalog search/browse screen, open to any authenticated user, plus
+ * manager-only create/edit/deactivate/reactivate actions.
  * {@code showInactive} is honored only for managers; a technician always
  * sees the active catalog regardless of the query parameter.
  */
@@ -17,8 +32,11 @@ public class PartController {
 
 	private final PartRepository partRepository;
 
-	public PartController(PartRepository partRepository) {
+	private final TransactionTemplate transactionTemplate;
+
+	public PartController(PartRepository partRepository, PlatformTransactionManager transactionManager) {
 		this.partRepository = partRepository;
+		this.transactionTemplate = new TransactionTemplate(transactionManager);
 	}
 
 	@GetMapping("/parts")
@@ -38,6 +56,232 @@ public class PartController {
 		model.addAttribute("showInactive", effectiveShowInactive);
 		model.addAttribute("isManager", isManager);
 		return "parts-list";
+	}
+
+	@GetMapping("/parts/new")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String newForm() {
+		return "parts-new";
+	}
+
+	@PostMapping("/parts")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String create(
+			@RequestParam String name,
+			@RequestParam String quantity,
+			@RequestParam String locations,
+			Model model) {
+		String trimmedName = name == null ? "" : name.trim();
+		if (trimmedName.isEmpty()) {
+			return renderNewPartError(model, "Nazwa jest wymagana.", name, quantity, locations);
+		}
+
+		if (partRepository.findByName(trimmedName).isPresent()) {
+			return renderNewPartError(model, "Część o tej nazwie już istnieje.", name, quantity, locations);
+		}
+
+		int parsedQuantity;
+		try {
+			parsedQuantity = Integer.parseInt(quantity.trim());
+		}
+		catch (NumberFormatException ex) {
+			return renderNewPartError(model, "Stan magazynowy musi być liczbą całkowitą.", name, quantity, locations);
+		}
+
+		if (parsedQuantity < 0) {
+			return renderNewPartError(model, "Stan magazynowy nie może być ujemny.", name, quantity, locations);
+		}
+
+		List<String> parsedLocations;
+		try {
+			parsedLocations = parseLocations(locations);
+		}
+		catch (IllegalArgumentException ex) {
+			return renderNewPartError(model, ex.getMessage(), name, quantity, locations);
+		}
+
+		if (parsedLocations.isEmpty()) {
+			return renderNewPartError(model, "Podaj co najmniej jedną lokalizację.", name, quantity, locations);
+		}
+
+		try {
+			transactionTemplate.executeWithoutResult(status -> {
+				Part part = new Part();
+				part.setName(trimmedName);
+				part.setQuantity(parsedQuantity);
+				part.setActive(true);
+				part.setCreatedAt(Instant.now());
+				for (String location : parsedLocations) {
+					PartLocation partLocation = new PartLocation();
+					partLocation.setLocation(location);
+					part.addLocation(partLocation);
+				}
+				partRepository.saveAndFlush(part);
+			});
+		}
+		catch (DataIntegrityViolationException ex) {
+			return renderNewPartError(model, "Część o tej nazwie już istnieje.", name, quantity, locations);
+		}
+
+		return "redirect:/parts";
+	}
+
+	@GetMapping("/parts/{id}/edit")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String editForm(@PathVariable Long id, Model model) {
+		Part part = partRepository.findById(id)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+		model.addAttribute("id", part.getId());
+		model.addAttribute("name", part.getName());
+		model.addAttribute("quantity", part.getQuantity());
+		model.addAttribute("locations", joinLocations(part.getLocations()));
+		return "parts-edit";
+	}
+
+	@PostMapping("/parts/{id}")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String edit(
+			@PathVariable Long id,
+			@RequestParam String name,
+			@RequestParam String locations,
+			Model model) {
+		Part existing = partRepository.findById(id)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+		int currentQuantity = existing.getQuantity();
+
+		String trimmedName = name == null ? "" : name.trim();
+		if (trimmedName.isEmpty()) {
+			return renderEditPartError(model, id, "Nazwa jest wymagana.", name, currentQuantity, locations);
+		}
+
+		Optional<Part> conflict = partRepository.findByName(trimmedName)
+			.filter(other -> !other.getId().equals(id));
+		if (conflict.isPresent()) {
+			return renderEditPartError(model, id, "Część o tej nazwie już istnieje.", name, currentQuantity, locations);
+		}
+
+		List<String> parsedLocations;
+		try {
+			parsedLocations = parseLocations(locations);
+		}
+		catch (IllegalArgumentException ex) {
+			return renderEditPartError(model, id, ex.getMessage(), name, currentQuantity, locations);
+		}
+
+		if (parsedLocations.isEmpty()) {
+			return renderEditPartError(model, id, "Podaj co najmniej jedną lokalizację.", name, currentQuantity,
+					locations);
+		}
+
+		try {
+			transactionTemplate.executeWithoutResult(status -> {
+				Part part = partRepository.findById(id)
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+				part.setName(trimmedName);
+				reconcileLocations(part, parsedLocations);
+				partRepository.saveAndFlush(part);
+			});
+		}
+		catch (DataIntegrityViolationException ex) {
+			return renderEditPartError(model, id, "Część o tej nazwie już istnieje.", name, currentQuantity,
+					locations);
+		}
+
+		return "redirect:/parts";
+	}
+
+	@PostMapping("/parts/{id}/deactivate")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String deactivate(@PathVariable Long id) {
+		transactionTemplate.executeWithoutResult(status -> {
+			Part part = partRepository.findById(id)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+			part.setActive(false);
+			partRepository.saveAndFlush(part);
+		});
+		return "redirect:/parts";
+	}
+
+	@PostMapping("/parts/{id}/reactivate")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String reactivate(@PathVariable Long id) {
+		transactionTemplate.executeWithoutResult(status -> {
+			Part part = partRepository.findById(id)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+			part.setActive(true);
+			partRepository.saveAndFlush(part);
+		});
+		return "redirect:/parts?showInactive=true";
+	}
+
+	/**
+	 * Splits a locations textarea's raw text on newlines, trims each line,
+	 * drops blank lines, and rejects the submission if any two trimmed lines
+	 * are (case-sensitively) identical.
+	 */
+	private List<String> parseLocations(String rawLocations) {
+		String text = rawLocations == null ? "" : rawLocations;
+		List<String> parsed = new ArrayList<>();
+		for (String rawLine : text.split("\r?\n")) {
+			String trimmed = rawLine.trim();
+			if (trimmed.isEmpty()) {
+				continue;
+			}
+			if (parsed.contains(trimmed)) {
+				throw new IllegalArgumentException(
+						"Lokalizacja „" + trimmed + "” została podana więcej niż raz.");
+			}
+			parsed.add(trimmed);
+		}
+		return parsed;
+	}
+
+	/**
+	 * Reconciles a managed part's location collection in place against a
+	 * normalized target set: retains matching rows, removes rows with no
+	 * match in the target set (orphanRemoval deletes them), and adds new
+	 * rows for target strings with no matching existing row.
+	 */
+	private void reconcileLocations(Part part, List<String> targetLocations) {
+		List<PartLocation> existingLocations = new ArrayList<>(part.getLocations());
+		for (PartLocation existingLocation : existingLocations) {
+			if (!targetLocations.contains(existingLocation.getLocation())) {
+				part.removeLocation(existingLocation);
+			}
+		}
+		for (String targetLocation : targetLocations) {
+			boolean alreadyPresent = part.getLocations().stream()
+				.anyMatch(existingLocation -> existingLocation.getLocation().equals(targetLocation));
+			if (!alreadyPresent) {
+				PartLocation newLocation = new PartLocation();
+				newLocation.setLocation(targetLocation);
+				part.addLocation(newLocation);
+			}
+		}
+	}
+
+	private String joinLocations(List<PartLocation> locations) {
+		return locations.stream()
+			.map(PartLocation::getLocation)
+			.collect(Collectors.joining("\n"));
+	}
+
+	private String renderNewPartError(Model model, String error, String name, String quantity, String locations) {
+		model.addAttribute("error", error);
+		model.addAttribute("name", name);
+		model.addAttribute("quantity", quantity);
+		model.addAttribute("locations", locations);
+		return "parts-new";
+	}
+
+	private String renderEditPartError(Model model, Long id, String error, String name, int quantity,
+			String locations) {
+		model.addAttribute("id", id);
+		model.addAttribute("error", error);
+		model.addAttribute("name", name);
+		model.addAttribute("quantity", quantity);
+		model.addAttribute("locations", locations);
+		return "parts-edit";
 	}
 
 }

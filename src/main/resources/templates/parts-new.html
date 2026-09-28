@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>Nowa część — Stockahead</title>
+</head>
+<body>
+	<h1>Nowa część</h1>
+
+	<p th:if="${error}" th:text="${error}"></p>
+
+	<form th:action="@{/parts}" method="post">
+		<div>
+			<label for="name">Nazwa</label>
+			<input type="text" id="name" name="name" th:value="${name}" required>
+		</div>
+		<div>
+			<label for="quantity">Stan magazynowy</label>
+			<input type="text" id="quantity" name="quantity" th:value="${quantity}" required>
+		</div>
+		<div>
+			<label for="locations">Lokalizacje (jedna na linię)</label>
+			<textarea id="locations" name="locations" rows="5" th:text="${locations}"></textarea>
+		</div>
+		<button type="submit">Dodaj część</button>
+	</form>
+
+	<p><a th:href="@{/parts}">Powrót do kartoteki</a></p>
+</body>
+</html>
