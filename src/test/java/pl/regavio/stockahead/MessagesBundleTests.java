@@ -92,6 +92,24 @@ class MessagesBundleTests {
 	}
 
 	@Test
+	void projectsErrorNameRequired() {
+		assertThat(messageSource.getMessage("projects.error.nameRequired", null, PL))
+			.isEqualTo("Nazwa projektu jest wymagana.");
+	}
+
+	@Test
+	void projectsErrorNameTooLong() {
+		assertThat(messageSource.getMessage("projects.error.nameTooLong", new Object[] { 255 }, PL))
+			.isEqualTo("Nazwa projektu może mieć maksymalnie 255 znaków.");
+	}
+
+	@Test
+	void projectsErrorDuplicateName() {
+		assertThat(messageSource.getMessage("projects.error.duplicateName", null, PL))
+			.isEqualTo("Projekt o tej nazwie już istnieje.");
+	}
+
+	@Test
 	void loginErrorBadCredentials() {
 		assertThat(messageSource.getMessage("login.error.badCredentials", null, PL))
 			.isEqualTo("Nieprawidłowy e-mail lub hasło.");
@@ -106,6 +124,66 @@ class MessagesBundleTests {
 	void loginStatusManagerCreated() {
 		assertThat(messageSource.getMessage("login.status.managerCreated", null, PL))
 			.isEqualTo("Konto kierownika zostało założone. Zaloguj się.");
+	}
+
+	@Test
+	void projectsBomErrorQuantityNotInteger() {
+		assertThat(messageSource.getMessage("projects.bom.error.quantityNotInteger", null, PL))
+			.isEqualTo("Ilość na sztukę musi być liczbą całkowitą.");
+	}
+
+	@Test
+	void projectsBomErrorQuantityNotPositive() {
+		assertThat(messageSource.getMessage("projects.bom.error.quantityNotPositive", null, PL))
+			.isEqualTo("Ilość na sztukę musi wynosić co najmniej 1.");
+	}
+
+	@Test
+	void projectsBomErrorPartUnavailable() {
+		assertThat(messageSource.getMessage("projects.bom.error.partUnavailable", null, PL))
+			.isEqualTo("Część nieaktywna lub nie istnieje.");
+	}
+
+	@Test
+	void projectsBomErrorDuplicatePart() {
+		assertThat(messageSource.getMessage("projects.bom.error.duplicatePart", null, PL))
+			.isEqualTo("Ta część jest już w liście materiałowej. Zmień ilość w istniejącej pozycji.");
+	}
+
+	@Test
+	void projectsBomErrorSaveFailed() {
+		assertThat(messageSource.getMessage("projects.bom.error.saveFailed", null, PL))
+			.isEqualTo("Nie udało się zapisać pozycji. Spróbuj ponownie.");
+	}
+
+	@Test
+	void projectsLinksErrorUrlRequired() {
+		assertThat(messageSource.getMessage("projects.links.error.urlRequired", null, PL))
+			.isEqualTo("Adres linku jest wymagany.");
+	}
+
+	@Test
+	void projectsLinksErrorUrlTooLong() {
+		assertThat(messageSource.getMessage("projects.links.error.urlTooLong", new Object[] { 2048 }, PL))
+			.isEqualTo("Adres linku może mieć maksymalnie 2048 znaków.");
+	}
+
+	@Test
+	void projectsLinksErrorUrlInvalid() {
+		assertThat(messageSource.getMessage("projects.links.error.urlInvalid", null, PL))
+			.isEqualTo("Adres linku musi zaczynać się od http:// lub https://, zawierać poprawną nazwę hosta (bez podkreśleń i polskich znaków) i nie może zawierać spacji.");
+	}
+
+	@Test
+	void projectsLinksErrorLabelTooLong() {
+		assertThat(messageSource.getMessage("projects.links.error.labelTooLong", new Object[] { 255 }, PL))
+			.isEqualTo("Opis linku może mieć maksymalnie 255 znaków.");
+	}
+
+	@Test
+	void projectsLinksErrorSaveFailed() {
+		assertThat(messageSource.getMessage("projects.links.error.saveFailed", null, PL))
+			.isEqualTo("Nie udało się zapisać linku. Sprawdź adres i spróbuj ponownie.");
 	}
 
 }

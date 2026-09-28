@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>Nowy projekt — Stockahead</title>
+</head>
+<body>
+	<h1>Nowy projekt</h1>
+
+	<p th:if="${error}" th:text="${error}"></p>
+
+	<form th:action="@{/projects}" method="post">
+		<div>
+			<label for="name">Nazwa</label>
+			<input type="text" id="name" name="name" th:value="${name}" required>
+		</div>
+		<button type="submit">Dodaj projekt</button>
+	</form>
+
+	<p><a th:href="@{/projects}">Powrót do listy projektów</a></p>
+</body>
+</html>

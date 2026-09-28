@@ -95,6 +95,9 @@ class PartsCatalogIntegrationTests {
 	}
 
 	private void cleanUp() {
+		jdbcTemplate.update("DELETE FROM project_links");
+		jdbcTemplate.update("DELETE FROM bom_lines");
+		jdbcTemplate.update("DELETE FROM projects");
 		jdbcTemplate.update("DELETE FROM part_locations");
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
