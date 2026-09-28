@@ -9,6 +9,8 @@
 
 	<p>Zalogowano jako <span th:text="${email}"></span> (<span th:text="${role}"></span>)</p>
 
+	<p><a th:href="@{/parts}">Kartoteka części</a></p>
+
 	<div sec:authorize="hasRole('MANAGER')">
 		<a th:href="@{/manager/ping}">Sprawdź dostęp kierownika</a>
 	</div>

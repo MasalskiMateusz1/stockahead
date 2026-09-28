@@ -272,7 +272,7 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 
 **Done when:** merging a PR deploys by itself, and a broken image does not leave the site down. The original wording was "a broken image never replaces a healthy one"; 7.4 proved that false for this setup, so the guarantee now comes from the deploy job verifying the site and rolling back, not from Coolify.
 
-- [ ] **Phase complete**
+- [x] **Phase complete** (2026-09-21) — merging deploys by itself (7.3), and a broken image now costs about two minutes of downtime that CI recovers from unattended (7.5) instead of staying down until someone notices. Two things stay open on purpose: whether Coolify's Health Checks can gate the swap and remove the outage altogether (7.5), and the gzip middleware that 7.4 found on this app's router (6.3 says off; it must be off before SSE ships). `drill/broken-start` and its `sha-d331d11` image are kept, not deleted, because the Health Checks experiment needs them.
 
 - [x] **7.1 [AI]: Add a `deploy` job to `ci.yml`.** Done 2026-09-21. Dispatch has two modes: `gh workflow run ci.yml --ref <branch>` with no `tag` builds only (deploy is skipped), and `-f tag=sha-XXXXXXX` skips `verify` and `image` and deploys that existing tag. The job refuses any tag that isn't `^sha-[0-9a-f]{7}$` before it reaches a URL or a JSON body, and treats every non-2xx as fatal — Access answers a blocked call with `302`, which `curl -f` would pass through as success. On a failed deploy it prints the last 120 lines of Coolify's deployment log. Checked with a YAML parse and `bash -n` over every `run` block; `actionlint` isn't installed here and Docker Desktop was down, so it wasn't run.
   - Runs after `image` on pushes to `main`. Also runs from `workflow_dispatch` with a `tag` input, for manual rollback to any earlier tag.
@@ -317,6 +317,8 @@ Cloudflare edge ── tunnel ──► OVH server (ufw deny-all + DOCKER-USER d
 ## Phase 8: Backups
 
 **Done when:** a Postgres dump and a Coolify instance backup reach R2 every night, and you have restored one.
+
+Pre-flight, checked 2026-09-21 over SSH (read-only): `pg_dump` in the database container is **18.6**, the same major as the server, so Coolify's scheduled dump won't hit a version mismatch; `/` has **3.4 TB free**, so 7 local dumps cost nothing. The database superuser is **`postgres`** (6.1), not `stockahead` — every `psql` / `pg_restore` in this phase uses `-U postgres`.
 
 - [ ] **Phase complete**
 

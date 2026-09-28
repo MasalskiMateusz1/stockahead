@@ -658,6 +658,7 @@ Coolify → Settings → **Backup**: enabled, frequency `0 3 * * *`, **S3: on**,
 Download the newest Postgres dump from R2 (dashboard → bucket → object → Download) to `~/Downloads`. PC (Git Bash) with Docker Desktop:
 ```bash
 DUMP=~/Downloads/<dump file name from R2>
+[ "${DUMP##*.}" = gz ] && gunzip -k "$DUMP" && DUMP="${DUMP%.gz}"   # Coolify gzips the dump when compression is on
 docker run -d --name restore-drill -e POSTGRES_PASSWORD=drill postgres:18
 until docker exec restore-drill pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
 docker cp "$DUMP" restore-drill:/tmp/db.dump
@@ -667,7 +668,7 @@ docker exec restore-drill psql -U postgres -d stockahead -tAc 'select count(*) f
 ```
 Production count: Coolify → `stockahead-db` → **Terminal**:
 ```bash
-psql -U stockahead -d stockahead -tAc 'select count(*) from flyway_schema_history'
+psql -U postgres -d stockahead -tAc 'select count(*) from flyway_schema_history'
 ```
 ✅ The two counts match. Clean up, because the dump holds production data:
 ```bash
@@ -696,7 +697,7 @@ Or use Coolify → app → Deployments → pick an earlier deployment → **Roll
    ```bash
    PG=$(sudo docker ps -q --filter "name=<pg-uuid>")
    sudo docker cp /tmp/<dump> "$PG":/tmp/restore.dump
-   sudo docker exec "$PG" pg_restore -U stockahead -d stockahead --clean --if-exists --no-owner /tmp/restore.dump
+   sudo docker exec "$PG" pg_restore -U postgres -d stockahead --clean --if-exists --no-owner /tmp/restore.dump
    sudo docker exec "$PG" rm /tmp/restore.dump && sudo rm /tmp/<dump>
    ```
 4. Deploy the image tag that matches the restored schema (R1), then **Start** the app.

@@ -7,9 +7,9 @@
 <body>
 	<h1>Zaloguj się</h1>
 
-	<p th:if="${param.error}">Nieprawidłowy e-mail lub hasło.</p>
-	<p th:if="${param.logout}">Wylogowano.</p>
-	<p th:if="${param.setup}">Konto kierownika zostało założone. Zaloguj się.</p>
+	<p th:if="${param.error}" th:text="#{login.error.badCredentials}"></p>
+	<p th:if="${param.logout}" th:text="#{login.status.loggedOut}"></p>
+	<p th:if="${param.setup}" th:text="#{login.status.managerCreated}"></p>
 
 	<form th:action="@{/login}" method="post">
 		<div>
