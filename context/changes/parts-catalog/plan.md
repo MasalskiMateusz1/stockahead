@@ -277,18 +277,18 @@ None — this is a new schema, no existing data to migrate.
 
 #### Automated
 
-- [ ] 1.1 `./mvnw verify` — migration V3 applies cleanly, app context loads
+- [x] 1.1 `./mvnw verify` — migration V3 applies cleanly, app context loads — 69bd01f
 
 ### Phase 2: Search & browse
 
 #### Manual
 
-- [ ] 2.1 Technician can load `/parts` and search by name or location
-- [ ] 2.2 Manager-only controls (toggle, add link) hidden from technician
+- [x] 2.1 Technician can load `/parts` and search by name or location
+- [x] 2.2 Manager-only controls (toggle, add link) hidden from technician
 
 #### Automated
 
-- [ ] 2.3 `./mvnw verify` — full suite passes after search/browse changes
+- [x] 2.3 `./mvnw verify` — full suite passes after search/browse changes
 
 ### Phase 3: Manager CRUD
 

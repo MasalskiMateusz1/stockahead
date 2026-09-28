@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<title>Kartoteka części — Stockahead</title>
+</head>
+<body>
+	<h1>Kartoteka części</h1>
+
+	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
+
+	<div sec:authorize="hasRole('MANAGER')">
+		<a th:href="@{/parts/new}">Dodaj część</a>
+	</div>
+
+	<form th:action="@{/parts}" method="get">
+		<div>
+			<label for="q">Szukaj</label>
+			<input type="text" id="q" name="q" th:value="${q}">
+		</div>
+		<div sec:authorize="hasRole('MANAGER')">
+			<label for="showInactive">
+				<input type="checkbox" id="showInactive" name="showInactive" value="true" th:checked="${showInactive}">
+				pokaż nieaktywne
+			</label>
+		</div>
+		<button type="submit">Szukaj</button>
+	</form>
+
+	<table>
+		<thead>
+			<tr>
+				<th>Nazwa</th>
+				<th>Stan</th>
+				<th>Zarezerwowane</th>
+				<th>Dostępne</th>
+				<th>Lokalizacje</th>
+				<th sec:authorize="hasRole('MANAGER')">Akcje</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="part : ${parts}">
+				<td th:text="${part.name}"></td>
+				<td th:text="${part.quantity}"></td>
+				<td>0</td>
+				<td th:text="${part.quantity}"></td>
+				<td th:text="${#strings.listJoin(part.locations.![location], ', ')}"></td>
+				<td sec:authorize="hasRole('MANAGER')">
+					<a th:href="@{/parts/{id}/edit(id=${part.id})}">Edytuj</a>
+					<form th:if="${part.active}" th:action="@{/parts/{id}/deactivate(id=${part.id})}" method="post" style="display:inline">
+						<button type="submit">Dezaktywuj</button>
+					</form>
+					<form th:unless="${part.active}" th:action="@{/parts/{id}/reactivate(id=${part.id})}" method="post" style="display:inline">
+						<button type="submit">Reaktywuj</button>
+					</form>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</body>
+</html>
