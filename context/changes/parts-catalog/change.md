@@ -1,7 +1,7 @@
 ---
 change_id: parts-catalog
 title: Kartoteka części z lokalizacjami
-status: implemented
+status: impl_reviewed
 created: 2026-09-28
 updated: 2026-09-28
 archived_at: null

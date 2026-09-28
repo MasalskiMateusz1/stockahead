@@ -213,8 +213,8 @@ class PartsCatalogIntegrationTests {
 	 * opening its write transaction, so a sequential duplicate-name POST only
 	 * ever exercises that pre-check. To genuinely exercise the DB unique
 	 * constraint and the controller's
-	 * {@code catch (DataIntegrityViolationException)} race-handling branch
-	 * (see the "(race)" comment in {@code PartController.create()}), this
+	 * {@code catch (DataIntegrityViolationException)} branch in
+	 * {@code PartController.create()}, this
 	 * test holds a same-named row open-but-uncommitted in a manually managed
 	 * transaction on a background thread while a concurrent request races to
 	 * create the same name: the racer's pre-check sees nothing (the holder

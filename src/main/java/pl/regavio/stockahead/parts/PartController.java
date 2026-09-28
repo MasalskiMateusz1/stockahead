@@ -30,6 +30,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Controller
 public class PartController {
 
+	private static final int MAX_FIELD_LENGTH = 255;
+
 	private final PartRepository partRepository;
 
 	private final TransactionTemplate transactionTemplate;
@@ -75,6 +77,10 @@ public class PartController {
 		if (trimmedName.isEmpty()) {
 			return renderNewPartError(model, "Nazwa jest wymagana.", name, quantity, locations);
 		}
+		if (trimmedName.length() > MAX_FIELD_LENGTH) {
+			return renderNewPartError(model, "Nazwa może mieć maksymalnie " + MAX_FIELD_LENGTH + " znaków.", name,
+					quantity, locations);
+		}
 
 		if (partRepository.findByName(trimmedName).isPresent()) {
 			return renderNewPartError(model, "Część o tej nazwie już istnieje.", name, quantity, locations);
@@ -102,6 +108,11 @@ public class PartController {
 
 		if (parsedLocations.isEmpty()) {
 			return renderNewPartError(model, "Podaj co najmniej jedną lokalizację.", name, quantity, locations);
+		}
+
+		if (parsedLocations.stream().anyMatch(location -> location.length() > MAX_FIELD_LENGTH)) {
+			return renderNewPartError(model, "Lokalizacja może mieć maksymalnie " + MAX_FIELD_LENGTH + " znaków.",
+					name, quantity, locations);
 		}
 
 		try {
@@ -153,6 +164,10 @@ public class PartController {
 		if (trimmedName.isEmpty()) {
 			return renderEditPartError(model, id, "Nazwa jest wymagana.", name, currentQuantity, locations);
 		}
+		if (trimmedName.length() > MAX_FIELD_LENGTH) {
+			return renderEditPartError(model, id, "Nazwa może mieć maksymalnie " + MAX_FIELD_LENGTH + " znaków.",
+					name, currentQuantity, locations);
+		}
 
 		Optional<Part> conflict = partRepository.findByName(trimmedName)
 			.filter(other -> !other.getId().equals(id));
@@ -171,6 +186,11 @@ public class PartController {
 		if (parsedLocations.isEmpty()) {
 			return renderEditPartError(model, id, "Podaj co najmniej jedną lokalizację.", name, currentQuantity,
 					locations);
+		}
+
+		if (parsedLocations.stream().anyMatch(location -> location.length() > MAX_FIELD_LENGTH)) {
+			return renderEditPartError(model, id, "Lokalizacja może mieć maksymalnie " + MAX_FIELD_LENGTH + " znaków.",
+					name, currentQuantity, locations);
 		}
 
 		try {
