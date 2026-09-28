@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<title th:text="${project.name} + ' — Stockahead'">Projekt — Stockahead</title>
+</head>
+<body>
+	<p th:if="${error}" th:text="${error}"></p>
+
+	<h1 th:text="${project.name}"></h1>
+
+	<p>Status: <span th:text="${project.active} ? 'aktywny' : 'nieaktywny'"></span></p>
+
+	<p sec:authorize="hasRole('MANAGER')">
+		<a th:href="@{/projects/{id}/edit(id=${project.id})}">Zmień nazwę</a>
+	</p>
+
+	<h2>Lista materiałowa</h2>
+
+	<p th:if="${#lists.isEmpty(lines)}">Brak pozycji w liście materiałowej.</p>
+
+	<table th:unless="${#lists.isEmpty(lines)}">
+		<thead>
+			<tr>
+				<th>Część</th>
+				<th>Ilość na sztukę</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="line : ${lines}">
+				<td>
+					<span th:text="${line.partName}"></span>
+					<span th:unless="${line.partActive}">(nieaktywna)</span>
+				</td>
+				<td th:text="${line.quantityPerUnit}"></td>
+			</tr>
+		</tbody>
+	</table>
+
+	<h2>Dokumentacja</h2>
+
+	<p th:if="${#lists.isEmpty(links)}">Brak linków do dokumentacji.</p>
+
+	<ul th:unless="${#lists.isEmpty(links)}">
+		<li th:each="link : ${links}">
+			<a th:href="${link.url}" th:text="${link.label != null and !#strings.isEmpty(link.label)} ? ${link.label} : ${link.url}" rel="noopener noreferrer" target="_blank"></a>
+		</li>
+	</ul>
+
+	<p><a th:href="@{/projects}">Powrót do listy projektów</a></p>
+</body>
+</html>

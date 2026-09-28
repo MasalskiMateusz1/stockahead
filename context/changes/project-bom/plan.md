@@ -52,6 +52,12 @@ New feature package `pl.regavio.stockahead.projects`: three entities (`Project` 
 
 **Detail page errors across controllers.** BOM and link validation errors re-render `project-detail` (not a separate form page). A package-private `ProjectDetailModel` component fills the page model (project, lines with part name/active flag, links, active parts for the select, `error`, and submitted values) so all three controllers render it the same way; load it in a fresh read after any rolled-back write, never from the failed managed entity.
 
+Error display contract (shared by Phases 3 and 4): one page-level `error` paragraph at the top of `project-detail`, rendered with HTTP 200 like `PartController`. The add-line form re-populates `partId`/`quantityPerUnit`; a failed quantity change sets `errorLineId` plus the submitted `quantityPerUnit`, and only that row's input shows the submitted value (other rows show stored quantities); the add-link form re-populates `url`/`label`.
+
+**Name uniqueness semantics.** A duplicate project name means an exact, case-sensitive match after trimming — the same rule as `parts.name`. "Sterownik A" and "sterownik a" may coexist.
+
+**Test cleanup across feature packages.** `bom_lines.part_id` is `ON DELETE RESTRICT`, so any test class that deletes `parts` must first delete `project_links`, `bom_lines` and `projects`.
+
 ## Phase 1: Schema & domain model
 
 ### Overview
@@ -154,6 +160,12 @@ Project lifecycle screens: everyone browses, the manager creates, renames, deact
 
 **Contract**: `@Import(TestcontainersConfiguration.class) @SpringBootTest @AutoConfigureMockMvc`, not `@Transactional`; `formLogin()`/`csrf()` like `PartsCatalogIntegrationTests`; fixtures committed via `TransactionTemplate`; cleanup before/after each test deletes `project_links`, `bom_lines`, `projects`, `part_locations`, `parts`, then this class's accounts (lowercase, class-unique emails); persisted state re-read after each request.
 
+#### 4. Existing tests touched
+
+**Files**: `src/test/java/pl/regavio/stockahead/MessagesBundleTests.java`, `src/test/java/pl/regavio/stockahead/parts/PartsCatalogIntegrationTests.java`
+
+**Intent**: `MessagesBundleTests` gains one exact-text assertion per new `projects.*` key. `PartsCatalogIntegrationTests.cleanUp()` deletes `project_links`, `bom_lines`, `projects` before `part_locations`/`parts` (see "Test cleanup across feature packages").
+
 ### Success Criteria:
 
 #### Automated Verification:
@@ -204,7 +216,7 @@ The manager builds a project's BOM on its detail page with per-line forms; lines
 
 **Intent**: Same shape and isolation as `ProjectIntegrationTests`.
 
-**Contract**: Fixtures: one project, active parts, one inactive part.
+**Contract**: Fixtures: one project, active parts, one inactive part. `MessagesBundleTests.java` gains one exact-text assertion per new `projects.bom.*` key.
 
 ### Success Criteria:
 
@@ -256,7 +268,7 @@ The manager adds and removes documentation links; everyone can open them.
 
 **File**: `src/test/java/pl/regavio/stockahead/projects/ProjectLinkIntegrationTests.java`
 
-**Intent**: Same shape and isolation as the other project test classes.
+**Intent**: Same shape and isolation as the other project test classes. `MessagesBundleTests.java` gains one exact-text assertion per new `projects.links.*` key.
 
 ### Success Criteria:
 
@@ -319,22 +331,22 @@ New tables only; no existing data changes. `V5` must land on `main` after S-02's
 
 #### Automated
 
-- [x] 1.1 `ProjectSchemaTests` passes: zero/negative quantity, duplicate BOM line, deleting a referenced part, non-http(s) URL and duplicate project name are rejected by PostgreSQL.
-- [x] 1.2 `./mvnw verify` passes — `V5` applies cleanly on top of `V1`–`V3` and Hibernate `validate` accepts the entities.
+- [x] 1.1 `ProjectSchemaTests` passes: zero/negative quantity, duplicate BOM line, deleting a referenced part, non-http(s) URL and duplicate project name are rejected by PostgreSQL. — 57fa8b5
+- [x] 1.2 `./mvnw verify` passes — `V5` applies cleanly on top of `V1`–`V3` and Hibernate `validate` accepts the entities. — 57fa8b5
 
 ### Phase 2: Projects — list, create, rename, deactivate, detail
 
 #### Automated
 
-- [ ] 2.1 Manager creates a project → redirect to its detail page, row persisted with `active = true`; blank or > 255-character name re-renders the form with an error and no row.
-- [ ] 2.2 Duplicate project name on create and on rename returns the form with a friendly error (DB constraint path, no 500) and leaves the original rows unchanged.
-- [ ] 2.3 A deactivated project is excluded from the default list, listed together with active projects for a manager with `showInactive=true`, still excluded for a technician with `showInactive=true`, 404 on its detail page for a technician, and back in the default list after reactivation.
-- [ ] 2.4 Both roles get 200 on `GET /projects` and on an active project's `GET /projects/{id}`; a technician gets 403 on every manager route.
-- [ ] 2.5 `./mvnw verify` passes.
+- [x] 2.1 Manager creates a project → redirect to its detail page, row persisted with `active = true`; blank or > 255-character name re-renders the form with an error and no row.
+- [x] 2.2 Duplicate project name on create and on rename returns the form with a friendly error (DB constraint path, no 500) and leaves the original rows unchanged.
+- [x] 2.3 A deactivated project is excluded from the default list, listed together with active projects for a manager with `showInactive=true`, still excluded for a technician with `showInactive=true`, 404 on its detail page for a technician, and back in the default list after reactivation.
+- [x] 2.4 Both roles get 200 on `GET /projects` and on an active project's `GET /projects/{id}`; a technician gets 403 on every manager route.
+- [x] 2.5 `./mvnw verify` passes.
 
 #### Manual
 
-- [ ] 2.6 Manager can create, rename, deactivate and reactivate from the UI; technician sees list and detail with no manager controls.
+- [x] 2.6 Manager can create, rename, deactivate and reactivate from the UI; technician sees list and detail with no manager controls.
 
 ### Phase 3: BOM lines
 

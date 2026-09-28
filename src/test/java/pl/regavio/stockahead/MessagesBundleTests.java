@@ -92,6 +92,24 @@ class MessagesBundleTests {
 	}
 
 	@Test
+	void projectsErrorNameRequired() {
+		assertThat(messageSource.getMessage("projects.error.nameRequired", null, PL))
+			.isEqualTo("Nazwa projektu jest wymagana.");
+	}
+
+	@Test
+	void projectsErrorNameTooLong() {
+		assertThat(messageSource.getMessage("projects.error.nameTooLong", new Object[] { 255 }, PL))
+			.isEqualTo("Nazwa projektu może mieć maksymalnie 255 znaków.");
+	}
+
+	@Test
+	void projectsErrorDuplicateName() {
+		assertThat(messageSource.getMessage("projects.error.duplicateName", null, PL))
+			.isEqualTo("Projekt o tej nazwie już istnieje.");
+	}
+
+	@Test
 	void loginErrorBadCredentials() {
 		assertThat(messageSource.getMessage("login.error.badCredentials", null, PL))
 			.isEqualTo("Nieprawidłowy e-mail lub hasło.");

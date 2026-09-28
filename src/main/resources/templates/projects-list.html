@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<title>Projekty — Stockahead</title>
+</head>
+<body>
+	<h1>Projekty</h1>
+
+	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
+
+	<div sec:authorize="hasRole('MANAGER')">
+		<a th:href="@{/projects/new}">Dodaj projekt</a>
+	</div>
+
+	<form sec:authorize="hasRole('MANAGER')" th:action="@{/projects}" method="get">
+		<label for="showInactive">
+			<input type="checkbox" id="showInactive" name="showInactive" value="true" th:checked="${showInactive}">
+			pokaż nieaktywne
+		</label>
+		<button type="submit">Pokaż</button>
+	</form>
+
+	<p th:if="${#lists.isEmpty(projects)}">Brak projektów.</p>
+
+	<table th:unless="${#lists.isEmpty(projects)}">
+		<thead>
+			<tr>
+				<th>Nazwa</th>
+				<th>Status</th>
+				<th sec:authorize="hasRole('MANAGER')">Akcje</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="project : ${projects}">
+				<td><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}"></a></td>
+				<td th:text="${project.active} ? 'aktywny' : 'nieaktywny'"></td>
+				<td sec:authorize="hasRole('MANAGER')">
+					<a th:href="@{/projects/{id}/edit(id=${project.id})}">Edytuj</a>
+					<form th:if="${project.active}" th:action="@{/projects/{id}/deactivate(id=${project.id})}" method="post" style="display:inline">
+						<button type="submit">Dezaktywuj</button>
+					</form>
+					<form th:unless="${project.active}" th:action="@{/projects/{id}/reactivate(id=${project.id})}" method="post" style="display:inline">
+						<button type="submit">Reaktywuj</button>
+					</form>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</body>
+</html>
