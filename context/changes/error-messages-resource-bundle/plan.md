@@ -194,16 +194,16 @@ Brak — nowy plik, żadne dane nie migrują.
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` — pełny zestaw testów przechodzi, w tym nowy `MessagesBundleTests`
+- [x] 1.1 `./mvnw verify` — pełny zestaw testów przechodzi, w tym nowy `MessagesBundleTests` — bc4ce31
 
 ### Phase 2: Wpięcie szablonu `login.html`
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` — pełny zestaw testów przechodzi
+- [x] 2.1 `./mvnw verify` — pełny zestaw testów przechodzi
 
 #### Manual
 
-- [ ] 2.2 Błędne hasło przy logowaniu pokazuje identyczny komunikat jak przed zmianą
-- [ ] 2.3 Wylogowanie pokazuje identyczny komunikat jak przed zmianą
-- [ ] 2.4 Zakończenie `/setup` pokazuje identyczny komunikat jak przed zmianą
+- [x] 2.2 Błędne hasło przy logowaniu pokazuje identyczny komunikat jak przed zmianą
+- [x] 2.3 Wylogowanie pokazuje identyczny komunikat jak przed zmianą
+- [x] 2.4 Zakończenie `/setup` pokazuje identyczny komunikat jak przed zmianą
