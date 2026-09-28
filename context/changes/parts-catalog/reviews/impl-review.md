@@ -31,7 +31,7 @@ Success Criteria confirmed directly: `./mvnw verify` — 29/29 tests green, BUIL
 - **Location**: src/main/java/pl/regavio/stockahead/parts/PartController.java:122-124, 185-188
 - **Detail**: Both `create()` and `edit()` catch `DataIntegrityViolationException` and unconditionally render "Część o tej nazwie już istnieje." Neither `name` nor `location` (both `VARCHAR(255)`) has server-side length validation, so a too-long value would also land in this catch and show a misleading "already exists" message instead of the real cause. Satisfies lessons.md rule 1 (no raw 500) but the message can mislead.
 - **Fix**: Add a length check alongside the existing non-blank/quantity validation (mirroring the pattern already used for quantity parsing), so oversized input gets its own friendly message instead of falling into the constraint-violation catch.
-- **Decision**: FIXED — added `MAX_FIELD_LENGTH = 255` checks for name (both `create()`/`edit()`) and each location (both methods), returning "Nazwa/Lokalizacja może mieć maksymalnie 255 znaków." before the DB write. `./mvnw verify` still 29/29 green.
+- **Decision**: FIXED — added `MAX_FIELD_LENGTH = 255` checks for name (both `create()`/`edit()`) and each location (both methods), returning "Nazwa/Lokalizacja może mieć maksymalnie 255 znaków." before the DB write. `./mvnw verify` still 29/29 green. Committed as 3180159.
 
 ### F2 — Search query doesn't eager-fetch locations (N+1 on catalog render)
 
@@ -71,7 +71,7 @@ Success Criteria confirmed directly: `./mvnw verify` — 29/29 tests green, BUIL
 - **Location**: src/test/java/pl/regavio/stockahead/parts/PartsCatalogIntegrationTests.java (duplicate-name race test Javadoc)
 - **Detail**: The Javadoc references "the '(race)' comment in `PartController.create()`" — no such comment exists in the controller's catch block.
 - **Fix**: Remove or correct the dangling cross-reference in the Javadoc.
-- **Decision**: FIXED — reworded the Javadoc to describe the catch block directly instead of referencing a nonexistent "(race)" comment.
+- **Decision**: FIXED — reworded the Javadoc to describe the catch block directly instead of referencing a nonexistent "(race)" comment. Committed as 3180159.
 
 ### F6 — A few assertions read via `partRepository.findById()` directly instead of the `transactionTemplate.execute` wrapper
 
