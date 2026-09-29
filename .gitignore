@@ -42,6 +42,6 @@ build/
 
 ### 10xDevs course content (installed by 10x-cli, never published) ###
 .10x-cli.json
-.claude/.10x-cli-manifest.json
-.claude/skills/10x-*/
-.claude/prompts/
+.claude/**/10x-*
+.github/**/10x-*
+.agents/**/10x-*
