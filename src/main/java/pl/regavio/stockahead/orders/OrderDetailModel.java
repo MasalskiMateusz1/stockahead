@@ -46,7 +46,7 @@ class OrderDetailModel {
 	}
 
 	private DetailData load(Long orderId) {
-		Order order = orderRepository.findById(orderId)
+		Order order = orderRepository.findByIdWithDetails(orderId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		List<LineView> lines = order.getLines().stream()
 			.map(line -> new LineView(line.getPart().getName(), line.getRequiredQuantity(),

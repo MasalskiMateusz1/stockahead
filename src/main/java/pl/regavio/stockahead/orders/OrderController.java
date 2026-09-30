@@ -35,7 +35,9 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * form only ever offers the three valid values.
  */
 @Controller
-class OrderController {
+public class OrderController {
+
+	private static final int MAX_QUANTITY_UNITS = 1_000_000;
 
 	private final ProjectRepository projectRepository;
 
@@ -63,7 +65,7 @@ class OrderController {
 	@GetMapping("/orders")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String list(Model model) {
-		model.addAttribute("orders", orderRepository.findByStatus(OrderStatus.OPEN).stream()
+		model.addAttribute("orders", orderRepository.findByStatusWithProject(OrderStatus.OPEN).stream()
 			.sorted(ReservationAllocator.ALLOCATION_ORDER)
 			.toList());
 		return "orders-list";
@@ -165,6 +167,10 @@ class OrderController {
 		}
 		if (parsed < 1) {
 			return messageSource.getMessage("orders.error.quantityNotPositive", null, locale);
+		}
+		if (parsed > MAX_QUANTITY_UNITS) {
+			return messageSource.getMessage("orders.error.quantityTooLarge", new Object[] { MAX_QUANTITY_UNITS },
+					locale);
 		}
 		return null;
 	}

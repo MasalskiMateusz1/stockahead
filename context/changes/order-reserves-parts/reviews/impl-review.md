@@ -42,7 +42,7 @@ Every manager-only order route (`GET /orders/new`, `POST /orders`, `GET /orders`
 - **Location**: src/main/java/pl/regavio/stockahead/orders/OrderController.java:38
 - **Detail**: Every other `@Controller` in the codebase (`HomeController`, `ManagerPingController`, `TechnicianAccountController`, `SetupController`, `PartController`, `ProjectLinkController`, `ProjectBomController`, `ProjectController`) is declared `public`. `OrderController` is the sole package-private exception. No functional impact — Spring manages package-private beans in the same package fine.
 - **Fix**: Declare `public class OrderController` for consistency with the rest of the codebase.
-- **Decision**: PENDING
+- **Decision**: FIXED
 
 ### F2 — findAllForUpdate() locks the entire parts table on every order creation
 
@@ -52,7 +52,7 @@ Every manager-only order route (`GET /orders/new`, `POST /orders`, `GET /orders`
 - **Location**: src/main/java/pl/regavio/stockahead/orders/ReservationAllocator.java:53-72, src/main/java/pl/regavio/stockahead/parts/PartRepository.java:26-28
 - **Detail**: `findAllForUpdate()` locks every row of the entire `parts` table (active and inactive) on every single order creation, serializing all concurrent order-creation transactions against the whole table rather than just the parts the triggering order touches. This is deliberate per `plan.md` ("small/low-QPS scale... over an incremental approach, for correctness simplicity") — a scalability ceiling, not a defect.
 - **Fix**: None needed now. Worth a `lessons.md` note if a future slice needs to relax full-table locking for throughput.
-- **Decision**: PENDING
+- **Decision**: SKIPPED
 
 ### F3 — N+1 query pattern in order list/detail rendering (no JOIN FETCH)
 
@@ -62,7 +62,7 @@ Every manager-only order route (`GET /orders/new`, `POST /orders`, `GET /orders`
 - **Location**: src/main/java/pl/regavio/stockahead/orders/OrderController.java:63-70, src/main/java/pl/regavio/stockahead/orders/OrderDetailModel.java:48-58
 - **Detail**: `GET /orders` renders `order.project.name` per row and `GET /orders/{id}` renders `line.getPart().getName()` per line, both via default JPA `@ManyToOne` loading with no `JOIN FETCH` — one extra query per order (list) / per line (detail). Same shape as the pre-existing pattern in `ProjectDetailModel`/`PartController`; not egregious for this tool's expected row counts.
 - **Fix**: No action needed at current scale; consider a `JOIN FETCH` if order/line counts grow significantly.
-- **Decision**: PENDING
+- **Decision**: FIXED + ACCEPTED-AS-RULE: Consider JOIN FETCH for list/detail views once row counts grow
 
 ### F4 — No upper-bound validation on quantityUnits before multiplying into required_quantity
 
@@ -72,4 +72,4 @@ Every manager-only order route (`GET /orders/new`, `POST /orders`, `GET /orders`
 - **Location**: src/main/java/pl/regavio/stockahead/orders/OrderController.java:131
 - **Detail**: `line.setRequiredQuantity(bomLine.getQuantityPerUnit() * parsedQuantityUnits)` has no overflow guard on the user-supplied `quantityUnits`. An extreme value could overflow `int` to a negative `required_quantity`, but this is caught by the DB `CHECK (required_quantity > 0)` constraint and surfaces through the existing `DataIntegrityViolationException` → `orders.error.saveFailed` path. Not exploitable — just a confusing generic error rather than a targeted validation message.
 - **Fix**: Optional — add an explicit upper-bound check on `quantityUnits` with a dedicated error message, if it comes up in practice.
-- **Decision**: PENDING
+- **Decision**: FIXED + ACCEPTED-AS-RULE: Guard user-supplied multipliers against int overflow before relying on a DB CHECK
