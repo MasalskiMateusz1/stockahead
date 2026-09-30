@@ -26,7 +26,7 @@ import pl.regavio.stockahead.parts.PartRepository;
 @Component
 class ReservationAllocator {
 
-	private static final Comparator<Order> ALLOCATION_ORDER = Comparator
+	static final Comparator<Order> ALLOCATION_ORDER = Comparator
 		.comparing(Order::getPriority, Comparator.reverseOrder())
 		.thenComparing(Order::getRequiredDate)
 		.thenComparing(Order::getCreatedAt)

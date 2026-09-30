@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>Zlecenia — Stockahead</title>
+</head>
+<body>
+	<h1>Zlecenia</h1>
+
+	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
+
+	<p th:if="${#lists.isEmpty(orders)}">Brak zleceń.</p>
+
+	<table th:unless="${#lists.isEmpty(orders)}">
+		<thead>
+			<tr>
+				<th>Projekt</th>
+				<th>Liczba sztuk</th>
+				<th>Priorytet</th>
+				<th>Wymagany termin</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="order : ${orders}">
+				<td th:text="${order.project.name}"></td>
+				<td th:text="${order.quantityUnits}"></td>
+				<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
+				<td th:text="${order.requiredDate}"></td>
+				<td><a th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
+			</tr>
+		</tbody>
+	</table>
+</body>
+</html>

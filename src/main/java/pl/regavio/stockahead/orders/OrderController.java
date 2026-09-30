@@ -13,6 +13,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -42,18 +43,36 @@ class OrderController {
 
 	private final ReservationAllocator reservationAllocator;
 
+	private final OrderDetailModel orderDetailModel;
+
 	private final TransactionTemplate transactionTemplate;
 
 	private final MessageSource messageSource;
 
 	OrderController(ProjectRepository projectRepository, OrderRepository orderRepository,
-			ReservationAllocator reservationAllocator, PlatformTransactionManager transactionManager,
-			MessageSource messageSource) {
+			ReservationAllocator reservationAllocator, OrderDetailModel orderDetailModel,
+			PlatformTransactionManager transactionManager, MessageSource messageSource) {
 		this.projectRepository = projectRepository;
 		this.orderRepository = orderRepository;
 		this.reservationAllocator = reservationAllocator;
+		this.orderDetailModel = orderDetailModel;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 		this.messageSource = messageSource;
+	}
+
+	@GetMapping("/orders")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String list(Model model) {
+		model.addAttribute("orders", orderRepository.findByStatus(OrderStatus.OPEN).stream()
+			.sorted(ReservationAllocator.ALLOCATION_ORDER)
+			.toList());
+		return "orders-list";
+	}
+
+	@GetMapping("/orders/{id}")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String detail(@PathVariable Long id, Model model) {
+		return orderDetailModel.render(model, id);
 	}
 
 	@GetMapping("/orders/new")

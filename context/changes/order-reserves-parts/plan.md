@@ -289,28 +289,28 @@ Replace `parts-list.html`'s hardcoded reserved/available columns with real numbe
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes
-- [x] 3.2 Integration test: happy-path order creation reserves stock and redirects correctly
-- [x] 3.3 Integration test: invalid quantity/date/project rejected with correct error, no row written
-- [x] 3.4 Integration test: technician gets 403 on order-creation routes
-- [x] 3.6 Integration test: two concurrent `POST /orders` against scarce stock never together over-reserve (HTTP-level counterpart to Phase 2's `ReservationConcurrencyTests`)
+- [x] 3.1 `./mvnw verify` passes — 733ddfe
+- [x] 3.2 Integration test: happy-path order creation reserves stock and redirects correctly — 733ddfe
+- [x] 3.3 Integration test: invalid quantity/date/project rejected with correct error, no row written — 733ddfe
+- [x] 3.4 Integration test: technician gets 403 on order-creation routes — 733ddfe
+- [x] 3.6 Integration test: two concurrent `POST /orders` against scarce stock never together over-reserve (HTTP-level counterpart to Phase 2's `ReservationConcurrencyTests`) — 733ddfe
 
 #### Manual
 
-- [x] 3.5 As a manager, create a real order and confirm the reservation matches BOM and stock
+- [x] 3.5 As a manager, create a real order and confirm the reservation matches BOM and stock — 733ddfe
 
 ### Phase 4: Order list & detail
 
 #### Automated
 
-- [ ] 4.1 `./mvnw verify` passes
-- [ ] 4.2 Integration test: US-01 acceptance example end-to-end (reserved=6, missing=4)
-- [ ] 4.3 Integration test: technician gets 403 on order list/detail routes
-- [ ] 4.4 Integration test: unknown order id is 404
+- [x] 4.1 `./mvnw verify` passes
+- [x] 4.2 Integration test: US-01 acceptance example end-to-end (reserved=6, missing=4)
+- [x] 4.3 Integration test: technician gets 403 on order list/detail routes
+- [x] 4.4 Integration test: unknown order id is 404
 
 #### Manual
 
-- [ ] 4.5 As a manager, open order list and detail pages and confirm numbers match
+- [x] 4.5 As a manager, open order list and detail pages and confirm numbers match
 
 ### Phase 5: Parts catalog wiring
 

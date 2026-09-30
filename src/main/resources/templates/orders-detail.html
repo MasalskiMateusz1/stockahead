@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title th:text="${order.projectName} + ' — Stockahead'">Zlecenie — Stockahead</title>
+</head>
+<body>
+	<h1 th:text="${order.projectName}"></h1>
+
+	<p>Liczba sztuk: <span th:text="${order.quantityUnits}"></span></p>
+	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
+	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
+
+	<h2>Pozycje</h2>
+
+	<p th:if="${#lists.isEmpty(lines)}">Brak pozycji.</p>
+
+	<table th:unless="${#lists.isEmpty(lines)}">
+		<thead>
+			<tr>
+				<th>Część</th>
+				<th>Wymagana ilość</th>
+				<th>Zarezerwowana ilość</th>
+				<th>Brakująca ilość</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="line : ${lines}">
+				<td th:text="${line.partName}"></td>
+				<td th:text="${line.requiredQuantity}"></td>
+				<td th:text="${line.reservedQuantity}"></td>
+				<td th:text="${line.missingQuantity}"></td>
+			</tr>
+		</tbody>
+	</table>
+
+	<p><a th:href="@{/orders}">Powrót do listy zleceń</a></p>
+</body>
+</html>
