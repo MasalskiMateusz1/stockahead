@@ -141,7 +141,7 @@ Implement `ReservationAllocator`, the reusable full-recompute allocation compone
 
 **Intent**: `GET /orders/new` (manager-only form) and `POST /orders` (manager-only create), following `ProjectBomController`'s validate-then-`transactionTemplate.execute`-then-catch-`DataIntegrityViolationException` shape.
 
-**Contract**: Form fields: `projectId` (dropdown of active projects only, reusing `projectRepository.list(false)` the way `ProjectDetailModel` reuses `partRepository.search("", false)`), `quantityUnits` (int, ≥ 1), `priority` (`LOW`/`NORMAL`/`HIGH`, radio/select with Polish labels Niski/Normalny/Wysoki from `messages.properties`), `requiredDate` (HTML `date` input, `min` attribute = today; server re-validates not-in-the-past). On submit: reject if `projectId` doesn't resolve to an *active* project (mirrors `ProjectBomController.addLine`'s `part == null` pattern for inactive parts). Inside one `transactionTemplate.execute`: create the `Order`, copy every `BomLine` of the project into an `OrderLine` with `requiredQuantity = bomLine.quantityPerUnit * quantityUnits` and `reservedQuantity = 0`, save, then call `reservationAllocator.reallocateAll()`, then redirect to `/orders/{id}`.
+**Contract**: Form fields: `projectId` (dropdown of active projects only, reusing `projectRepository.list(false)` the way `ProjectDetailModel` reuses `partRepository.search("", false)`), `quantityUnits` (int, ≥ 1), `priority` (`LOW`/`NORMAL`/`HIGH`, radio/select with Polish labels Niski/Normalny/Wysoki from `messages.properties`), `requiredDate` (HTML `date` input, `min` attribute = today; server re-validates not-in-the-past). On submit: reject if `projectId` doesn't resolve to an *active* project (mirrors `ProjectBomController.addLine`'s `part == null` pattern for inactive parts). Inside one `transactionTemplate.execute`: create the `Order`, copy every `BomLine` of the project into an `OrderLine` with `requiredQuantity = bomLine.quantityPerUnit * quantityUnits` and `reservedQuantity = 0`, save, then call `reservationAllocator.reallocateAll()`, then redirect to `/orders/{id}`. An active project with zero `BomLine`s is a valid order — it is created with zero `OrderLine`s (nothing to reserve), not rejected.
 
 #### 2. Templates & messages
 
@@ -158,7 +158,8 @@ Implement `ReservationAllocator`, the reusable full-recompute allocation compone
 - `./mvnw verify` passes
 - Integration test: happy-path order creation reserves stock correctly and redirects to the new order's detail page
 - Integration test: invalid quantity (`0`, negative, non-integer), missing/past `requiredDate`, and an inactive/nonexistent `projectId` are all rejected with the correct localized error and no row written
-- Integration test: technician gets 403 on both `GET /orders/new` and `POST /orders` (per `context/foundation/lessons.md`'s wrong-role rule)
+- Integration test: technician gets 403 on both `GET /orders/new` and `POST /orders`
+- Integration test: two concurrent `POST /orders` requests against a part with stock insufficient for both never together reserve more than the part's quantity — the HTTP-level counterpart to `ReservationConcurrencyTests` (Phase 2), which calls `reallocateAll()` directly and bypasses the controller's own transaction boundary. Mirror `ReservationConcurrencyTests`'s `ExecutorService`/`CountDownLatch` pattern, but drive it through `MockMvc` against `POST /orders` with two logged-in manager sessions. (per `context/foundation/lessons.md`'s wrong-role rule)
 
 #### Manual Verification:
 
@@ -180,7 +181,7 @@ Implement `ReservationAllocator`, the reusable full-recompute allocation compone
 
 **Intent**: `GET /orders` lists all `OPEN` orders in allocation order (same sort as `ReservationAllocator`); `GET /orders/{id}` shows one order's lines with required/reserved/missing (`missing = requiredQuantity - reservedQuantity`). Follow `ProjectDetailModel`'s pattern: a read-only `TransactionTemplate`, entities converted to plain records before reaching the view.
 
-**Contract**: `OrderDetailModel.render(Model, Long orderId)` populates `order` (project name, quantityUnits, priority, requiredDate) and `lines` (partName, requiredQuantity, reservedQuantity, missingQuantity) records; unknown order id is 404.
+**Contract**: `OrderDetailModel.render(Model, Long orderId)` populates `order` (project name, quantityUnits, priority, requiredDate) and `lines` (partName, requiredQuantity, reservedQuantity, missingQuantity) records; unknown order id is 404. `ReservationAllocator.ALLOCATION_ORDER` is currently `private` — widen it to package-visible (or add a package-private `static Comparator<Order> allocationOrder()` accessor) so `GET /orders` sorts `orderRepository.findByStatus(OrderStatus.OPEN)` in memory with the exact same `Comparator`, rather than re-deriving the priority→date→createdAt→id rule as a second, hand-synced implementation (e.g. a JPQL `ORDER BY`).
 
 #### 2. Templates & nav
 
@@ -282,20 +283,21 @@ Replace `parts-list.html`'s hardcoded reserved/available columns with real numbe
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes including `ReservationAllocatorTests` and `ReservationConcurrencyTests`
+- [x] 2.1 `./mvnw verify` passes including `ReservationAllocatorTests` and `ReservationConcurrencyTests` — 579a577
 
 ### Phase 3: Order creation
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes
-- [ ] 3.2 Integration test: happy-path order creation reserves stock and redirects correctly
-- [ ] 3.3 Integration test: invalid quantity/date/project rejected with correct error, no row written
-- [ ] 3.4 Integration test: technician gets 403 on order-creation routes
+- [x] 3.1 `./mvnw verify` passes
+- [x] 3.2 Integration test: happy-path order creation reserves stock and redirects correctly
+- [x] 3.3 Integration test: invalid quantity/date/project rejected with correct error, no row written
+- [x] 3.4 Integration test: technician gets 403 on order-creation routes
+- [x] 3.6 Integration test: two concurrent `POST /orders` against scarce stock never together over-reserve (HTTP-level counterpart to Phase 2's `ReservationConcurrencyTests`)
 
 #### Manual
 
-- [ ] 3.5 As a manager, create a real order and confirm the reservation matches BOM and stock
+- [x] 3.5 As a manager, create a real order and confirm the reservation matches BOM and stock
 
 ### Phase 4: Order list & detail
 
