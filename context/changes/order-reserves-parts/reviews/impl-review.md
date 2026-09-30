@@ -52,7 +52,7 @@ Every manager-only order route (`GET /orders/new`, `POST /orders`, `GET /orders`
 - **Location**: src/main/java/pl/regavio/stockahead/orders/ReservationAllocator.java:53-72, src/main/java/pl/regavio/stockahead/parts/PartRepository.java:26-28
 - **Detail**: `findAllForUpdate()` locks every row of the entire `parts` table (active and inactive) on every single order creation, serializing all concurrent order-creation transactions against the whole table rather than just the parts the triggering order touches. This is deliberate per `plan.md` ("small/low-QPS scale... over an incremental approach, for correctness simplicity") — a scalability ceiling, not a defect.
 - **Fix**: None needed now. Worth a `lessons.md` note if a future slice needs to relax full-table locking for throughput.
-- **Decision**: SKIPPED
+- **Decision**: ACCEPTED-AS-RULE: Narrowing ReservationAllocator's part-row lock is unsafe without deadlock-retry logic — deferred to a new change (planned via /10x-plan), not fixed inline here. See lessons.md for the full deadlock/staleness analysis.
 
 ### F3 — N+1 query pattern in order list/detail rendering (no JOIN FETCH)
 

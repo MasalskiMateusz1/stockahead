@@ -41,3 +41,13 @@
 **Rule:** When a user-supplied integer is multiplied into a value guarded only by a DB `CHECK` constraint, add an explicit upper-bound validation with a dedicated error message rather than relying on the DB constraint's generic `DataIntegrityViolationException` path.
 
 **Applies to:** Any future form field whose value is multiplied by another quantity before being persisted.
+
+## Narrowing ReservationAllocator's part-row lock is unsafe without deadlock-retry logic
+
+**Context:** src/main/java/pl/regavio/stockahead/orders/ReservationAllocator.java:53-72, src/main/java/pl/regavio/stockahead/parts/PartRepository.java:26-28
+
+**Problem:** `findAllForUpdate()` locks every row of the `parts` table on every order creation — correct but a scalability ceiling. Two narrower alternatives were analyzed and rejected: (1) computing "parts referenced by open orders" via an unlocked query before locking reintroduces a real race — a concurrent transaction can commit a new order for a shared part in the gap between the read and the lock, silently under-counting that reservation. (2) An iterative lock-escalation loop (lock what's known → recheck → lock anything new → repeat) closes that race but is deadlock-prone across concurrent transactions: two transactions can each hold a partial, overlapping lock set acquired in different orders across rounds and wait on each other forever, which Postgres resolves by killing one transaction with an unhandled error — silently failing that order-creation request.
+
+**Rule:** Any future attempt to narrow this lock's scope must ship with explicit catch-and-retry logic around the whole order-creation transaction for a Postgres deadlock error, verified under both `ReservationAllocatorTests`-style algorithmic tests and `ReservationConcurrencyTests`/`OrderCreationIntegrationTests`-style real-concurrency tests — plan it as its own change via /10x-plan rather than a quick inline edit, since it touches AGENTS.md's hard rule (stock never negative, never double-reserved).
+
+**Applies to:** Any future change to ReservationAllocator's locking strategy, and any other code in this codebase that locks a computed/derived row set across multiple query round-trips instead of one upfront query.
