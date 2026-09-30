@@ -4,8 +4,11 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 public interface PartRepository extends JpaRepository<Part, Long> {
 
@@ -19,5 +22,9 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 		ORDER BY p.name
 		""")
 	List<Part> search(@Param("q") String q, @Param("showInactive") boolean showInactive);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT p FROM Part p ORDER BY p.id")
+	List<Part> findAllForUpdate();
 
 }
