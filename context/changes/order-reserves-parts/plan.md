@@ -316,9 +316,9 @@ Replace `parts-list.html`'s hardcoded reserved/available columns with real numbe
 
 #### Automated
 
-- [x] 5.1 `./mvnw verify` passes
-- [x] 5.2 Extended `PartsCatalogIntegrationTests` shows correct reserved/available after a reservation
+- [x] 5.1 `./mvnw verify` passes — 0fe6167
+- [x] 5.2 Extended `PartsCatalogIntegrationTests` shows correct reserved/available after a reservation — 0fe6167
 
 #### Manual
 
-- [x] 5.3 As any authenticated user, confirm `/parts` reserved/available reflect a real order
+- [x] 5.3 As any authenticated user, confirm `/parts` reserved/available reflect a real order — 0fe6167
