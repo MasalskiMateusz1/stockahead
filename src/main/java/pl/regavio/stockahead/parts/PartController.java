@@ -2,8 +2,10 @@ package pl.regavio.stockahead.parts;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -23,6 +25,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.orders.OrderLineRepository;
+
 /**
  * Parts catalog search/browse screen, open to any authenticated user, plus
  * manager-only create/edit/deactivate/reactivate actions.
@@ -36,13 +40,16 @@ public class PartController {
 
 	private final PartRepository partRepository;
 
+	private final OrderLineRepository orderLineRepository;
+
 	private final TransactionTemplate transactionTemplate;
 
 	private final MessageSource messageSource;
 
-	public PartController(PartRepository partRepository, PlatformTransactionManager transactionManager,
-			MessageSource messageSource) {
+	public PartController(PartRepository partRepository, OrderLineRepository orderLineRepository,
+			PlatformTransactionManager transactionManager, MessageSource messageSource) {
 		this.partRepository = partRepository;
+		this.orderLineRepository = orderLineRepository;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 		this.messageSource = messageSource;
 	}
@@ -59,11 +66,28 @@ public class PartController {
 
 		boolean effectiveShowInactive = isManager && showInactive;
 
-		model.addAttribute("parts", partRepository.search(q, effectiveShowInactive));
+		Map<Long, Integer> reservedByPartId = new HashMap<>();
+		for (Object[] row : orderLineRepository.reservedQuantitiesByPart()) {
+			Long partId = (Long) row[0];
+			Long sumReserved = (Long) row[1];
+			reservedByPartId.put(partId, sumReserved.intValue());
+		}
+
+		List<PartRow> parts = partRepository.search(q, effectiveShowInactive).stream()
+			.map(part -> {
+				int reserved = reservedByPartId.getOrDefault(part.getId(), 0);
+				return new PartRow(part, reserved, part.getQuantity() - reserved);
+			})
+			.toList();
+
+		model.addAttribute("parts", parts);
 		model.addAttribute("q", q);
 		model.addAttribute("showInactive", effectiveShowInactive);
 		model.addAttribute("isManager", isManager);
 		return "parts-list";
+	}
+
+	record PartRow(Part part, int reserved, int available) {
 	}
 
 	@GetMapping("/parts/new")

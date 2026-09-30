@@ -303,22 +303,22 @@ Replace `parts-list.html`'s hardcoded reserved/available columns with real numbe
 
 #### Automated
 
-- [x] 4.1 `./mvnw verify` passes
-- [x] 4.2 Integration test: US-01 acceptance example end-to-end (reserved=6, missing=4)
-- [x] 4.3 Integration test: technician gets 403 on order list/detail routes
-- [x] 4.4 Integration test: unknown order id is 404
+- [x] 4.1 `./mvnw verify` passes — a99d143
+- [x] 4.2 Integration test: US-01 acceptance example end-to-end (reserved=6, missing=4) — a99d143
+- [x] 4.3 Integration test: technician gets 403 on order list/detail routes — a99d143
+- [x] 4.4 Integration test: unknown order id is 404 — a99d143
 
 #### Manual
 
-- [x] 4.5 As a manager, open order list and detail pages and confirm numbers match
+- [x] 4.5 As a manager, open order list and detail pages and confirm numbers match — a99d143
 
 ### Phase 5: Parts catalog wiring
 
 #### Automated
 
-- [ ] 5.1 `./mvnw verify` passes
-- [ ] 5.2 Extended `PartsCatalogIntegrationTests` shows correct reserved/available after a reservation
+- [x] 5.1 `./mvnw verify` passes
+- [x] 5.2 Extended `PartsCatalogIntegrationTests` shows correct reserved/available after a reservation
 
 #### Manual
 
-- [ ] 5.3 As any authenticated user, confirm `/parts` reserved/available reflect a real order
+- [x] 5.3 As any authenticated user, confirm `/parts` reserved/available reflect a real order

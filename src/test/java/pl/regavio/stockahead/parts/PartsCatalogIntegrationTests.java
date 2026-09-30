@@ -1,6 +1,7 @@
 package pl.regavio.stockahead.parts;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -95,6 +96,8 @@ class PartsCatalogIntegrationTests {
 	}
 
 	private void cleanUp() {
+		jdbcTemplate.update("DELETE FROM order_lines");
+		jdbcTemplate.update("DELETE FROM orders");
 		jdbcTemplate.update("DELETE FROM project_links");
 		jdbcTemplate.update("DELETE FROM bom_lines");
 		jdbcTemplate.update("DELETE FROM projects");
@@ -174,6 +177,40 @@ class PartsCatalogIntegrationTests {
 			.getLocations().stream()
 			.filter(existing -> existing.getLocation().equals(location))
 			.findFirst().orElseThrow().getId());
+	}
+
+	/**
+	 * Seeds an OPEN order directly via {@code JdbcTemplate}, mirroring
+	 * {@code OrderListAndDetailIntegrationTests}'s fixture style: this test's
+	 * job is proving {@code GET /parts} renders the reserved/available
+	 * aggregate correctly, not re-proving {@link
+	 * pl.regavio.stockahead.orders.ReservationAllocator}'s allocation math
+	 * (already covered by the Phase 2/3 order tests), so a known
+	 * {@code reserved_quantity} on a directly-seeded order line is a smaller,
+	 * more targeted fixture than driving the real order-creation HTTP flow.
+	 */
+	private Long seedProject(String name, boolean active) {
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+	}
+
+	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+				"""
+				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at)
+				VALUES (?, ?, ?, ?, now())
+				RETURNING id
+				""",
+				Long.class, projectId, quantityUnits, priority, requiredDate));
+	}
+
+	private void seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
+		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
+				"""
+				INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity)
+				VALUES (?, ?, ?, ?)
+				""",
+				orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	// ---- DB constraint --------------------------------------------------
@@ -366,6 +403,28 @@ class PartsCatalogIntegrationTests {
 
 		mockMvc.perform(get("/parts").session(loginAs(TECHNICIAN_EMAIL)))
 			.andExpect(status().isOk());
+	}
+
+	// ---- reservations ---------------------------------------------------
+
+	@Test
+	void partsListShowsReservedAndAvailableQuantitiesFromOpenOrderLines() throws Exception {
+		seedTechnician();
+		Long partId = seedPart("Reserved Widget", 10, true, "A1");
+		Long projectId = seedProject("Widget Project", true);
+		Long orderId = seedOrder(projectId, 1, "NORMAL", LocalDate.now().plusDays(5));
+		seedOrderLine(orderId, partId, 7, 4);
+
+		MockHttpSession session = loginAs(TECHNICIAN_EMAIL);
+
+		MvcResult result = mockMvc.perform(get("/parts").session(session))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		String body = result.getResponse().getContentAsString();
+		assertThat(body).contains("Reserved Widget");
+		assertThat(body).containsPattern(
+				"<td>Reserved Widget</td>\\s*<td>10</td>\\s*<td>4</td>\\s*<td>6</td>");
 	}
 
 	// ---- search -----------------------------------------------------------

@@ -39,18 +39,18 @@
 			</tr>
 		</thead>
 		<tbody>
-			<tr th:each="part : ${parts}">
-				<td th:text="${part.name}"></td>
-				<td th:text="${part.quantity}"></td>
-				<td>0</td>
-				<td th:text="${part.quantity}"></td>
-				<td th:text="${#strings.listJoin(part.locations.![location], ', ')}"></td>
+			<tr th:each="row : ${parts}">
+				<td th:text="${row.part.name}"></td>
+				<td th:text="${row.part.quantity}"></td>
+				<td th:text="${row.reserved}"></td>
+				<td th:text="${row.available}"></td>
+				<td th:text="${#strings.listJoin(row.part.locations.![location], ', ')}"></td>
 				<td sec:authorize="hasRole('MANAGER')">
-					<a th:href="@{/parts/{id}/edit(id=${part.id})}">Edytuj</a>
-					<form th:if="${part.active}" th:action="@{/parts/{id}/deactivate(id=${part.id})}" method="post" style="display:inline">
+					<a th:href="@{/parts/{id}/edit(id=${row.part.id})}">Edytuj</a>
+					<form th:if="${row.part.active}" th:action="@{/parts/{id}/deactivate(id=${row.part.id})}" method="post" style="display:inline">
 						<button type="submit">Dezaktywuj</button>
 					</form>
-					<form th:unless="${part.active}" th:action="@{/parts/{id}/reactivate(id=${part.id})}" method="post" style="display:inline">
+					<form th:unless="${row.part.active}" th:action="@{/parts/{id}/reactivate(id=${row.part.id})}" method="post" style="display:inline">
 						<button type="submit">Reaktywuj</button>
 					</form>
 				</td>
