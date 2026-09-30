@@ -276,13 +276,13 @@ Replace `parts-list.html`'s hardcoded reserved/available columns with real numbe
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes with the new migration and entities
+- [x] 1.1 `./mvnw verify` passes with the new migration and entities — 95bbf27
 
 ### Phase 2: Allocation engine
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes including `ReservationAllocatorTests` and `ReservationConcurrencyTests`
+- [x] 2.1 `./mvnw verify` passes including `ReservationAllocatorTests` and `ReservationConcurrencyTests`
 
 ### Phase 3: Order creation
 
