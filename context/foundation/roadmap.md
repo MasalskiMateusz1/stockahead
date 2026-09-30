@@ -47,7 +47,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | F-01  | migration-and-invariant-harness  | (fundament) migracje Flyway działają w aplikacji i w teście, jest wzorzec testu współbieżnego  | —             | §Wymagania niefunkcjonalne, §Business Logic | ready    |
 | S-01  | login-and-role-access            | Użytkownik loguje się e-mailem i hasłem, a dostęp zależy od roli                                | F-01          | FR-001, §Kontrola dostępu                   | done     |
 | S-02  | parts-catalog                    | Kierownik prowadzi kartotekę części z lokalizacjami, każdy ją przeszukuje                       | S-01          | FR-003, FR-005                              | done |
-| S-03  | projects-and-bom                 | Kierownik prowadzi projekty urządzeń z listą części i linkami do dokumentacji                   | S-01          | FR-007, FR-019                              | proposed |
+| S-03  | project-bom                       | Kierownik prowadzi projekty urządzeń z listą części i linkami do dokumentacji                   | S-01          | FR-007, FR-019                              | done |
 | S-04  | order-reserves-parts             | Kierownik zleca produkcję N sztuk i widzi rezerwacje oraz braki                                 | S-02, S-03    | US-01, FR-010, FR-005, §Business Logic      | proposed |
 | S-05  | shopping-list-and-csv-export     | Kierownik widzi listę zakupów z blokowanymi zleceniami i eksportuje ją do CSV                   | S-04          | FR-015, FR-016                              | proposed |
 | S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | done     |
@@ -124,7 +124,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 ### S-03: Projekty urządzeń z listą części i linkami
 
 - **Outcome:** Kierownik tworzy, edytuje i usuwa projekty urządzeń z listą części (BOM) oraz dopina do nich linki do dokumentacji, np. schematów.
-- **Change ID:** projects-and-bom
+- **Change ID:** project-bom
 - **PRD refs:** FR-007, FR-019
 - **Prerequisites:** S-01
 - **Parallel with:** S-02, S-06
@@ -132,7 +132,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Co ma się dziać z BOM projektu, który ma otwarte zlecenia — edycja przelicza rezerwacje czy jest zablokowana? — Owner: user. Block: no.
 - **Risk:** Niezależny od S-02, więc oba kawałki mogą iść obok siebie — przy ryzyku „dostępne godziny" to jedyne miejsce w strumieniu A, gdzie da się coś zrównoleglić. Linki z FR-019 są tu, a nie osobno, bo to jedno pole na tym samym ekranie projektu; osobny kawałek na nie byłby nieproporcjonalnie mały.
-- **Status:** proposed
+- **Status:** done
 
 ### S-04: Kierownik zleca produkcję i widzi rezerwacje oraz braki ★
 
@@ -252,7 +252,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | F-01       | migration-and-invariant-harness | Ścieżka migracji Flyway i wzorzec testu niezmienników  | yes                   | Uruchom `/10x-plan migration-and-invariant-harness` |
 | S-01       | login-and-role-access           | Logowanie e-mailem i dostęp zależny od roli            | done                  | Dostarczone jako `auth-and-roles` (patrz §Done)     |
 | S-02       | parts-catalog                   | Kartoteka części z lokalizacjami i wyszukiwaniem       | no                    | Czeka na S-01                                       |
-| S-03       | projects-and-bom                | Projekty urządzeń z BOM i linkami do dokumentacji      | no                    | Czeka na S-01; równolegle z S-02                    |
+| S-03       | project-bom                      | Projekty urządzeń z BOM i linkami do dokumentacji      | no                    | Czeka na S-01; równolegle z S-02                    |
 | S-04       | order-reserves-parts            | Zlecenie produkcji rezerwuje części i pokazuje braki   | no                    | Gwiazda przewodnia; czeka na S-02 i S-03            |
 | S-05       | shopping-list-and-csv-export    | Lista zakupów z blokowanymi zleceniami i eksport CSV   | no                    | Czeka na S-04                                       |
 | S-06       | technician-accounts             | Zakładanie i dezaktywacja kont techników               | no                    | Czeka na S-01; równolegle z całym strumieniem A     |
@@ -292,3 +292,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-01 (login-and-role-access)** — done, 2026-09-28 (retroactive). Delivered as change-id `auth-and-roles`, planned and archived on `origin/main` (`context/archive/2026-09-26-auth-and-roles/`) before this roadmap version existed, under an earlier roadmap's F-01. Reconciled into `phase-7-tune` by merging `origin/main` on 2026-09-28 rather than re-planning; scope confirmed to match this slice's Outcome and PRD refs exactly.
 - **S-02: Kierownik dodaje, edytuje i usuwa części wraz z jedną lub kilkoma lokalizacjami, a każdy zalogowany użytkownik wyszukuje część i widzi jej stan oraz lokalizację.** — Archived 2026-09-29 → `context/archive/2026-09-28-parts-catalog/`. Lesson: —.
 - **S-06: Kierownik zakłada konta techników i je dezaktywuje; dezaktywowany technik nie może się zalogować, a jego dane i historia zostają w systemie.** — Archived 2026-09-30 → `context/archive/2026-09-28-technician-accounts/`. Lesson: —.
+- **S-03: Kierownik tworzy, edytuje i usuwa projekty urządzeń z listą części (BOM) oraz dopina do nich linki do dokumentacji, np. schematów.** — Archived 2026-09-30 → `context/archive/2026-09-28-project-bom/`. Lesson: roadmap Change ID drifted from the actual change-id (`projects-and-bom` vs. `project-bom`), so `/10x-archive`'s roadmap-close step silently skipped this item; caught and reconciled by hand after archiving.
