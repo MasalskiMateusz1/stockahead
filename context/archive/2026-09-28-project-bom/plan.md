@@ -335,51 +335,51 @@ New tables only; no existing data changes. `V5` must land on `main` after S-02's
 
 #### Automated
 
-- [x] 1.1 `ProjectSchemaTests` passes: zero/negative quantity, duplicate BOM line, deleting a referenced part, non-http(s) URL and duplicate project name are rejected by PostgreSQL. — b5a8d07
-- [x] 1.2 `./mvnw verify` passes — `V5` applies cleanly on top of `V1`–`V3` and Hibernate `validate` accepts the entities. — b5a8d07
+- [x] 1.1 `ProjectSchemaTests` passes: zero/negative quantity, duplicate BOM line, deleting a referenced part, non-http(s) URL and duplicate project name are rejected by PostgreSQL. — 40a8e34
+- [x] 1.2 `./mvnw verify` passes — `V5` applies cleanly on top of `V1`–`V3` and Hibernate `validate` accepts the entities. — 40a8e34
 
 ### Phase 2: Projects — list, create, rename, deactivate, detail
 
 #### Automated
 
-- [x] 2.1 Manager creates a project → redirect to its detail page, row persisted with `active = true`; blank or > 255-character name re-renders the form with an error and no row. — df1416a
-- [x] 2.2 Duplicate project name on create and on rename returns the form with a friendly error (DB constraint path, no 500) and leaves the original rows unchanged. — df1416a
-- [x] 2.3 A deactivated project is excluded from the default list, listed together with active projects for a manager with `showInactive=true`, still excluded for a technician with `showInactive=true`, 404 on its detail page for a technician, and back in the default list after reactivation. — df1416a
-- [x] 2.4 Both roles get 200 on `GET /projects` and on an active project's `GET /projects/{id}`; a technician gets 403 on every manager route. — df1416a
-- [x] 2.5 `./mvnw verify` passes. — df1416a
+- [x] 2.1 Manager creates a project → redirect to its detail page, row persisted with `active = true`; blank or > 255-character name re-renders the form with an error and no row. — 40a8e34
+- [x] 2.2 Duplicate project name on create and on rename returns the form with a friendly error (DB constraint path, no 500) and leaves the original rows unchanged. — 40a8e34
+- [x] 2.3 A deactivated project is excluded from the default list, listed together with active projects for a manager with `showInactive=true`, still excluded for a technician with `showInactive=true`, 404 on its detail page for a technician, and back in the default list after reactivation. — 40a8e34
+- [x] 2.4 Both roles get 200 on `GET /projects` and on an active project's `GET /projects/{id}`; a technician gets 403 on every manager route. — 40a8e34
+- [x] 2.5 `./mvnw verify` passes. — 40a8e34
 
 #### Manual
 
-- [x] 2.6 Manager can create, rename, deactivate and reactivate from the UI; technician sees list and detail with no manager controls. — df1416a
+- [x] 2.6 Manager can create, rename, deactivate and reactivate from the UI; technician sees list and detail with no manager controls. — 40a8e34
 
 ### Phase 3: BOM lines
 
 #### Automated
 
-- [x] 3.1 Adding a line with an active part and quantity 3 persists one `bom_lines` row and the detail page shows it. — 9062d67
-- [x] 3.2 Adding the same part a second time returns the detail page with a friendly error (DB constraint path, no 500) and exactly one row remains. — 9062d67
-- [x] 3.3 Quantity `0`, `-1` and `abc` on add and on change are rejected with an error and no change in the database. — 9062d67
-- [x] 3.4 Adding an inactive or nonexistent part is rejected with an error and no row; the select offers only active parts. — 9062d67
-- [x] 3.5 A line whose part was deactivated stays, is marked "nieaktywna", and its quantity can still be changed. — 9062d67
-- [x] 3.6 Changing a quantity and removing a line persist; a `lineId` of another project returns 404 and changes nothing. — 9062d67
-- [x] 3.7 A technician gets 403 on all three BOM routes. — 9062d67
-- [x] 3.8 `./mvnw verify` passes. — 9062d67
+- [x] 3.1 Adding a line with an active part and quantity 3 persists one `bom_lines` row and the detail page shows it. — 40a8e34
+- [x] 3.2 Adding the same part a second time returns the detail page with a friendly error (DB constraint path, no 500) and exactly one row remains. — 40a8e34
+- [x] 3.3 Quantity `0`, `-1` and `abc` on add and on change are rejected with an error and no change in the database. — 40a8e34
+- [x] 3.4 Adding an inactive or nonexistent part is rejected with an error and no row; the select offers only active parts. — 40a8e34
+- [x] 3.5 A line whose part was deactivated stays, is marked "nieaktywna", and its quantity can still be changed. — 40a8e34
+- [x] 3.6 Changing a quantity and removing a line persist; a `lineId` of another project returns 404 and changes nothing. — 40a8e34
+- [x] 3.7 A technician gets 403 on all three BOM routes. — 40a8e34
+- [x] 3.8 `./mvnw verify` passes. — 40a8e34
 
 #### Manual
 
-- [x] 3.9 Manager builds, edits and trims a BOM; a deactivated part's line is marked; technician sees the BOM without edit forms. — 9062d67
+- [x] 3.9 Manager builds, edits and trims a BOM; a deactivated part's line is marked; technician sees the BOM without edit forms. — 40a8e34
 
 ### Phase 4: Documentation links
 
 #### Automated
 
-- [x] 4.1 A labelled link renders with its label, `target="_blank"` and `rel="noopener noreferrer"`; an unlabelled link renders its URL. — efad7ae
-- [x] 4.2 `javascript:`, `ftp:`, host-less, blank and over-2048-character URLs are rejected with no row. — efad7ae
-- [x] 4.3 Deleting a link removes it; a `linkId` of another project returns 404 and changes nothing. — efad7ae
-- [x] 4.4 A technician sees links and gets 403 on both link routes. — efad7ae
-- [x] 4.5 `./mvnw verify` passes. — efad7ae
+- [x] 4.1 A labelled link renders with its label, `target="_blank"` and `rel="noopener noreferrer"`; an unlabelled link renders its URL. — 40a8e34
+- [x] 4.2 `javascript:`, `ftp:`, host-less, blank and over-2048-character URLs are rejected with no row. — 40a8e34
+- [x] 4.3 Deleting a link removes it; a `linkId` of another project returns 404 and changes nothing. — 40a8e34
+- [x] 4.4 A technician sees links and gets 403 on both link routes. — 40a8e34
+- [x] 4.5 `./mvnw verify` passes. — 40a8e34
 
 #### Manual
 
-- [x] 4.6 Manager adds, opens and deletes links; technician opens links with no add/delete controls. — efad7ae
+- [x] 4.6 Manager adds, opens and deletes links; technician opens links with no add/delete controls. — 40a8e34
 - [x] 4.7 After S-02 is on `main`: rebase, keep both sides in shared files, confirm `V4` + `V5`, `./mvnw verify` passes before merging.
