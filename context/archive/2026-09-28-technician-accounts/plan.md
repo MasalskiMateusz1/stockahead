@@ -259,50 +259,50 @@ Flyway dodaje tylko V4; wcześniejszych migracji nie zmieniać. W razie istniej�
 
 #### Automated
 
-- [x] 1.1 Migracja na PostgreSQL zachowuje istniejący identyfikator konta (`V4MigrationTests`) i pozwala zalogować się e-mailem o innej wielkości liter (`AuthenticationIntegrationTests`). — c6c2040
-- [x] 1.2 PostgreSQL odrzuca dwa konta z e-mailami różniącymi się tylko wielkością liter lub otaczającymi spacjami (`V4MigrationTests`). — c6c2040
-- [x] 1.3 Migracja wykrywa istniejącą kolizję kanonicznych e-maili bez utraty wierszy (`V4MigrationTests`). — c6c2040
-- [x] 1.4 `./mvnw verify` przechodzi. — c6c2040
+- [x] 1.1 Migracja na PostgreSQL zachowuje istniejący identyfikator konta (`V4MigrationTests`) i pozwala zalogować się e-mailem o innej wielkości liter (`AuthenticationIntegrationTests`). — ea07131
+- [x] 1.2 PostgreSQL odrzuca dwa konta z e-mailami różniącymi się tylko wielkością liter lub otaczającymi spacjami (`V4MigrationTests`). — ea07131
+- [x] 1.3 Migracja wykrywa istniejącą kolizję kanonicznych e-maili bez utraty wierszy (`V4MigrationTests`). — ea07131
+- [x] 1.4 `./mvnw verify` przechodzi. — ea07131
 
 #### Manual
 
-- [x] 1.5 Kierownik może zalogować się istniejącym e-mailem niezależnie od wielkości liter. — c6c2040
+- [x] 1.5 Kierownik może zalogować się istniejącym e-mailem niezależnie od wielkości liter. — ea07131
 
 ### Phase 2: Zarządzanie kontami przez kierownika
 
 #### Automated
 
-- [x] 2.1 Kierownik tworzy aktywne konto `TECHNICIAN`; zapisany hash różni się od hasła, a nowe konto może się zalogować. — be21274
-- [x] 2.2 Formularz odrzuca hasło krótsze niż 12 znaków i niezgodne potwierdzenie bez utworzenia konta. — be21274
-- [x] 2.3 Kanonicznie zajęty e-mail (wariant wielkości liter lub spacji, także konta nieaktywnego i kierownika) trafia w ograniczenie bazy i wraca jako błąd formularza z zachowanym e-mailem, bez odpowiedzi 500 i bez drugiego konta. — be21274
-- [x] 2.4 Każda trasa zarządzania zwraca 403 dla zalogowanego technika; id kierownika i nieistniejące id zwracają 404 i nie zmieniają żadnego konta. — be21274
-- [x] 2.5 Dezaktywacja i reaktywacja zachowują to samo `id`, e-mail, hash, rolę i `created_at`; nie ma `DELETE`. — be21274
-- [x] 2.6 `./mvnw verify` przechodzi. — be21274
+- [x] 2.1 Kierownik tworzy aktywne konto `TECHNICIAN`; zapisany hash różni się od hasła, a nowe konto może się zalogować. — ea07131
+- [x] 2.2 Formularz odrzuca hasło krótsze niż 12 znaków i niezgodne potwierdzenie bez utworzenia konta. — ea07131
+- [x] 2.3 Kanonicznie zajęty e-mail (wariant wielkości liter lub spacji, także konta nieaktywnego i kierownika) trafia w ograniczenie bazy i wraca jako błąd formularza z zachowanym e-mailem, bez odpowiedzi 500 i bez drugiego konta. — ea07131
+- [x] 2.4 Każda trasa zarządzania zwraca 403 dla zalogowanego technika; id kierownika i nieistniejące id zwracają 404 i nie zmieniają żadnego konta. — ea07131
+- [x] 2.5 Dezaktywacja i reaktywacja zachowują to samo `id`, e-mail, hash, rolę i `created_at`; nie ma `DELETE`. — ea07131
+- [x] 2.6 `./mvnw verify` przechodzi. — ea07131
 
 #### Manual
 
-- [x] 2.7 Kierownik widzi na pulpicie link do kont techników, listę obu stanów i działające formularze; technik nie widzi linku. — be21274
+- [x] 2.7 Kierownik widzi na pulpicie link do kont techników, listę obu stanów i działające formularze; technik nie widzi linku. — ea07131
 
 ### Phase 3: Dezaktywacja aktywnej sesji
 
 #### Automated
 
-- [x] 3.1 Technik zalogowany przed dezaktywacją traci dostęp przy następnym GET oraz POST; te żądania nie wykonują akcji biznesowych. — 8a11bd9
-- [x] 3.2 Aktywny kierownik i technik zachowują dostęp do swoich tras, a `/login` i `/actuator/health/readiness` pozostają publiczne. — 8a11bd9
-- [x] 3.3 Po reaktywacji technik może utworzyć nową sesję; stara sesja nie odzyskuje dostępu. — 8a11bd9
-- [x] 3.4 `./mvnw verify` przechodzi. — 8a11bd9
+- [x] 3.1 Technik zalogowany przed dezaktywacją traci dostęp przy następnym GET oraz POST; te żądania nie wykonują akcji biznesowych. — ea07131
+- [x] 3.2 Aktywny kierownik i technik zachowują dostęp do swoich tras, a `/login` i `/actuator/health/readiness` pozostają publiczne. — ea07131
+- [x] 3.3 Po reaktywacji technik może utworzyć nową sesję; stara sesja nie odzyskuje dostępu. — ea07131
+- [x] 3.4 `./mvnw verify` przechodzi. — ea07131
 
 #### Manual
 
-- [x] 3.5 W dwóch przeglądarkach dezaktywuj zalogowanego technika i sprawdź, że jego następna próba wejścia na `/parts` kończy się ekranem logowania. — 8a11bd9
+- [x] 3.5 W dwóch przeglądarkach dezaktywuj zalogowanego technika i sprawdź, że jego następna próba wejścia na `/parts` kończy się ekranem logowania. — ea07131
 
 ### Phase 4: Weryfikacja przepływu i integracji
 
 #### Automated
 
-- [x] 4.1 `./mvnw verify` przechodzi z testami integracyjnymi PostgreSQL, w tym testami F-01 i S-01. — 79234ff
-- [x] 4.2 Testy potwierdzają 403 na każdej trasie kierownika oraz zachowanie danych konta po dezaktywacji i reaktywacji. — 79234ff
+- [x] 4.1 `./mvnw verify` przechodzi z testami integracyjnymi PostgreSQL, w tym testami F-01 i S-01. — ea07131
+- [x] 4.2 Testy potwierdzają 403 na każdej trasie kierownika oraz zachowanie danych konta po dezaktywacji i reaktywacji. — ea07131
 
 #### Manual
 
-- [x] 4.3 Przejście kierownik tworzy technika → technik loguje się → kierownik dezaktywuje → następne żądanie technika kończy sesję → ponowny login jest odrzucony → kierownik reaktywuje → technik loguje się ponownie działa. — 79234ff
+- [x] 4.3 Przejście kierownik tworzy technika → technik loguje się → kierownik dezaktywuje → następne żądanie technika kończy sesję → ponowny login jest odrzucony → kierownik reaktywuje → technik loguje się ponownie działa. — ea07131

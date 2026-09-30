@@ -1,10 +1,10 @@
 ---
 change_id: technician-accounts
 title: Konta techników
-status: impl_reviewed
+status: archived
 created: 2026-09-28
-updated: 2026-09-28
-archived_at: null
+updated: 2026-09-30
+archived_at: 2026-09-30T03:41:06Z
 ---
 
 ## Notes

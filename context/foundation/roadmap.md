@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-09-29
+updated: 2026-09-30
 
 prd_version: 1
 main_goal: speed
@@ -50,7 +50,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-03  | projects-and-bom                 | Kierownik prowadzi projekty urządzeń z listą części i linkami do dokumentacji                   | S-01          | FR-007, FR-019                              | proposed |
 | S-04  | order-reserves-parts             | Kierownik zleca produkcję N sztuk i widzi rezerwacje oraz braki                                 | S-02, S-03    | US-01, FR-010, FR-005, §Business Logic      | proposed |
 | S-05  | shopping-list-and-csv-export     | Kierownik widzi listę zakupów z blokowanymi zleceniami i eksportuje ją do CSV                   | S-04          | FR-015, FR-016                              | proposed |
-| S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | proposed |
+| S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | done     |
 | S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | proposed |
 | S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | proposed |
 | S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | proposed |
@@ -170,7 +170,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Zależy wyłącznie od S-01, więc może iść równolegle z całym strumieniem A — przy ryzyku „dostępne godziny" to najbardziej elastyczny kawałek w roadmapie. Musi jednak wylądować przed S-07, bo bez kont techników listę kompletacyjną testuje wyłącznie kierownik (rola nadrzędna), a zakład i tak nie może z niej korzystać. Wpadka do uniknięcia: usuwanie kont zamiast dezaktywacji — FR-002 wprost tego zabrania.
-- **Status:** proposed
+- **Status:** done
 
 ### S-07: Lista kompletacyjna i pobranie części
 
@@ -291,3 +291,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 
 - **S-01 (login-and-role-access)** — done, 2026-09-28 (retroactive). Delivered as change-id `auth-and-roles`, planned and archived on `origin/main` (`context/archive/2026-09-26-auth-and-roles/`) before this roadmap version existed, under an earlier roadmap's F-01. Reconciled into `phase-7-tune` by merging `origin/main` on 2026-09-28 rather than re-planning; scope confirmed to match this slice's Outcome and PRD refs exactly.
 - **S-02: Kierownik dodaje, edytuje i usuwa części wraz z jedną lub kilkoma lokalizacjami, a każdy zalogowany użytkownik wyszukuje część i widzi jej stan oraz lokalizację.** — Archived 2026-09-29 → `context/archive/2026-09-28-parts-catalog/`. Lesson: —.
+- **S-06: Kierownik zakłada konta techników i je dezaktywuje; dezaktywowany technik nie może się zalogować, a jego dane i historia zostają w systemie.** — Archived 2026-09-30 → `context/archive/2026-09-28-technician-accounts/`. Lesson: —.
