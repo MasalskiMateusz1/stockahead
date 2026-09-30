@@ -1,7 +1,7 @@
 ---
 change_id: order-reserves-parts
 title: Zlecenie produkcji rezerwuje części
-status: implemented
+status: impl_reviewed
 created: 2026-09-30
 updated: 2026-09-30
 ---
