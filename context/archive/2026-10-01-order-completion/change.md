@@ -1,10 +1,10 @@
 ---
 change_id: order-completion
 title: Zgłoszenie i potwierdzenie zakończenia zlecenia
-status: impl_reviewed
+status: archived
 created: 2026-10-01
 updated: 2026-10-01
-archived_at: null
+archived_at: 2026-10-01T19:13:46Z
 ---
 
 ## Notes

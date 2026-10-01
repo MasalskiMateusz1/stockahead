@@ -52,7 +52,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-05  | shopping-list-and-csv-export     | Kierownik widzi listę zakupów z blokowanymi zleceniami i eksportuje ją do CSV                   | S-04          | FR-015, FR-016                              | done |
 | S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | done     |
 | S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | done |
-| S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | in-progress |
+| S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | done |
 | S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | proposed |
 | S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | proposed |
 | S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | proposed |
@@ -194,7 +194,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Domyka cykl życia zlecenia: bez potwierdzenia rezerwacje zakończonych zleceń wiszą i fałszują listę zakupów. Ryzyko produktowe zapisane w PRD to wąskie gardło na kierowniku — roadmapa go nie rozwiązuje, tylko utrzymuje podział z FR-014/FR-020.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-09: Zmiana priorytetu i terminu oraz anulowanie zlecenia
 
@@ -297,3 +297,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-04: Kierownik zleca technikowi produkcję N sztuk według projektu, z priorytetem i wymaganym terminem; dostępne części zostają zarezerwowane zgodnie z kolejnością przydziału, a dla każdej części z BOM widać ilość zarezerwowaną i brakującą.** — Archived 2026-10-01 → `context/archive/2026-09-30-order-reserves-parts/`. Lesson: —.
 - **S-05: Kierownik widzi jedną zagregowaną listę zakupów — jedna pozycja na część, suma braków ze wszystkich otwartych zleceń, wraz ze zleceniami, które dany brak blokuje — i eksportuje ją do pliku CSV.** — Archived 2026-10-01 → `context/archive/2026-10-01-shopping-list-and-csv-export/`. Lesson: —.
 - **S-07: Technik widzi listę zleceń do zmontowania, dla każdego z nich listę kompletacyjną z częściami, ilościami i lokalizacjami, i pobiera zarezerwowane części ze stanu — także częściowo, np. 6 z 10.** — Archived 2026-10-01 → `context/archive/2026-10-01-picking-list-and-pick/`. Lesson: —.
+- **S-08: Technik zgłasza zlecenie jako zakończone, a kierownik je potwierdza; niepobrane rezerwacje zostają wtedy zwolnione i wracają do kolejnych zleceń.** — Archived 2026-10-01 → `context/archive/2026-10-01-order-completion/`. Lesson: —.
