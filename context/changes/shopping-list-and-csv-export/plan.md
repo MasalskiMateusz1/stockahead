@@ -275,15 +275,15 @@ Cover the aggregation correctness, the two new routes, and the CSV format agains
 
 #### Automated
 
-- [x] 3.1 `./mvnw compile` succeeds
+- [x] 3.1 `./mvnw compile` succeeds — 3819f91
 
 #### Manual
 
-- [x] 3.2 CSV opens in Excel (Polish regional settings) with correct column split and diacritics
-- [x] 3.3 Downloaded file is named `lista-zakupow.csv`
+- [x] 3.2 CSV opens in Excel (Polish regional settings) with correct column split and diacritics — 3819f91
+- [x] 3.3 Downloaded file is named `lista-zakupow.csv` — 3819f91
 
 ### Phase 4: Tests
 
 #### Automated
 
-- [ ] 4.1 `./mvnw verify` passes, including `ShoppingListIntegrationTests` and the full existing suite
+- [x] 4.1 `./mvnw verify` passes, including `ShoppingListIntegrationTests` and the full existing suite

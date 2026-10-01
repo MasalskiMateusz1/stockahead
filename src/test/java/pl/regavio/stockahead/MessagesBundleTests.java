@@ -186,4 +186,25 @@ class MessagesBundleTests {
 			.isEqualTo("Nie udało się zapisać linku. Sprawdź adres i spróbuj ponownie.");
 	}
 
+	@Test
+	void purchasingCsvHeaderPartName() {
+		assertThat(messageSource.getMessage("purchasing.csv.header.partName", null, PL)).isEqualTo("Część");
+	}
+
+	@Test
+	void purchasingCsvHeaderOrder() {
+		assertThat(messageSource.getMessage("purchasing.csv.header.order", null, PL)).isEqualTo("Zlecenie");
+	}
+
+	@Test
+	void purchasingCsvHeaderRequiredDate() {
+		assertThat(messageSource.getMessage("purchasing.csv.header.requiredDate", null, PL)).isEqualTo("Termin");
+	}
+
+	@Test
+	void purchasingCsvHeaderMissingQuantity() {
+		assertThat(messageSource.getMessage("purchasing.csv.header.missingQuantity", null, PL))
+			.isEqualTo("Brakująca ilość");
+	}
+
 }
