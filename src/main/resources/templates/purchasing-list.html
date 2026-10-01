@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>Lista zakupów — Stockahead</title>
+	<style>
+		td, th {
+			text-align: center;
+		}
+	</style>
+</head>
+<body>
+	<h1>Lista zakupów</h1>
+
+	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
+
+	<p><a th:href="@{/purchasing/export}">Eksportuj do CSV</a></p>
+
+	<p th:if="${#lists.isEmpty(rows)}">Brak braków.</p>
+
+	<table th:unless="${#lists.isEmpty(rows)}">
+		<thead>
+			<tr>
+				<th>Część</th>
+				<th>Brakująca ilość</th>
+				<th>Zablokowane zlecenia</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="row : ${rows}">
+				<td>
+					<span th:text="${row.partName}"></span>
+					<span th:if="${!row.partActive}">(nieaktywna)</span>
+				</td>
+				<td th:text="${row.missingQuantity}"></td>
+				<td>
+					<th:block th:each="blocked, iter : ${row.blockedOrders}">
+						<a th:href="@{/orders/{id}(id=${blocked.orderId})}"
+							th:text="${blocked.projectName} + ' (' + ${blocked.requiredDate} + ', ' + ${blocked.missingQuantity} + ')'"></a>
+						<span th:unless="${iter.last}">; </span>
+					</th:block>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</body>
+</html>

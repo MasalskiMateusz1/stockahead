@@ -255,21 +255,21 @@ Cover the aggregation correctness, the two new routes, and the CSV format agains
 
 #### Automated
 
-- [x] 1.1 `./mvnw compile` succeeds with the widened visibility and new query
-- [x] 1.2 `./mvnw -Dtest=ReservationAllocatorTests,OrderListAndDetailIntegrationTests,OrderCreationIntegrationTests test` still passes
+- [x] 1.1 `./mvnw compile` succeeds with the widened visibility and new query — de30605
+- [x] 1.2 `./mvnw -Dtest=ReservationAllocatorTests,OrderListAndDetailIntegrationTests,OrderCreationIntegrationTests test` still passes — de30605
 
 ### Phase 2: Shopping-list screen
 
 #### Automated
 
-- [ ] 2.1 `./mvnw compile` succeeds
-- [ ] 2.2 `./mvnw -Dtest=OrderListAndDetailIntegrationTests,PartsCatalogIntegrationTests test` still passes
+- [x] 2.1 `./mvnw compile` succeeds
+- [x] 2.2 `./mvnw -Dtest=OrderListAndDetailIntegrationTests,PartsCatalogIntegrationTests test` still passes
 
 #### Manual
 
-- [ ] 2.3 `/purchasing` renders correct part names, missing quantities, and blocked-order links as manager
-- [ ] 2.4 Deactivated-part shortage shows the `(nieaktywna)` flag
-- [ ] 2.5 Technician does not see the "Lista zakupów" dashboard link
+- [x] 2.3 `/purchasing` renders correct part names, missing quantities, and blocked-order links as manager
+- [x] 2.4 Deactivated-part shortage shows the `(nieaktywna)` flag
+- [x] 2.5 Technician does not see the "Lista zakupów" dashboard link
 
 ### Phase 3: CSV export
 
