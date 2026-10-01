@@ -426,21 +426,21 @@ None — no schema change; this plan touches only Java/JPQL.
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes with updated signatures and no behavior change
+- [x] 1.1 `./mvnw verify` passes with updated signatures and no behavior change — 881242e
 
 #### Manual
 
-- [x] 1.2 Order creation via `/orders/new` still reserves/shortfalls correctly
+- [x] 1.2 Order creation via `/orders/new` still reserves/shortfalls correctly — 881242e
 
 ### Phase 2: Deadlock-retry defense in depth
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes with retry wrapper in place, no regression
+- [x] 2.1 `./mvnw verify` passes with retry wrapper in place, no regression
 
 #### Manual
 
-- [ ] 2.2 Code review confirms retry scope, bound, and fallback path
+- [x] 2.2 Code review confirms retry scope, bound, and fallback path
 
 ### Phase 3: Multi-part concurrency coverage
 
