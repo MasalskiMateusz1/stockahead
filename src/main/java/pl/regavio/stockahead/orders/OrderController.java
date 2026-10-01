@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.springframework.context.MessageSource;
@@ -43,8 +42,6 @@ public class OrderController {
 
 	private static final int MAX_QUANTITY_UNITS = 1_000_000;
 
-	private static final int MAX_LOCK_RETRY_ATTEMPTS = 3;
-
 	private final ProjectRepository projectRepository;
 
 	private final OrderRepository orderRepository;
@@ -53,17 +50,20 @@ public class OrderController {
 
 	private final OrderDetailModel orderDetailModel;
 
+	private final LockRetry lockRetry;
+
 	private final TransactionTemplate transactionTemplate;
 
 	private final MessageSource messageSource;
 
 	OrderController(ProjectRepository projectRepository, OrderRepository orderRepository,
-			ReservationAllocator reservationAllocator, OrderDetailModel orderDetailModel,
+			ReservationAllocator reservationAllocator, OrderDetailModel orderDetailModel, LockRetry lockRetry,
 			PlatformTransactionManager transactionManager, MessageSource messageSource) {
 		this.projectRepository = projectRepository;
 		this.orderRepository = orderRepository;
 		this.reservationAllocator = reservationAllocator;
 		this.orderDetailModel = orderDetailModel;
+		this.lockRetry = lockRetry;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 		this.messageSource = messageSource;
 	}
@@ -122,7 +122,7 @@ public class OrderController {
 
 		Long newOrderId;
 		try {
-			newOrderId = executeWithLockRetry(() -> transactionTemplate.execute(status -> {
+			newOrderId = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
 				Project project = projectRepository.findById(parsedProjectId).filter(Project::isActive).orElse(null);
 				if (project == null) {
 					return null;
@@ -160,25 +160,6 @@ public class OrderController {
 		}
 
 		return "redirect:/orders/" + newOrderId;
-	}
-
-	/**
-	 * Retries {@code action} up to {@link #MAX_LOCK_RETRY_ATTEMPTS} times when
-	 * it fails with {@link PessimisticLockingFailureException} (deadlock or
-	 * lock-timeout translation), with no backoff between attempts. Re-throws
-	 * the last failure once attempts are exhausted.
-	 */
-	<T> T executeWithLockRetry(Supplier<T> action) {
-		PessimisticLockingFailureException lastFailure = null;
-		for (int attempt = 1; attempt <= MAX_LOCK_RETRY_ATTEMPTS; attempt++) {
-			try {
-				return action.get();
-			}
-			catch (PessimisticLockingFailureException ex) {
-				lastFailure = ex;
-			}
-		}
-		throw lastFailure;
 	}
 
 	/**

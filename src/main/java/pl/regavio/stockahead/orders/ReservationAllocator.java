@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
 
 /**
@@ -53,8 +52,8 @@ public class ReservationAllocator {
 	/**
 	 * Recomputes {@code reservedQuantity} for every non-taken {@code OPEN}
 	 * order line touching one of {@code partIds}, from a running per-part
-	 * stock pool seeded with each part's current {@code quantity} (no
-	 * picking exists yet to subtract), minus the current reservation of any
+	 * stock pool seeded with each part's current {@code quantity} (picking
+	 * may have already drawn it down), minus the current reservation of any
 	 * taken order's lines on those parts — a taken order's reservation is
 	 * protected and its lines are left untouched. Non-taken orders are
 	 * processed in allocation order; each order's lines are processed in
@@ -66,9 +65,17 @@ public class ReservationAllocator {
 		if (partIds.isEmpty()) {
 			return;
 		}
+		// findByIdInForUpdate's own entities are NOT read from below: a caller may
+		// already have a stale Part managed in this transaction's persistence context
+		// (e.g. OrderController.create resolves BomLine.getPart() before this call),
+		// in which case this query's own row data would be discarded in favor of
+		// that already-managed, possibly outdated instance by Hibernate's identity
+		// map. The lock it takes is still required; the quantities come from the
+		// separate scalar read below, which always reflects the just-locked row.
+		partRepository.findByIdInForUpdate(partIds);
 		Map<Long, Integer> remainingStockByPartId = new HashMap<>();
-		for (Part part : partRepository.findByIdInForUpdate(partIds)) {
-			remainingStockByPartId.put(part.getId(), part.getQuantity());
+		for (Object[] row : partRepository.findCurrentQuantities(partIds)) {
+			remainingStockByPartId.put((Long) row[0], (Integer) row[1]);
 		}
 
 		List<OrderLine> affectedLines = orderLineRepository.findOpenLinesForParts(partIds);

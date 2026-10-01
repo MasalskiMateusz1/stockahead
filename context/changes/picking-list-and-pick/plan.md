@@ -329,10 +329,10 @@ No data backfill: `taken_at` defaults to `NULL` (no existing order has been pick
 
 #### Automated
 
-- [x] 2.1 `takenOrdersReservationSurvivesANewHigherPriorityCompetitor` passes
-- [x] 2.2 `takenOrderWithPartialPickKeepsItsRemainingReservationProtected` passes
-- [x] 2.3 `nonTakenOrdersStillCompeteNormallyAmongThemselves` passes
-- [x] 2.4 `./mvnw verify` passes (full suite)
+- [x] 2.1 `takenOrdersReservationSurvivesANewHigherPriorityCompetitor` passes — 0c5d0bc
+- [x] 2.2 `takenOrderWithPartialPickKeepsItsRemainingReservationProtected` passes — 0c5d0bc
+- [x] 2.3 `nonTakenOrdersStillCompeteNormallyAmongThemselves` passes — 0c5d0bc
+- [x] 2.4 `./mvnw verify` passes (full suite) — 0c5d0bc
 
 ### Phase 3: Picking domain & controller
 

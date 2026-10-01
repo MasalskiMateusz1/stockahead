@@ -28,4 +28,20 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	@Query("SELECT p FROM Part p WHERE p.id IN :ids ORDER BY p.id")
 	List<Part> findByIdInForUpdate(@Param("ids") Collection<Long> ids);
 
+	/**
+	 * Current {@code (id, quantity)} pairs for the given parts, as a plain
+	 * scalar projection rather than hydrated {@link Part} entities. Unlike
+	 * {@link #findByIdInForUpdate(Collection)}, a scalar row never goes
+	 * through Hibernate's first-level-cache reconciliation — if the caller's
+	 * transaction already has one of these {@code Part}s managed from an
+	 * earlier, unrelated read (e.g. a lazy {@code @ManyToOne} touched before
+	 * the lock was acquired), a second full-entity query for the same id
+	 * would just hand back that already-managed (and potentially stale)
+	 * instance, not the DB's current row. Call this only after locking the
+	 * same ids via {@code findByIdInForUpdate}, so the values read here are
+	 * guaranteed current as of that lock.
+	 */
+	@Query("SELECT p.id, p.quantity FROM Part p WHERE p.id IN :ids")
+	List<Object[]> findCurrentQuantities(@Param("ids") Collection<Long> ids);
+
 }
