@@ -123,4 +123,61 @@ class ReservationConcurrencyTests {
 		assertThat(stock).isEqualTo(5);
 	}
 
+	@Test
+	void twoConcurrentOrdersSharingATwoPartBomNeverDeadlockOrOverReserveEitherPart() throws Exception {
+		Long partAId = jdbcTemplate.queryForObject(
+				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class,
+				"Scarce Capacitor A", 5);
+		Long partBId = jdbcTemplate.queryForObject(
+				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class,
+				"Scarce Capacitor B", 5);
+
+		CountDownLatch bothReady = new CountDownLatch(2);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+
+		Callable<Void> createCompetingOrderAndReallocate = () -> {
+			bothReady.countDown();
+			bothReady.await(5, TimeUnit.SECONDS);
+			TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+			transactionTemplate.executeWithoutResult(status -> {
+				Long orderId = jdbcTemplate.queryForObject(
+						"INSERT INTO orders (project_id, quantity_units, priority, required_date) "
+								+ "VALUES (?, 1, 'NORMAL', ?) RETURNING id",
+						Long.class, projectId, LocalDate.now().plusDays(1));
+				jdbcTemplate.update(
+						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
+						partAId, 5);
+				jdbcTemplate.update(
+						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
+						partBId, 5);
+				reservationAllocator.reallocateForParts(Set.of(partAId, partBId));
+			});
+			return null;
+		};
+
+		try {
+			Future<Void> first = executor.submit(createCompetingOrderAndReallocate);
+			Future<Void> second = executor.submit(createCompetingOrderAndReallocate);
+			first.get(15, TimeUnit.SECONDS);
+			second.get(15, TimeUnit.SECONDS);
+		}
+		finally {
+			executor.shutdownNow();
+		}
+
+		Integer totalReservedA = jdbcTemplate.queryForObject(
+				"SELECT COALESCE(SUM(reserved_quantity), 0) FROM order_lines WHERE part_id = ?", Integer.class,
+				partAId);
+		Integer stockA = jdbcTemplate.queryForObject("SELECT quantity FROM parts WHERE id = ?", Integer.class,
+				partAId);
+		Integer totalReservedB = jdbcTemplate.queryForObject(
+				"SELECT COALESCE(SUM(reserved_quantity), 0) FROM order_lines WHERE part_id = ?", Integer.class,
+				partBId);
+		Integer stockB = jdbcTemplate.queryForObject("SELECT quantity FROM parts WHERE id = ?", Integer.class,
+				partBId);
+
+		assertThat(totalReservedA).isLessThanOrEqualTo(stockA);
+		assertThat(totalReservedB).isLessThanOrEqualTo(stockB);
+	}
+
 }

@@ -436,18 +436,18 @@ None — no schema change; this plan touches only Java/JPQL.
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes with retry wrapper in place, no regression
+- [x] 2.1 `./mvnw verify` passes with retry wrapper in place, no regression — dc3646a
 
 #### Manual
 
-- [x] 2.2 Code review confirms retry scope, bound, and fallback path
+- [x] 2.2 Code review confirms retry scope, bound, and fallback path — dc3646a
 
 ### Phase 3: Multi-part concurrency coverage
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes including the new multi-part concurrency test
+- [x] 3.1 `./mvnw verify` passes including the new multi-part concurrency test
 
 #### Manual
 
-- [ ] 3.2 Breaking `ORDER BY p.id` temporarily makes the new test fail, confirming it's load-bearing
+- [x] 3.2 Breaking `ORDER BY p.id` temporarily makes the new test fail, confirming it's load-bearing
