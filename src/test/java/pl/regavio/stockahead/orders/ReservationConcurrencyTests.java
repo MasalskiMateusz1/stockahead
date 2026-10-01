@@ -1,6 +1,7 @@
 package pl.regavio.stockahead.orders;
 
 import java.time.LocalDate;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -28,14 +29,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * the roadmap's {@code F-01} call for, which didn't exist anywhere in this
  * codebase before this test. Two threads race to insert a competing order
  * for the same scarce part and each call
- * {@link ReservationAllocator#reallocateAll()} inside its own transaction
- * (mirroring the shape {@code OrderController}'s eventual
+ * {@link ReservationAllocator#reallocateForParts(Set)} inside its own
+ * transaction (mirroring the shape {@code OrderController}'s eventual
  * {@code POST /orders} handler will use, per {@code ProjectBomController
  * .addLine}), genuinely exercising
- * {@code PartRepository.findAllForUpdate()}'s {@code PESSIMISTIC_WRITE} row
- * lock on Postgres. The HTTP-level version of "two concurrent order-creation
- * POSTs" is naturally re-covered once {@code OrderController} exists
- * (Phase 3).
+ * {@code PartRepository.findByIdInForUpdate(ids)}'s {@code PESSIMISTIC_WRITE}
+ * row lock on Postgres, scoped to just the given part ids. The HTTP-level
+ * version of "two concurrent order-creation POSTs" is naturally re-covered
+ * once {@code OrderController} exists (Phase 3).
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -97,7 +98,7 @@ class ReservationConcurrencyTests {
 				jdbcTemplate.update(
 						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
 						partId, 5);
-				reservationAllocator.reallocateAll();
+				reservationAllocator.reallocateForParts(Set.of(partId));
 			});
 			return null;
 		};

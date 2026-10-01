@@ -299,8 +299,9 @@ class OrderCreationIntegrationTests {
 	/**
 	 * The HTTP-level counterpart to
 	 * {@code ReservationConcurrencyTests#twoConcurrentOrdersForScarcePartNeverTogetherReserveMoreThanStock()},
-	 * which calls {@link ReservationAllocator#reallocateAll()} directly and so
-	 * bypasses {@code OrderController}'s own transaction boundary. Two
+	 * which calls {@link ReservationAllocator#reallocateForParts(java.util.Set)}
+	 * directly and so bypasses {@code OrderController}'s own transaction
+	 * boundary. Two
 	 * concurrent {@code POST /orders} requests each ask for all of a scarce
 	 * part's stock; only one may end up with it reserved. A single manager
 	 * session is shared between both threads — {@code MockHttpSession} isn't

@@ -9,8 +9,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-	List<Order> findByStatus(OrderStatus status);
-
 	@Query("SELECT o FROM Order o JOIN FETCH o.project WHERE o.status = :status")
 	List<Order> findByStatusWithProject(@Param("status") OrderStatus status);
 

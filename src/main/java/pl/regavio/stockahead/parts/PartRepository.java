@@ -1,5 +1,6 @@
 package pl.regavio.stockahead.parts;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,7 +25,7 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	List<Part> search(@Param("q") String q, @Param("showInactive") boolean showInactive);
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("SELECT p FROM Part p ORDER BY p.id")
-	List<Part> findAllForUpdate();
+	@Query("SELECT p FROM Part p WHERE p.id IN :ids ORDER BY p.id")
+	List<Part> findByIdInForUpdate(@Param("ids") Collection<Long> ids);
 
 }

@@ -3,6 +3,7 @@ package pl.regavio.stockahead.orders;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +20,7 @@ import pl.regavio.stockahead.TestcontainersConfiguration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Proves {@link ReservationAllocator#reallocateAll()} against
+ * Proves {@link ReservationAllocator#reallocateForParts(Set)} against
  * {@code context/foundation/prd.md} §Business Logic and US-01's own
  * acceptance example, without going through HTTP. Orders/parts are seeded
  * directly via {@link JdbcTemplate}, matching
@@ -98,13 +99,14 @@ class ReservationAllocatorTests {
 	}
 
 	/**
-	 * {@link ReservationAllocator#reallocateAll()} locks every part via
-	 * {@code PESSIMISTIC_WRITE}, which requires an active transaction — the
-	 * same contract its real caller (a future {@code OrderController}) will
-	 * satisfy via its own {@code TransactionTemplate} block.
+	 * {@link ReservationAllocator#reallocateForParts(Set)} locks the given
+	 * parts via {@code PESSIMISTIC_WRITE}, which requires an active
+	 * transaction — the same contract its real caller (a future
+	 * {@code OrderController}) will satisfy via its own
+	 * {@code TransactionTemplate} block.
 	 */
-	private void reallocateAll() {
-		transactionTemplate.executeWithoutResult(status -> reservationAllocator.reallocateAll());
+	private void reallocate(Set<Long> partIds) {
+		transactionTemplate.executeWithoutResult(status -> reservationAllocator.reallocateForParts(partIds));
 	}
 
 	// ---- tests ----------------------------------------------------------
@@ -116,7 +118,7 @@ class ReservationAllocatorTests {
 		Long orderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(7), Instant.now());
 		Long lineId = seedOrderLine(orderId, partId, 10);
 
-		reallocateAll();
+		reallocate(Set.of(partId));
 
 		assertThat(reservedQuantityOf(lineId)).isEqualTo(6);
 	}
@@ -132,7 +134,7 @@ class ReservationAllocatorTests {
 		Long highOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7), later);
 		Long highLineId = seedOrderLine(highOrderId, partId, 5);
 
-		reallocateAll();
+		reallocate(Set.of(partId));
 
 		assertThat(reservedQuantityOf(highLineId)).isEqualTo(5);
 		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(0);
@@ -149,7 +151,7 @@ class ReservationAllocatorTests {
 				createdAt.plusSeconds(5));
 		Long lateLineId = seedOrderLine(lateOrderId, partId, 5);
 
-		reallocateAll();
+		reallocate(Set.of(partId));
 
 		assertThat(reservedQuantityOf(earlyLineId)).isEqualTo(5);
 		assertThat(reservedQuantityOf(lateLineId)).isEqualTo(0);
@@ -167,7 +169,7 @@ class ReservationAllocatorTests {
 		Long newerOrderId = seedOrder(projectId, 1, Priority.NORMAL, sameDate, newerCreatedAt);
 		Long newerLineId = seedOrderLine(newerOrderId, partId, 5);
 
-		reallocateAll();
+		reallocate(Set.of(partId));
 
 		assertThat(reservedQuantityOf(olderLineId)).isEqualTo(5);
 		assertThat(reservedQuantityOf(newerLineId)).isEqualTo(0);
@@ -180,14 +182,14 @@ class ReservationAllocatorTests {
 		Long lowOrderId = seedOrder(projectId, 1, Priority.LOW, LocalDate.now().plusDays(7), Instant.now());
 		Long lowLineId = seedOrderLine(lowOrderId, partId, 5);
 
-		reallocateAll();
+		reallocate(Set.of(partId));
 		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(5);
 
 		Long highOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7),
 				Instant.now().plusSeconds(10));
 		Long highLineId = seedOrderLine(highOrderId, partId, 5);
 
-		reallocateAll();
+		reallocate(Set.of(partId));
 
 		assertThat(reservedQuantityOf(highLineId)).isEqualTo(5);
 		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(0);

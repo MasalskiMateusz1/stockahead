@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -135,7 +137,10 @@ public class OrderController {
 					order.addLine(line);
 				}
 				Order saved = orderRepository.saveAndFlush(order);
-				reservationAllocator.reallocateAll();
+				Set<Long> affectedPartIds = order.getLines().stream()
+					.map(line -> line.getPart().getId())
+					.collect(Collectors.toSet());
+				reservationAllocator.reallocateForParts(affectedPartIds);
 				return saved.getId();
 			});
 		}
