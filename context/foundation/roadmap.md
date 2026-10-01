@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-09-30
+updated: 2026-10-01
 
 prd_version: 1
 main_goal: speed
@@ -48,7 +48,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-01  | login-and-role-access            | Użytkownik loguje się e-mailem i hasłem, a dostęp zależy od roli                                | F-01          | FR-001, §Kontrola dostępu                   | done     |
 | S-02  | parts-catalog                    | Kierownik prowadzi kartotekę części z lokalizacjami, każdy ją przeszukuje                       | S-01          | FR-003, FR-005                              | done |
 | S-03  | project-bom                       | Kierownik prowadzi projekty urządzeń z listą części i linkami do dokumentacji                   | S-01          | FR-007, FR-019                              | done |
-| S-04  | order-reserves-parts             | Kierownik zleca produkcję N sztuk i widzi rezerwacje oraz braki                                 | S-02, S-03    | US-01, FR-010, FR-005, §Business Logic      | in-progress |
+| S-04  | order-reserves-parts             | Kierownik zleca produkcję N sztuk i widzi rezerwacje oraz braki                                 | S-02, S-03    | US-01, FR-010, FR-005, §Business Logic      | done |
 | S-05  | shopping-list-and-csv-export     | Kierownik widzi listę zakupów z blokowanymi zleceniami i eksportuje ją do CSV                   | S-04          | FR-015, FR-016                              | proposed |
 | S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | done     |
 | S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | proposed |
@@ -145,7 +145,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Czy przeliczanie całej alokacji po każdym zdarzeniu wystarczy przy skali zakładu, czy potrzebne jest przeliczanie przyrostowe? — Owner: user. Block: no.
 - **Risk:** To jest gwiazda przewodnia i jednocześnie najtrudniejsza część systemu: kolejność przydziału (priorytet → wcześniejszy termin → starsze zlecenie) plus przejmowanie niepobranych rezerwacji przez zlecenia wyżej w kolejności. Wyjątki dotyczące zleceń podjętych i części już pobranych nie mieszczą się tu, bo pobrania powstają dopiero w S-07 — ten kawałek dowozi kolejność i przejmowanie między zleceniami niepodjętymi, a S-07 dokłada wyłączenia. Rozliczany kryterium akceptacji US-01: BOM 10 rezystorów, stan 6, zlecenie na 1 sztukę → rezerwacja 6, brak 4.
-- **Status:** in-progress — plan i brief w `context/changes/order-reserves-parts/`.
+- **Status:** done
 
 ### S-05: Lista zakupów i eksport do CSV
 
@@ -293,3 +293,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-02: Kierownik dodaje, edytuje i usuwa części wraz z jedną lub kilkoma lokalizacjami, a każdy zalogowany użytkownik wyszukuje część i widzi jej stan oraz lokalizację.** — Archived 2026-09-29 → `context/archive/2026-09-28-parts-catalog/`. Lesson: —.
 - **S-06: Kierownik zakłada konta techników i je dezaktywuje; dezaktywowany technik nie może się zalogować, a jego dane i historia zostają w systemie.** — Archived 2026-09-30 → `context/archive/2026-09-28-technician-accounts/`. Lesson: —.
 - **S-03: Kierownik tworzy, edytuje i usuwa projekty urządzeń z listą części (BOM) oraz dopina do nich linki do dokumentacji, np. schematów.** — Archived 2026-09-30 → `context/archive/2026-09-28-project-bom/`. Lesson: roadmap Change ID drifted from the actual change-id (`projects-and-bom` vs. `project-bom`), so `/10x-archive`'s roadmap-close step silently skipped this item; caught and reconciled by hand after archiving.
+- **S-04: Kierownik zleca technikowi produkcję N sztuk według projektu, z priorytetem i wymaganym terminem; dostępne części zostają zarezerwowane zgodnie z kolejnością przydziału, a dla każdej części z BOM widać ilość zarezerwowaną i brakującą.** — Archived 2026-10-01 → `context/archive/2026-09-30-order-reserves-parts/`. Lesson: —.
