@@ -262,25 +262,25 @@ Cover the aggregation correctness, the two new routes, and the CSV format agains
 
 #### Automated
 
-- [x] 2.1 `./mvnw compile` succeeds
-- [x] 2.2 `./mvnw -Dtest=OrderListAndDetailIntegrationTests,PartsCatalogIntegrationTests test` still passes
+- [x] 2.1 `./mvnw compile` succeeds — c420899
+- [x] 2.2 `./mvnw -Dtest=OrderListAndDetailIntegrationTests,PartsCatalogIntegrationTests test` still passes — c420899
 
 #### Manual
 
-- [x] 2.3 `/purchasing` renders correct part names, missing quantities, and blocked-order links as manager
-- [x] 2.4 Deactivated-part shortage shows the `(nieaktywna)` flag
-- [x] 2.5 Technician does not see the "Lista zakupów" dashboard link
+- [x] 2.3 `/purchasing` renders correct part names, missing quantities, and blocked-order links as manager — c420899
+- [x] 2.4 Deactivated-part shortage shows the `(nieaktywna)` flag — c420899
+- [x] 2.5 Technician does not see the "Lista zakupów" dashboard link — c420899
 
 ### Phase 3: CSV export
 
 #### Automated
 
-- [ ] 3.1 `./mvnw compile` succeeds
+- [x] 3.1 `./mvnw compile` succeeds
 
 #### Manual
 
-- [ ] 3.2 CSV opens in Excel (Polish regional settings) with correct column split and diacritics
-- [ ] 3.3 Downloaded file is named `lista-zakupow.csv`
+- [x] 3.2 CSV opens in Excel (Polish regional settings) with correct column split and diacritics
+- [x] 3.3 Downloaded file is named `lista-zakupow.csv`
 
 ### Phase 4: Tests
 
