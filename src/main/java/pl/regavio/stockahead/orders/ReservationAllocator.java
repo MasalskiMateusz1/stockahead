@@ -29,9 +29,9 @@ import pl.regavio.stockahead.parts.PartRepository;
  * falls out for free, with no special-case "steal reservation" logic.
  */
 @Component
-class ReservationAllocator {
+public class ReservationAllocator {
 
-	static final Comparator<Order> ALLOCATION_ORDER = Comparator
+	public static final Comparator<Order> ALLOCATION_ORDER = Comparator
 		.comparing(Order::getPriority, Comparator.reverseOrder())
 		.thenComparing(Order::getRequiredDate)
 		.thenComparing(Order::getCreatedAt)
