@@ -211,6 +211,18 @@ class MessagesBundleTests {
 	}
 
 	@Test
+	void ordersErrorNotReported() {
+		assertThat(messageSource.getMessage("orders.error.notReported", null, PL))
+			.isEqualTo("Zlecenie nie oczekuje na potwierdzenie zakończenia.");
+	}
+
+	@Test
+	void ordersErrorCompletionFailed() {
+		assertThat(messageSource.getMessage("orders.error.completionFailed", null, PL))
+			.isEqualTo("Nie udało się zapisać decyzji o zakończeniu zlecenia. Spróbuj ponownie.");
+	}
+
+	@Test
 	void purchasingCsvHeaderPartName() {
 		assertThat(messageSource.getMessage("purchasing.csv.header.partName", null, PL)).isEqualTo("Część");
 	}

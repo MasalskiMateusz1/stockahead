@@ -3,13 +3,17 @@ package pl.regavio.stockahead.orders;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -19,7 +23,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.parts.PartRepository;
 import pl.regavio.stockahead.projects.BomLine;
 import pl.regavio.stockahead.projects.Project;
 import pl.regavio.stockahead.projects.ProjectRepository;
@@ -36,6 +42,13 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * could have changed between page load and submit. An unrecognized priority
  * falls back to {@code NORMAL} rather than failing the submission, since the
  * form only ever offers the three valid values.
+ * <p>
+ * Also hosts the manager's side of the completion workflow: confirming a
+ * reported order ({@code COMPLETED}, its unpicked reservations released and
+ * reallocated to the next open orders) or rejecting the report (back to
+ * normal picking). Both follow {@code PickingController.reportCompletion}'s
+ * scalar-lookup-then-lock-then-re-read shape for the same open-in-view
+ * stale-cache reason documented there.
  */
 @Controller
 public class OrderController {
@@ -45,6 +58,10 @@ public class OrderController {
 	private final ProjectRepository projectRepository;
 
 	private final OrderRepository orderRepository;
+
+	private final OrderLineRepository orderLineRepository;
+
+	private final PartRepository partRepository;
 
 	private final ReservationAllocator reservationAllocator;
 
@@ -57,10 +74,13 @@ public class OrderController {
 	private final MessageSource messageSource;
 
 	OrderController(ProjectRepository projectRepository, OrderRepository orderRepository,
+			OrderLineRepository orderLineRepository, PartRepository partRepository,
 			ReservationAllocator reservationAllocator, OrderDetailModel orderDetailModel, LockRetry lockRetry,
 			PlatformTransactionManager transactionManager, MessageSource messageSource) {
 		this.projectRepository = projectRepository;
 		this.orderRepository = orderRepository;
+		this.orderLineRepository = orderLineRepository;
+		this.partRepository = partRepository;
 		this.reservationAllocator = reservationAllocator;
 		this.orderDetailModel = orderDetailModel;
 		this.lockRetry = lockRetry;
@@ -71,9 +91,11 @@ public class OrderController {
 	@GetMapping("/orders")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String list(Model model) {
-		model.addAttribute("orders", orderRepository.findByStatusWithProject(OrderStatus.OPEN).stream()
+		List<Order> openOrders = orderRepository.findByStatusWithProject(OrderStatus.OPEN).stream()
 			.sorted(ReservationAllocator.ALLOCATION_ORDER)
-			.toList());
+			.toList();
+		model.addAttribute("pendingOrders", openOrders.stream().filter(Order::isCompletionReported).toList());
+		model.addAttribute("orders", openOrders.stream().filter(order -> !order.isCompletionReported()).toList());
 		return "orders-list";
 	}
 
@@ -81,6 +103,90 @@ public class OrderController {
 	@PreAuthorize("hasRole('MANAGER')")
 	public String detail(@PathVariable Long id, Model model) {
 		return orderDetailModel.render(model, id);
+	}
+
+	/**
+	 * Confirms a pending completion report: the order becomes
+	 * {@code COMPLETED}, every line's unpicked {@code reservedQuantity} is
+	 * released, and the freed stock is reallocated to the remaining open
+	 * orders on those parts. The order is flushed as {@code COMPLETED} with
+	 * zeroed reservations BEFORE {@link ReservationAllocator#reallocateForParts}
+	 * runs — otherwise the still-{@code OPEN}, taken order's frozen reservation
+	 * would be subtracted from the pool and the released units would never
+	 * reach the other orders.
+	 */
+	@PostMapping("/orders/{id}/confirm-completion")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String confirmCompletion(@PathVariable Long id, Model model, Locale locale) {
+		return transitionReportedOrder(id, model, locale, order -> {
+			order.setStatus(OrderStatus.COMPLETED);
+			order.setCompletedAt(Instant.now());
+			for (OrderLine line : order.getLines()) {
+				line.setReservedQuantity(0);
+			}
+			orderRepository.saveAndFlush(order);
+			reservationAllocator.reallocateForParts(order.getLines().stream()
+				.map(line -> line.getPart().getId())
+				.collect(Collectors.toSet()));
+		});
+	}
+
+	/**
+	 * Rejects a pending completion report, clearing
+	 * {@code completionReportedAt}/{@code completionReportedBy} so the order
+	 * goes back to normal picking. Reservations are untouched.
+	 */
+	@PostMapping("/orders/{id}/reject-completion")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String rejectCompletion(@PathVariable Long id, Model model, Locale locale) {
+		return transitionReportedOrder(id, model, locale, order -> {
+			order.setCompletionReportedAt(null);
+			order.setCompletionReportedBy(null);
+			orderRepository.saveAndFlush(order);
+		});
+	}
+
+	/**
+	 * Shared lock/re-check shape for confirm and reject: a scalar pre-lock
+	 * part-id lookup (never {@code Order.getLines()} before the lock — see
+	 * {@code PickingController}), the same part-row locks a pick takes, a
+	 * fresh re-read of the order, and a re-check that it is still
+	 * {@code OPEN} and reported before {@code transition} runs. An unknown
+	 * order is 404; a business or DB/lock failure re-renders the detail page
+	 * with a friendly error.
+	 */
+	private String transitionReportedOrder(Long orderId, Model model, Locale locale,
+			Consumer<Order> transition) {
+		Set<Long> partIds = transactionTemplate
+			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId)));
+
+		String businessError;
+		try {
+			businessError = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
+				if (!partIds.isEmpty()) {
+					partRepository.findByIdInForUpdate(partIds);
+				}
+				Order order = orderRepository.findById(orderId)
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+				if (order.getStatus() != OrderStatus.OPEN || !order.isCompletionReported()) {
+					return messageSource.getMessage("orders.error.notReported", null, locale);
+				}
+
+				transition.accept(order);
+				return null;
+			}));
+		}
+		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
+			return orderDetailModel.render(model, orderId,
+					messageSource.getMessage("orders.error.completionFailed", null, locale));
+		}
+
+		if (businessError != null) {
+			return orderDetailModel.render(model, orderId, businessError);
+		}
+
+		return "redirect:/orders";
 	}
 
 	@GetMapping("/orders/new")

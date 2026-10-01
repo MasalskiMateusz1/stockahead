@@ -5,11 +5,34 @@
 	<title th:text="${order.projectName} + ' — Stockahead'">Zlecenie — Stockahead</title>
 </head>
 <body>
+	<p th:if="${error}" th:text="${error}"></p>
+
 	<h1 th:text="${order.projectName}"></h1>
 
 	<p>Liczba sztuk: <span th:text="${order.quantityUnits}"></span></p>
 	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
 	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
+	<p th:if="${order.status.name() == 'COMPLETED'}">Zakończone <span th:text="${order.completedAt}"></span></p>
+
+	<section id="completion-report" th:if="${order.completionReported and order.status.name() == 'OPEN'}">
+		<h2>Zgłoszenie zakończenia</h2>
+		<p>Zgłosił(a): <span th:text="${order.reportedByEmail}"></span>, <span th:text="${order.reportedAt}"></span></p>
+
+		<div th:unless="${#lists.isEmpty(unmetLines)}">
+			<p>Uwaga: nie wszystkie pozycje zostały w pełni pobrane:</p>
+			<ul>
+				<li th:each="line : ${unmetLines}"
+					th:text="${line.partName} + ': pobrano ' + ${line.pickedQuantity} + ' z ' + ${line.requiredQuantity}"></li>
+			</ul>
+		</div>
+
+		<form th:action="@{/orders/{id}/confirm-completion(id=${orderId})}" method="post" style="display:inline">
+			<button type="submit">Potwierdź zakończenie</button>
+		</form>
+		<form th:action="@{/orders/{id}/reject-completion(id=${orderId})}" method="post" style="display:inline">
+			<button type="submit">Odrzuć zgłoszenie</button>
+		</form>
+	</section>
 
 	<h2>Pozycje</h2>
 
@@ -21,6 +44,7 @@
 				<th>Część</th>
 				<th>Wymagana ilość</th>
 				<th>Zarezerwowana ilość</th>
+				<th>Pobrana ilość</th>
 				<th>Brakująca ilość</th>
 			</tr>
 		</thead>
@@ -29,6 +53,7 @@
 				<td th:text="${line.partName}"></td>
 				<td th:text="${line.requiredQuantity}"></td>
 				<td th:text="${line.reservedQuantity}"></td>
+				<td th:text="${line.pickedQuantity}"></td>
 				<td th:text="${line.missingQuantity}"></td>
 			</tr>
 		</tbody>

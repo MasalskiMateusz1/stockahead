@@ -11,27 +11,58 @@
 
 	<p><a th:href="@{/orders/new}">Nowe zlecenie</a></p>
 
-	<p th:if="${#lists.isEmpty(orders)}">Brak zleceń.</p>
+	<section id="pending-orders" th:unless="${#lists.isEmpty(pendingOrders)}">
+		<h2>Do potwierdzenia</h2>
 
-	<table th:unless="${#lists.isEmpty(orders)}">
-		<thead>
-			<tr>
-				<th>Projekt</th>
-				<th>Liczba sztuk</th>
-				<th>Priorytet</th>
-				<th>Wymagany termin</th>
-				<th></th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr th:each="order : ${orders}">
-				<td th:text="${order.project.name}"></td>
-				<td th:text="${order.quantityUnits}"></td>
-				<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
-				<td th:text="${order.requiredDate}"></td>
-				<td><a th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
-			</tr>
-		</tbody>
-	</table>
+		<table>
+			<thead>
+				<tr>
+					<th>Projekt</th>
+					<th>Liczba sztuk</th>
+					<th>Priorytet</th>
+					<th>Wymagany termin</th>
+					<th>Zgłoszono</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="order : ${pendingOrders}">
+					<td th:text="${order.project.name}"></td>
+					<td th:text="${order.quantityUnits}"></td>
+					<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
+					<td th:text="${order.requiredDate}"></td>
+					<td th:text="${order.completionReportedAt}"></td>
+					<td><a th:href="@{/orders/{id}(id=${order.id})}">Sprawdź</a></td>
+				</tr>
+			</tbody>
+		</table>
+	</section>
+
+	<section id="open-orders">
+		<h2>Otwarte zlecenia</h2>
+
+		<p th:if="${#lists.isEmpty(orders)}">Brak zleceń.</p>
+
+		<table th:unless="${#lists.isEmpty(orders)}">
+			<thead>
+				<tr>
+					<th>Projekt</th>
+					<th>Liczba sztuk</th>
+					<th>Priorytet</th>
+					<th>Wymagany termin</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="order : ${orders}">
+					<td th:text="${order.project.name}"></td>
+					<td th:text="${order.quantityUnits}"></td>
+					<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
+					<td th:text="${order.requiredDate}"></td>
+					<td><a th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
+				</tr>
+			</tbody>
+		</table>
+	</section>
 </body>
 </html>

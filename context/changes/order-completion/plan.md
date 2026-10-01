@@ -235,22 +235,22 @@ V8 only adds nullable columns; no existing row is `COMPLETED`, so the new `CHECK
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 New `OrderCompletionIntegrationTests`: report happy path, untaken/second/non-OPEN report rejected, unknown order 404, unauthenticated redirect
-- [x] 2.3 New `OrderCompletionConcurrencyTests`: pick vs report race never records a pick after the report
+- [x] 2.1 `./mvnw verify` passes — a5e6e87
+- [x] 2.2 New `OrderCompletionIntegrationTests`: report happy path, untaken/second/non-OPEN report rejected, unknown order 404, unauthenticated redirect — a5e6e87
+- [x] 2.3 New `OrderCompletionConcurrencyTests`: pick vs report race never records a pick after the report — a5e6e87
 
 #### Manual
 
-- [x] 2.4 As technician: report a picked order, see pending notice and no pick forms; button absent on an untaken order
+- [x] 2.4 As technician: report a picked order, see pending notice and no pick forms; button absent on an untaken order — a5e6e87
 
 ### Phase 3: Manager confirm/reject & visibility
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes
-- [ ] 3.2 `OrderCompletionIntegrationTests` covers confirm/release/reallocation, shopping list effect, reject, repeat cycle, technician 403s, list sections
-- [ ] 3.3 `MessagesBundleTests` still passes with the new keys
+- [x] 3.1 `./mvnw verify` passes
+- [x] 3.2 `OrderCompletionIntegrationTests` covers confirm/release/reallocation, shopping list effect, reject, repeat cycle, technician 403s, list sections
+- [x] 3.3 `MessagesBundleTests` still passes with the new keys
 
 #### Manual
 
-- [ ] 3.4 As manager: confirm from the pending section (next order's reservation grows, shopping list shrinks); reject a second report and verify picking resumes
+- [x] 3.4 As manager: confirm from the pending section (next order's reservation grows, shopping list shrinks); reject a second report and verify picking resumes

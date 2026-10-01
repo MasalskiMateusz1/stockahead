@@ -1,6 +1,9 @@
 package pl.regavio.stockahead.orders;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 
@@ -24,6 +27,13 @@ class OrderDetailModel {
 
 	static final String VIEW = "orders-detail";
 
+	/**
+	 * Report/completion moments shown to the manager: date and minute in the
+	 * plant's local time, independent of the server's default zone.
+	 */
+	private static final DateTimeFormatter MOMENT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+		.withZone(ZoneId.of("Europe/Warsaw"));
+
 	private final OrderRepository orderRepository;
 
 	private final TransactionTemplate readTransaction;
@@ -39,9 +49,25 @@ class OrderDetailModel {
 	 * @return the {@code orders-detail} view name
 	 */
 	String render(Model model, Long orderId) {
+		return render(model, orderId, null);
+	}
+
+	/**
+	 * Same as {@link #render(Model, Long)}, with a page-level error message
+	 * shown at the top of the page ({@code null} for none) — used by a failed
+	 * confirm/reject's re-render.
+	 */
+	String render(Model model, Long orderId, String error) {
 		DetailData data = readTransaction.execute(status -> load(orderId));
+		model.addAttribute("orderId", orderId);
 		model.addAttribute("order", data.order());
 		model.addAttribute("lines", data.lines());
+		model.addAttribute("unmetLines", data.lines().stream()
+			.filter(line -> line.pickedQuantity() < line.requiredQuantity())
+			.toList());
+		if (error != null) {
+			model.addAttribute("error", error);
+		}
 		return VIEW;
 	}
 
@@ -50,18 +76,35 @@ class OrderDetailModel {
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		List<LineView> lines = order.getLines().stream()
 			.map(line -> new LineView(line.getPart().getName(), line.getRequiredQuantity(),
-					line.getReservedQuantity(), line.getRequiredQuantity() - line.getReservedQuantity()))
+					line.getReservedQuantity(), line.getRequiredQuantity() - line.getReservedQuantity(),
+					line.getPickedQuantity()))
 			.sorted(Comparator.comparing(LineView::partName))
 			.toList();
+		String reportedByEmail = order.getCompletionReportedBy() == null ? null
+				: order.getCompletionReportedBy().getEmail();
 		OrderView orderView = new OrderView(order.getProject().getName(), order.getQuantityUnits(),
-				order.getPriority(), order.getRequiredDate());
+				order.getPriority(), order.getRequiredDate(), order.getStatus(), order.isCompletionReported(),
+				formatMoment(order.getCompletionReportedAt()), reportedByEmail, formatMoment(order.getCompletedAt()));
 		return new DetailData(orderView, lines);
 	}
 
-	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate) {
+	private static String formatMoment(Instant moment) {
+		return moment == null ? null : MOMENT_FORMAT.format(moment);
 	}
 
-	record LineView(String partName, int requiredQuantity, int reservedQuantity, int missingQuantity) {
+	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate,
+			OrderStatus status, boolean completionReported, String reportedAt, String reportedByEmail,
+			String completedAt) {
+	}
+
+	/**
+	 * {@code missingQuantity} is the unreserved shortfall (what the shopping
+	 * list counts); unmet quantity for the completion warning is
+	 * {@code pickedQuantity < requiredQuantity}, since
+	 * {@code reservedQuantity} is live and already nets out past picks.
+	 */
+	record LineView(String partName, int requiredQuantity, int reservedQuantity, int missingQuantity,
+			int pickedQuantity) {
 	}
 
 	private record DetailData(OrderView order, List<LineView> lines) {
