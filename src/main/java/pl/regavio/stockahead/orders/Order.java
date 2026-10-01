@@ -49,6 +49,9 @@ public class Order {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
+	@Column(name = "taken_at")
+	private Instant takenAt;
+
 	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<OrderLine> lines = new ArrayList<>();
 
@@ -106,6 +109,18 @@ public class Order {
 
 	public void setCreatedAt(Instant createdAt) {
 		this.createdAt = createdAt;
+	}
+
+	public Instant getTakenAt() {
+		return takenAt;
+	}
+
+	public void setTakenAt(Instant takenAt) {
+		this.takenAt = takenAt;
+	}
+
+	public boolean isTaken() {
+		return takenAt != null;
 	}
 
 	public List<OrderLine> getLines() {

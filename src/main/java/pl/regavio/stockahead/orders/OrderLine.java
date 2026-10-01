@@ -33,6 +33,9 @@ public class OrderLine {
 	@Column(name = "reserved_quantity", nullable = false)
 	private int reservedQuantity;
 
+	@Column(name = "picked_quantity", nullable = false)
+	private int pickedQuantity = 0;
+
 	public Long getId() {
 		return id;
 	}
@@ -71,6 +74,14 @@ public class OrderLine {
 
 	public void setReservedQuantity(int reservedQuantity) {
 		this.reservedQuantity = reservedQuantity;
+	}
+
+	public int getPickedQuantity() {
+		return pickedQuantity;
+	}
+
+	public void setPickedQuantity(int pickedQuantity) {
+		this.pickedQuantity = pickedQuantity;
 	}
 
 }
