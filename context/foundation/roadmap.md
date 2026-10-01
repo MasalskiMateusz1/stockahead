@@ -51,7 +51,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-04  | order-reserves-parts             | Kierownik zleca produkcję N sztuk i widzi rezerwacje oraz braki                                 | S-02, S-03    | US-01, FR-010, FR-005, §Business Logic      | done |
 | S-05  | shopping-list-and-csv-export     | Kierownik widzi listę zakupów z blokowanymi zleceniami i eksportuje ją do CSV                   | S-04          | FR-015, FR-016                              | done |
 | S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | done     |
-| S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | in-progress |
+| S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | done |
 | S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | proposed |
 | S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | proposed |
 | S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | proposed |
@@ -182,7 +182,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Tutaj powstaje pojęcie zlecenia podjętego (pierwsze pobranie), które zamyka zmiany priorytetu i terminu oraz chroni niepobrane rezerwacje przed przejęciem — czyli wyłączenia, których S-04 nie mógł jeszcze wyrazić. To także miejsce, gdzie gwarancja „ta sama sztuka nie trafia do dwóch zleceń" spotyka realne pobranie, więc wzorzec testu z F-01 musi być tu użyty, a nie tylko walidacja formularza. Dopiero ten kawałek daje technikowi odpowiedź „gdzie leżą części" z §Wizji.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-08: Zgłoszenie i potwierdzenie zakończenia zlecenia
 
@@ -295,3 +295,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-03: Kierownik tworzy, edytuje i usuwa projekty urządzeń z listą części (BOM) oraz dopina do nich linki do dokumentacji, np. schematów.** — Archived 2026-09-30 → `context/archive/2026-09-28-project-bom/`. Lesson: roadmap Change ID drifted from the actual change-id (`projects-and-bom` vs. `project-bom`), so `/10x-archive`'s roadmap-close step silently skipped this item; caught and reconciled by hand after archiving.
 - **S-04: Kierownik zleca technikowi produkcję N sztuk według projektu, z priorytetem i wymaganym terminem; dostępne części zostają zarezerwowane zgodnie z kolejnością przydziału, a dla każdej części z BOM widać ilość zarezerwowaną i brakującą.** — Archived 2026-10-01 → `context/archive/2026-09-30-order-reserves-parts/`. Lesson: —.
 - **S-05: Kierownik widzi jedną zagregowaną listę zakupów — jedna pozycja na część, suma braków ze wszystkich otwartych zleceń, wraz ze zleceniami, które dany brak blokuje — i eksportuje ją do pliku CSV.** — Archived 2026-10-01 → `context/archive/2026-10-01-shopping-list-and-csv-export/`. Lesson: —.
+- **S-07: Technik widzi listę zleceń do zmontowania, dla każdego z nich listę kompletacyjną z częściami, ilościami i lokalizacjami, i pobiera zarezerwowane części ze stanu — także częściowo, np. 6 z 10.** — Archived 2026-10-01 → `context/archive/2026-10-01-picking-list-and-pick/`. Lesson: —.
