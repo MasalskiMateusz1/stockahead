@@ -247,10 +247,10 @@ V8 only adds nullable columns; no existing row is `COMPLETED`, so the new `CHECK
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes
-- [x] 3.2 `OrderCompletionIntegrationTests` covers confirm/release/reallocation, shopping list effect, reject, repeat cycle, technician 403s, list sections
-- [x] 3.3 `MessagesBundleTests` still passes with the new keys
+- [x] 3.1 `./mvnw verify` passes — 82495d4
+- [x] 3.2 `OrderCompletionIntegrationTests` covers confirm/release/reallocation, shopping list effect, reject, repeat cycle, technician 403s, list sections — 82495d4
+- [x] 3.3 `MessagesBundleTests` still passes with the new keys — 82495d4
 
 #### Manual
 
-- [x] 3.4 As manager: confirm from the pending section (next order's reservation grows, shopping list shrinks); reject a second report and verify picking resumes
+- [x] 3.4 As manager: confirm from the pending section (next order's reservation grows, shopping list shrinks); reject a second report and verify picking resumes — 82495d4
