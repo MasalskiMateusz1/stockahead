@@ -168,7 +168,7 @@ public class OrderController {
 	 * lock-timeout translation), with no backoff between attempts. Re-throws
 	 * the last failure once attempts are exhausted.
 	 */
-	private <T> T executeWithLockRetry(Supplier<T> action) {
+	<T> T executeWithLockRetry(Supplier<T> action) {
 		PessimisticLockingFailureException lastFailure = null;
 		for (int attempt = 1; attempt <= MAX_LOCK_RETRY_ATTEMPTS; attempt++) {
 			try {
