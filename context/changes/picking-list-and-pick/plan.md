@@ -319,20 +319,20 @@ No data backfill: `taken_at` defaults to `NULL` (no existing order has been pick
 
 #### Automated
 
-- [ ] 1.1 `./mvnw verify` passes with the new migration and entity fields
+- [x] 1.1 `./mvnw verify` passes with the new migration and entity fields — 2c8f6b0
 
 #### Manual
 
-- [ ] 1.2 `\d order_lines` / `\d orders` shows the new columns and replaced constraint
+- [x] 1.2 `\d order_lines` / `\d orders` shows the new columns and replaced constraint — 2c8f6b0
 
 ### Phase 2: Allocator protection logic
 
 #### Automated
 
-- [ ] 2.1 `takenOrdersReservationSurvivesANewHigherPriorityCompetitor` passes
-- [ ] 2.2 `takenOrderWithPartialPickKeepsItsRemainingReservationProtected` passes
-- [ ] 2.3 `nonTakenOrdersStillCompeteNormallyAmongThemselves` passes
-- [ ] 2.4 `./mvnw verify` passes (full suite)
+- [x] 2.1 `takenOrdersReservationSurvivesANewHigherPriorityCompetitor` passes
+- [x] 2.2 `takenOrderWithPartialPickKeepsItsRemainingReservationProtected` passes
+- [x] 2.3 `nonTakenOrdersStillCompeteNormallyAmongThemselves` passes
+- [x] 2.4 `./mvnw verify` passes (full suite)
 
 ### Phase 3: Picking domain & controller
 

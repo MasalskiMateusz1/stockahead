@@ -24,9 +24,13 @@ import pl.regavio.stockahead.parts.PartRepository;
  * already-loaded writes touch — never derive the set from a separate query.
  * The part locks and the order writes then commit atomically together.
  * Because every event fully rebuilds the allocation for the affected parts
- * from the current set of open orders touching them, priority preemption (a
- * new high-priority order taking stock from an existing lower-priority one)
- * falls out for free, with no special-case "steal reservation" logic.
+ * from the current set of <em>non-taken</em> open orders touching them,
+ * priority preemption (a new high-priority order taking stock from an
+ * existing lower-priority one) falls out for free, with no special-case
+ * "steal reservation" logic. A taken order (one with a first pick already
+ * done) is frozen: its current reservation is removed from the stock pool
+ * up front and its lines are never written to, so it can never be
+ * preempted by a later, higher-priority competitor.
  */
 @Component
 public class ReservationAllocator {
@@ -47,13 +51,16 @@ public class ReservationAllocator {
 	}
 
 	/**
-	 * Recomputes {@code reservedQuantity} for every {@code OPEN}-order line
-	 * touching one of {@code partIds}, from a running per-part stock pool
-	 * seeded with each part's current {@code quantity} (no picking exists
-	 * yet to subtract). Orders are processed in allocation order; each
-	 * order's lines are processed in their natural order, which is safe
-	 * because {@code UNIQUE(order_id, part_id)} guarantees each line of an
-	 * order touches a distinct part.
+	 * Recomputes {@code reservedQuantity} for every non-taken {@code OPEN}
+	 * order line touching one of {@code partIds}, from a running per-part
+	 * stock pool seeded with each part's current {@code quantity} (no
+	 * picking exists yet to subtract), minus the current reservation of any
+	 * taken order's lines on those parts — a taken order's reservation is
+	 * protected and its lines are left untouched. Non-taken orders are
+	 * processed in allocation order; each order's lines are processed in
+	 * their natural order, which is safe because
+	 * {@code UNIQUE(order_id, part_id)} guarantees each line of an order
+	 * touches a distinct part.
 	 */
 	void reallocateForParts(Set<Long> partIds) {
 		if (partIds.isEmpty()) {
@@ -65,9 +72,19 @@ public class ReservationAllocator {
 		}
 
 		List<OrderLine> affectedLines = orderLineRepository.findOpenLinesForParts(partIds);
-		Map<Long, Order> ordersById = affectedLines.stream()
+		List<OrderLine> takenLines = affectedLines.stream().filter(line -> line.getOrder().isTaken()).toList();
+		List<OrderLine> reallocatableLines = affectedLines.stream().filter(line -> !line.getOrder().isTaken())
+			.toList();
+
+		for (OrderLine takenLine : takenLines) {
+			remainingStockByPartId.merge(takenLine.getPart().getId(), -takenLine.getReservedQuantity(),
+					Integer::sum);
+		}
+		remainingStockByPartId.replaceAll((partId, remaining) -> Math.max(0, remaining));
+
+		Map<Long, Order> ordersById = reallocatableLines.stream()
 			.collect(Collectors.toMap(l -> l.getOrder().getId(), OrderLine::getOrder, (a, b) -> a));
-		Map<Long, List<OrderLine>> linesByOrderId = affectedLines.stream()
+		Map<Long, List<OrderLine>> linesByOrderId = reallocatableLines.stream()
 			.collect(Collectors.groupingBy(l -> l.getOrder().getId()));
 
 		for (Order order : ordersById.values().stream().sorted(ALLOCATION_ORDER).toList()) {

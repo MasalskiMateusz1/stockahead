@@ -98,6 +98,21 @@ class ReservationAllocatorTests {
 				lineId);
 	}
 
+	private int pickedQuantityOf(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT picked_quantity FROM order_lines WHERE id = ?", Integer.class,
+				lineId);
+	}
+
+	private void setPickedQuantity(Long lineId, int pickedQuantity) {
+		transactionTemplate.executeWithoutResult(status -> jdbcTemplate
+			.update("UPDATE order_lines SET picked_quantity = ? WHERE id = ?", pickedQuantity, lineId));
+	}
+
+	private void markOrderTaken(Long orderId) {
+		transactionTemplate.executeWithoutResult(status -> jdbcTemplate
+			.update("UPDATE orders SET taken_at = ? WHERE id = ?", Timestamp.from(Instant.now()), orderId));
+	}
+
 	/**
 	 * {@link ReservationAllocator#reallocateForParts(Set)} locks the given
 	 * parts via {@code PESSIMISTIC_WRITE}, which requires an active
@@ -193,6 +208,76 @@ class ReservationAllocatorTests {
 
 		assertThat(reservedQuantityOf(highLineId)).isEqualTo(5);
 		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(0);
+	}
+
+	@Test
+	void takenOrdersReservationSurvivesANewHigherPriorityCompetitor() {
+		Long projectId = seedProject("Taken Order Board");
+		Long partId = seedPart("Scarce Part", 5);
+		Long lowOrderId = seedOrder(projectId, 1, Priority.LOW, LocalDate.now().plusDays(7), Instant.now());
+		Long lowLineId = seedOrderLine(lowOrderId, partId, 5);
+
+		reallocate(Set.of(partId));
+		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(5);
+		markOrderTaken(lowOrderId);
+
+		Long highOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7),
+				Instant.now().plusSeconds(10));
+		Long highLineId = seedOrderLine(highOrderId, partId, 5);
+
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(5);
+		assertThat(reservedQuantityOf(highLineId)).isEqualTo(0);
+	}
+
+	@Test
+	void takenOrderWithPartialPickKeepsItsRemainingReservationProtected() {
+		Long projectId = seedProject("Partial Pick Board");
+		Long partId = seedPart("Scarce Part", 4);
+		Long takenOrderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(7), Instant.now());
+		Long takenLineId = seedOrderLine(takenOrderId, partId, 10);
+
+		reallocate(Set.of(partId));
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(4);
+		markOrderTaken(takenOrderId);
+		setPickedQuantity(takenLineId, 3);
+
+		Long competingOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7),
+				Instant.now().plusSeconds(10));
+		Long competingLineId = seedOrderLine(competingOrderId, partId, 4);
+
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(4);
+		assertThat(pickedQuantityOf(takenLineId)).isEqualTo(3);
+		assertThat(reservedQuantityOf(competingLineId)).isEqualTo(0);
+	}
+
+	@Test
+	void nonTakenOrdersStillCompeteNormallyAmongThemselves() {
+		Long projectId = seedProject("Mixed Competition Board");
+		Long partId = seedPart("Scarce Part", 10);
+		Instant takenCreatedAt = Instant.now();
+		Long takenOrderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(1), takenCreatedAt);
+		Long takenLineId = seedOrderLine(takenOrderId, partId, 5);
+
+		reallocate(Set.of(partId));
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(5);
+		markOrderTaken(takenOrderId);
+
+		Instant earlyCreatedAt = takenCreatedAt.plusSeconds(5);
+		Long earlyOrderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(2), earlyCreatedAt);
+		Long earlyLineId = seedOrderLine(earlyOrderId, partId, 5);
+		Long lateOrderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(10),
+				earlyCreatedAt.plusSeconds(5));
+		Long lateLineId = seedOrderLine(lateOrderId, partId, 5);
+
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(5);
+		assertThat(reservedQuantityOf(earlyLineId)).isEqualTo(5);
+		assertThat(reservedQuantityOf(lateLineId)).isEqualTo(0);
 	}
 
 }
