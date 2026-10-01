@@ -56,12 +56,20 @@ final class ShoppingListCsvWriter {
 	}
 
 	private static String escapeField(String field) {
-		boolean needsQuoting = field.indexOf(';') >= 0 || field.indexOf('"') >= 0 || field.indexOf('\r') >= 0
-				|| field.indexOf('\n') >= 0;
+		String safe = neutralizeLeadingFormulaChar(field);
+		boolean needsQuoting = safe.indexOf(';') >= 0 || safe.indexOf('"') >= 0 || safe.indexOf('\r') >= 0
+				|| safe.indexOf('\n') >= 0;
 		if (!needsQuoting) {
-			return field;
+			return safe;
 		}
-		return '"' + field.replace("\"", "\"\"") + '"';
+		return '"' + safe.replace("\"", "\"\"") + '"';
+	}
+
+	private static String neutralizeLeadingFormulaChar(String field) {
+		if (!field.isEmpty() && "=+-@".indexOf(field.charAt(0)) >= 0) {
+			return "'" + field;
+		}
+		return field;
 	}
 
 }

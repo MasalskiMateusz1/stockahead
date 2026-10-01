@@ -174,6 +174,14 @@ private static String escapeField(String field) {
 }
 ```
 
+**Addendum (2026-10-01, post-implementation)**: The shipped writer deviates from the contract above — deliberately, per commit `3819f91`'s own message: "requested during manual verification for easier order-by-order scanning." Recorded here via `/10x-impl-review` (F2) so the plan matches what actually ships:
+
+- `write(List<ShoppingListRow> rows, String header)` takes the header as a parameter (see below) rather than hardcoding it.
+- **One row per (part, blocking order) pair**, not one row per part. Header is 4 columns: `Część;Zlecenie;Termin;Brakująca ilość`. Each row: part name (with `(nieaktywna)` suffix when inactive), `<project name> (#<orderId>)`, `requiredDate`, that order's own `missingQuantity` — as separate columns instead of one joined prose field.
+- The `/purchasing` HTML screen (Phase 2) is **unaffected** — it still renders one row per part, orders joined within the cell, exactly as originally planned. Only the CSV export's row shape changed.
+- The header text is sourced via `MessageSource`/`Locale` in `ShoppingListController.csvHeader()` (new `purchasing.csv.header.*` keys in `messages.properties`) rather than hardcoded in the writer — matching this codebase's existing i18n convention, not a plan deviation in spirit, just not originally specified.
+- `escapeField` additionally neutralizes CSV/Excel formula injection (a field starting with `=+-@` gets a protective leading `'`) — added during `/10x-impl-review` triage (F1), not part of the original Phase 3 contract either.
+
 #### 2. Export route
 
 **File**: `src/main/java/pl/regavio/stockahead/purchasing/ShoppingListController.java`
