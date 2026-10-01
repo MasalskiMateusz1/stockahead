@@ -193,6 +193,24 @@ class MessagesBundleTests {
 	}
 
 	@Test
+	void pickingErrorReportNotTaken() {
+		assertThat(messageSource.getMessage("picking.error.reportNotTaken", null, PL))
+			.isEqualTo("Nie można zgłosić zakończenia zlecenia, które nie zostało podjęte.");
+	}
+
+	@Test
+	void pickingErrorAlreadyReported() {
+		assertThat(messageSource.getMessage("picking.error.alreadyReported", null, PL))
+			.isEqualTo("Zlecenie zostało już zgłoszone jako zakończone.");
+	}
+
+	@Test
+	void pickingErrorReportFailed() {
+		assertThat(messageSource.getMessage("picking.error.reportFailed", null, PL))
+			.isEqualTo("Nie udało się zgłosić zakończenia. Spróbuj ponownie.");
+	}
+
+	@Test
 	void purchasingCsvHeaderPartName() {
 		assertThat(messageSource.getMessage("purchasing.csv.header.partName", null, PL)).isEqualTo("Część");
 	}

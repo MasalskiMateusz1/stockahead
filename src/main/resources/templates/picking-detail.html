@@ -13,6 +13,10 @@
 	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
 	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
 	<p th:if="${order.taken}">Zlecenie podjęte</p>
+	<p th:if="${order.completionReported}">Zgłoszone do potwierdzenia</p>
+	<form th:if="${order.canReportCompletion}" th:action="@{/picking/{orderId}/report-completion(orderId=${orderId})}" method="post">
+		<button type="submit">Zgłoś zakończenie</button>
+	</form>
 
 	<h2>Pozycje do skompletowania</h2>
 
@@ -38,7 +42,7 @@
 				<td th:text="${line.reservedQuantity}"></td>
 				<td th:text="${line.pickedQuantity}"></td>
 				<td th:text="${line.remainingToPick}"></td>
-				<td th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN'}">
+				<td th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN' and !order.completionReported}">
 					<form th:action="@{/picking/{orderId}/lines/{lineId}/pick(orderId=${orderId},lineId=${line.lineId})}" method="post" style="display:inline">
 						<input type="text" size="6"
 							th:id="'quantity-' + ${line.lineId}"

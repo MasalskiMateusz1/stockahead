@@ -1,6 +1,7 @@
 package pl.regavio.stockahead.orders;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -9,6 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -19,12 +21,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.account.Account;
+import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
 
 /**
  * Picking screen for both MANAGER and TECHNICIAN: the OPEN-order list, a
- * per-order detail, and the per-line pick action that shifts quantity from
+ * per-order detail, the completion-report action, and the per-line pick
+ * action that shifts quantity from
  * {@code reservedQuantity} to {@code pickedQuantity} and decrements
  * {@code Part.quantity}. A pick never calls {@link ReservationAllocator} —
  * {@code reservedQuantity + pickedQuantity} is invariant across a pick, so
@@ -62,17 +67,21 @@ public class PickingController {
 
 	private final TransactionTemplate transactionTemplate;
 
+	private final AccountRepository accountRepository;
+
 	private final MessageSource messageSource;
 
 	PickingController(OrderRepository orderRepository, PartRepository partRepository,
 			OrderLineRepository orderLineRepository, PickingDetailModel pickingDetailModel, LockRetry lockRetry,
-			PlatformTransactionManager transactionManager, MessageSource messageSource) {
+			PlatformTransactionManager transactionManager, AccountRepository accountRepository,
+			MessageSource messageSource) {
 		this.orderRepository = orderRepository;
 		this.partRepository = partRepository;
 		this.orderLineRepository = orderLineRepository;
 		this.pickingDetailModel = pickingDetailModel;
 		this.lockRetry = lockRetry;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
+		this.accountRepository = accountRepository;
 		this.messageSource = messageSource;
 	}
 
@@ -155,6 +164,67 @@ public class PickingController {
 	}
 
 	/**
+	 * Reports a taken, still-{@code OPEN} order as finished, stamping
+	 * {@code completionReportedAt}/{@code completionReportedBy}. Takes the
+	 * same part-row locks a pick on any of the order's lines takes, so a
+	 * concurrent pick either commits before the report (and the report sees
+	 * it) or runs after it and is rejected by the pick's
+	 * {@code picking.error.completionReported} check — never a pick recorded
+	 * after the report. The pre-lock lookup is the scalar
+	 * {@link OrderLineRepository#findPartIdsForOrder(Long)} for the same
+	 * open-in-view stale-cache reason as {@link #pick}; the {@code Order}
+	 * entity is only loaded after the locks are held. An empty part-id list
+	 * (unknown order, or an order without lines — which can't be taken, and
+	 * so can't race a pick) skips the lock; an unknown order is then 404 from
+	 * the in-transaction {@code findById}.
+	 */
+	@PostMapping("/picking/{orderId}/report-completion")
+	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
+	public String reportCompletion(@PathVariable Long orderId, Authentication authentication, Model model,
+			Locale locale) {
+		Set<Long> partIds = transactionTemplate
+			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId)));
+
+		String businessError;
+		try {
+			businessError = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
+				if (!partIds.isEmpty()) {
+					partRepository.findByIdInForUpdate(partIds);
+				}
+				Order order = orderRepository.findById(orderId)
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+				if (order.getStatus() != OrderStatus.OPEN) {
+					return messageSource.getMessage("picking.error.orderNotOpen", null, locale);
+				}
+				if (!order.isTaken()) {
+					return messageSource.getMessage("picking.error.reportNotTaken", null, locale);
+				}
+				if (order.isCompletionReported()) {
+					return messageSource.getMessage("picking.error.alreadyReported", null, locale);
+				}
+
+				Account reporter = accountRepository.findByEmail(authentication.getName())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
+				order.setCompletionReportedAt(Instant.now());
+				order.setCompletionReportedBy(reporter);
+				orderRepository.saveAndFlush(order);
+				return null;
+			}));
+		}
+		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
+			return renderReportError(model, orderId,
+					messageSource.getMessage("picking.error.reportFailed", null, locale));
+		}
+
+		if (businessError != null) {
+			return renderReportError(model, orderId, businessError);
+		}
+
+		return "redirect:/picking/" + orderId;
+	}
+
+	/**
 	 * Loads the line {@code lineId} of order {@code orderId} inside the
 	 * caller's transaction. Unknown order, unknown line, or a line of another
 	 * order is 404.
@@ -190,6 +260,10 @@ public class PickingController {
 		pickingDetailModel.render(model, orderId, error, lineId);
 		model.addAttribute("quantity", rawQuantity);
 		return PickingDetailModel.VIEW;
+	}
+
+	private String renderReportError(Model model, Long orderId, String error) {
+		return pickingDetailModel.render(model, orderId, error, null);
 	}
 
 }

@@ -223,25 +223,25 @@ V8 only adds nullable columns; no existing row is `COMPLETED`, so the new `CHECK
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes (Flyway applies V8 under `ddl-auto=validate`)
-- [x] 1.2 New schema test asserts the three `CHECK`s reject: report on an untaken order, reporter without timestamp, `COMPLETED` without `completed_at`
-- [x] 1.3 `PickingIntegrationTests` gains: pick on a reported order is rejected, stock and line quantities unchanged
+- [x] 1.1 `./mvnw verify` passes (Flyway applies V8 under `ddl-auto=validate`) — 64e158a
+- [x] 1.2 New schema test asserts the three `CHECK`s reject: report on an untaken order, reporter without timestamp, `COMPLETED` without `completed_at` — 64e158a
+- [x] 1.3 `PickingIntegrationTests` gains: pick on a reported order is rejected, stock and line quantities unchanged — 64e158a
 
 #### Manual
 
-- [x] 1.4 App starts via `./mvnw spring-boot:test-run` and existing picking flow still works
+- [x] 1.4 App starts via `./mvnw spring-boot:test-run` and existing picking flow still works — 64e158a
 
 ### Phase 2: Technician report
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 New `OrderCompletionIntegrationTests`: report happy path, untaken/second/non-OPEN report rejected, unknown order 404, unauthenticated redirect
-- [ ] 2.3 New `OrderCompletionConcurrencyTests`: pick vs report race never records a pick after the report
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 New `OrderCompletionIntegrationTests`: report happy path, untaken/second/non-OPEN report rejected, unknown order 404, unauthenticated redirect
+- [x] 2.3 New `OrderCompletionConcurrencyTests`: pick vs report race never records a pick after the report
 
 #### Manual
 
-- [ ] 2.4 As technician: report a picked order, see pending notice and no pick forms; button absent on an untaken order
+- [x] 2.4 As technician: report a picked order, see pending notice and no pick forms; button absent on an untaken order
 
 ### Phase 3: Manager confirm/reject & visibility
 
