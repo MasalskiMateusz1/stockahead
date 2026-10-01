@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title th:text="${order.projectName} + ' — Stockahead'">Kompletacja — Stockahead</title>
+</head>
+<body>
+	<p th:if="${error}" th:text="${error}"></p>
+
+	<h1 th:text="${order.projectName}"></h1>
+
+	<p>Liczba sztuk: <span th:text="${order.quantityUnits}"></span></p>
+	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
+	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
+	<p th:if="${order.taken}">Zlecenie podjęte</p>
+
+	<h2>Pozycje do skompletowania</h2>
+
+	<p th:if="${#lists.isEmpty(lines)}">Brak pozycji.</p>
+
+	<table th:unless="${#lists.isEmpty(lines)}">
+		<thead>
+			<tr>
+				<th>Część</th>
+				<th>Lokalizacje</th>
+				<th>Wymagana ilość</th>
+				<th>Zarezerwowana ilość</th>
+				<th>Pobrana ilość</th>
+				<th>Do pobrania</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="line : ${lines}">
+				<td th:text="${line.partName}"></td>
+				<td th:text="${line.locations}"></td>
+				<td th:text="${line.requiredQuantity}"></td>
+				<td th:text="${line.reservedQuantity}"></td>
+				<td th:text="${line.pickedQuantity}"></td>
+				<td th:text="${line.remainingToPick}"></td>
+				<td th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN'}">
+					<form th:action="@{/picking/{orderId}/lines/{lineId}/pick(orderId=${orderId},lineId=${line.lineId})}" method="post" style="display:inline">
+						<input type="text" size="6"
+							th:id="'quantity-' + ${line.lineId}"
+							name="quantity"
+							th:value="${errorLineId != null and errorLineId == line.lineId} ? ${quantity} : ${line.remainingToPick}">
+						<button type="submit">Pobierz</button>
+					</form>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<p><a th:href="@{/picking}">Powrót do listy kompletacyjnej</a></p>
+</body>
+</html>

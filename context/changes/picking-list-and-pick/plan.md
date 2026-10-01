@@ -338,23 +338,23 @@ No data backfill: `taken_at` defaults to `NULL` (no existing order has been pick
 
 #### Automated
 
-- [ ] 3.1 Lock-retry tests pass against the extracted shared helper
-- [ ] 3.2 `twoConcurrentPicksOnTheSameLineNeverTogetherExceedReservedQuantity` passes
-- [ ] 3.3 `pickRacingANewCompetingOrderNeverLetsTheCompetitorStealAnAlreadyTakenReservation` passes
-- [ ] 3.4 `concurrentFirstPicksOnDifferentLinesOfTheSameOrderBothSucceedAndLeaveItTaken` passes
-- [ ] 3.5 `./mvnw verify` passes (full suite)
+- [x] 3.1 Lock-retry tests pass against the extracted shared helper — 6cf5b5f
+- [x] 3.2 `twoConcurrentPicksOnTheSameLineNeverTogetherExceedReservedQuantity` passes — 6cf5b5f
+- [x] 3.3 `pickRacingANewCompetingOrderNeverLetsTheCompetitorStealAnAlreadyTakenReservation` passes — 6cf5b5f
+- [x] 3.4 `concurrentFirstPicksOnDifferentLinesOfTheSameOrderBothSucceedAndLeaveItTaken` passes — 6cf5b5f
+- [x] 3.5 `./mvnw verify` passes (full suite) — 6cf5b5f
 
 ### Phase 4: UI & integration tests
 
 #### Automated
 
-- [ ] 4.1 `PickingListAndDetailIntegrationTests` passes (role access, 404, rendered content)
-- [ ] 4.2 `PickingIntegrationTests` passes (valid pick, overpick rejection, non-OPEN rejection, repeat pick on taken order)
-- [ ] 4.3 `./mvnw verify` passes (full suite)
+- [x] 4.1 `PickingListAndDetailIntegrationTests` passes (role access, 404, rendered content)
+- [x] 4.2 `PickingIntegrationTests` passes (valid pick, overpick rejection, non-OPEN rejection, repeat pick on taken order)
+- [x] 4.3 `./mvnw verify` passes (full suite)
 
 #### Manual
 
-- [ ] 4.4 Manual technician pick flow confirmed (stock/reserved/picked numbers move correctly)
-- [ ] 4.5 Manual overpick error confirmed (friendly error, not 500)
-- [ ] 4.6 Manual taken-order-survives-new-competitor flow confirmed
-- [ ] 4.7 Manual manager-can-also-pick role-parity confirmed
+- [x] 4.4 Manual technician pick flow confirmed (stock/reserved/picked numbers move correctly)
+- [x] 4.5 Manual overpick error confirmed (friendly error, not 500)
+- [x] 4.6 Manual taken-order-survives-new-competitor flow confirmed
+- [x] 4.7 Manual manager-can-also-pick role-parity confirmed

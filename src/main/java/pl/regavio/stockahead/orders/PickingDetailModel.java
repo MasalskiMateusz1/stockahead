@@ -54,6 +54,7 @@ class PickingDetailModel {
 	 */
 	String render(Model model, Long orderId, String error, Long errorLineId) {
 		DetailData data = readTransaction.execute(status -> load(orderId));
+		model.addAttribute("orderId", orderId);
 		model.addAttribute("order", data.order());
 		model.addAttribute("lines", data.lines());
 		if (error != null) {
@@ -69,7 +70,7 @@ class PickingDetailModel {
 		List<LineView> lines = order.getLines().stream()
 			.map(line -> new LineView(line.getId(), line.getPart().getName(), joinLocations(line.getPart()),
 					line.getRequiredQuantity(), line.getReservedQuantity(), line.getPickedQuantity(),
-					line.getReservedQuantity() - line.getPickedQuantity()))
+					line.getReservedQuantity()))
 			.sorted(Comparator.comparing(LineView::partName))
 			.toList();
 		OrderView orderView = new OrderView(order.getProject().getName(), order.getQuantityUnits(),
@@ -85,6 +86,13 @@ class PickingDetailModel {
 			OrderStatus status, boolean taken) {
 	}
 
+	/**
+	 * {@code remainingToPick} always equals {@code reservedQuantity}: every
+	 * pick shifts its amount out of {@code reservedQuantity} into
+	 * {@code pickedQuantity}, so {@code reservedQuantity} already nets out
+	 * past picks. Kept as its own field to match the page's separate
+	 * "remaining to pick" column.
+	 */
 	record LineView(Long lineId, String partName, String locations, int requiredQuantity, int reservedQuantity,
 			int pickedQuantity, int remainingToPick) {
 	}

@@ -118,7 +118,11 @@ public class PickingController {
 				if (order.getStatus() != OrderStatus.OPEN) {
 					return messageSource.getMessage("picking.error.orderNotOpen", null, locale);
 				}
-				int maxPickable = line.getReservedQuantity() - line.getPickedQuantity();
+				// reservedQuantity already nets out every prior pick on this line (each
+				// pick shifts its amount out of reservedQuantity into pickedQuantity), so
+				// it IS the current pickable amount — subtracting pickedQuantity again
+				// would double-count past picks and wrongly shrink what's left.
+				int maxPickable = line.getReservedQuantity();
 				if (parsedQuantity > maxPickable) {
 					return messageSource.getMessage("picking.error.quantityExceedsAvailable",
 							new Object[] { maxPickable }, locale);

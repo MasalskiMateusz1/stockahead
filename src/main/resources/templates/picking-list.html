@@ -2,14 +2,12 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
 	<meta charset="UTF-8">
-	<title>Zlecenia — Stockahead</title>
+	<title>Lista kompletacyjna — Stockahead</title>
 </head>
 <body>
-	<h1>Zlecenia</h1>
+	<h1>Lista kompletacyjna</h1>
 
 	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
-
-	<p><a th:href="@{/orders/new}">Nowe zlecenie</a></p>
 
 	<p th:if="${#lists.isEmpty(orders)}">Brak zleceń.</p>
 
@@ -29,7 +27,7 @@
 				<td th:text="${order.quantityUnits}"></td>
 				<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
 				<td th:text="${order.requiredDate}"></td>
-				<td><a th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
+				<td><a th:href="@{/picking/{id}(id=${order.id})}">Szczegóły</a></td>
 			</tr>
 		</tbody>
 	</table>
