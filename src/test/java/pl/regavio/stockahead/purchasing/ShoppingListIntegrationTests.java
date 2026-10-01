@@ -29,7 +29,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -157,13 +159,14 @@ class ShoppingListIntegrationTests {
 				Long.class, projectId, quantityUnits, priority, requiredDate, status));
 	}
 
-	private void seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
-		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
+	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
 				INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity)
 				VALUES (?, ?, ?, ?)
+				RETURNING id
 				""",
-				orderId, partId, requiredQuantity, reservedQuantity));
+				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	// ---- /purchasing (HTML) aggregation ---------------------------------
@@ -205,27 +208,72 @@ class ShoppingListIntegrationTests {
 			.andExpect(content().string(not(containsString("Fully Reserved Widget"))));
 	}
 
+	/**
+	 * Picking must never turn into a shortage: a pick moves units from
+	 * reserved to picked, so the missing quantity has to stay "required minus
+	 * reserved minus picked". Picks twice on the same line, the second one
+	 * taking the genuine remainder, so a formula that forgets picked units
+	 * (or double-counts them) shows up on the page and in the CSV.
+	 */
+	@Test
+	void repeatedPicksOnAShortLineLeaveTheShortageUnchanged() throws Exception {
+		Long partId = seedPart("Picked Twice Resistor", 6);
+		Long projectId = seedProject("Picked Twice Board", true);
+		LocalDate requiredDate = LocalDate.now().plusDays(5);
+		Long orderId = seedOrder(projectId, 1, "NORMAL", requiredDate);
+		Long lineId = seedOrderLine(orderId, partId, 10, 6);
+		String blockedEntry = "Picked Twice Board (" + requiredDate + ", 4)";
+		String csvRow = "Picked Twice Resistor;Picked Twice Board (#" + orderId + ");" + requiredDate + ";4";
+
+		MockHttpSession session = managerSession();
+		assertShortage(session, blockedEntry, csvRow);
+
+		for (int quantity : new int[] { 4, 2 }) {
+			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId)
+				.session(session).with(csrf()).param("quantity", Integer.toString(quantity)))
+				.andExpect(status().is3xxRedirection());
+			assertShortage(session, blockedEntry, csvRow);
+		}
+		assertThat(jdbcTemplate.queryForObject("SELECT picked_quantity FROM order_lines WHERE id = ?",
+				Integer.class, lineId)).isEqualTo(6);
+	}
+
+	private void assertShortage(MockHttpSession session, String blockedEntry, String csvRow) throws Exception {
+		mockMvc.perform(get("/purchasing").session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(blockedEntry)));
+		byte[] body = mockMvc.perform(get("/purchasing/export").session(session))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsByteArray();
+		assertThat(new String(body, StandardCharsets.UTF_8)).contains(csvRow);
+	}
+
 	@Test
 	void cancelledAndCompletedOrdersAreExcludedFromShortages() throws Exception {
 		Long cancelledPartId = seedPart("Cancelled Order Part", 2);
 		Long cancelledProjectId = seedProject("Cancelled Line", true);
+		// Raw SQL kept: no endpoint can cancel an order yet (cancellation is a future slice).
 		Long cancelledOrderId = seedOrder(cancelledProjectId, 1, "NORMAL", LocalDate.now().plusDays(3),
 				"CANCELLED");
 		seedOrderLine(cancelledOrderId, cancelledPartId, 5, 1);
 
 		MockHttpSession session = managerSession();
 
-		// A confirmed order: taken, reported, completed (V8 CHECKs), with its
-		// reservation released to zero as the confirm action leaves it.
+		// A confirmed order, reached through the real pick, report and confirm
+		// actions; while still open its line was short (5 required, 2 reserved).
 		Long completedPartId = seedPart("Completed Order Part", 2);
 		Long completedProjectId = seedProject("Completed Line", true);
 		Long completedOrderId = seedOrder(completedProjectId, 1, "NORMAL", LocalDate.now().plusDays(3));
-		seedOrderLine(completedOrderId, completedPartId, 5, 0);
-		transactionTemplate.executeWithoutResult(txStatus -> jdbcTemplate.update(
-				"UPDATE orders SET taken_at = now(), completion_reported_at = now(), "
-						+ "completion_reported_by = (SELECT id FROM accounts WHERE email = ?), "
-						+ "status = 'COMPLETED', completed_at = now() WHERE id = ?",
-				MANAGER_EMAIL, completedOrderId));
+		Long completedLineId = seedOrderLine(completedOrderId, completedPartId, 5, 2);
+		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", completedOrderId, completedLineId)
+			.session(session).with(csrf()).param("quantity", "1"))
+			.andExpect(status().is3xxRedirection());
+		mockMvc.perform(post("/picking/{orderId}/report-completion", completedOrderId).session(session).with(csrf()))
+			.andExpect(status().is3xxRedirection());
+		mockMvc.perform(post("/orders/{id}/confirm-completion", completedOrderId).session(session).with(csrf()))
+			.andExpect(status().is3xxRedirection());
+		assertThat(jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class,
+				completedOrderId)).isEqualTo("COMPLETED");
 
 		mockMvc.perform(get("/purchasing").session(session))
 			.andExpect(status().isOk())

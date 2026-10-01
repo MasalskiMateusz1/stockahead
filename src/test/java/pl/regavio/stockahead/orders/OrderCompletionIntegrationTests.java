@@ -195,11 +195,6 @@ class OrderCompletionIntegrationTests {
 				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
-	private void markTaken(Long orderId) {
-		transactionTemplate.executeWithoutResult(
-				status -> jdbcTemplate.update("UPDATE orders SET taken_at = now() WHERE id = ?", orderId));
-	}
-
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
@@ -360,13 +355,15 @@ class OrderCompletionIntegrationTests {
 
 	@Test
 	void reportOnCancelledOrCompletedOrderIsRejected() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
 		MockHttpSession session = technicianSession();
-		Long technicianId = accountIdOf(TECHNICIAN_EMAIL);
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
 
 		Long cancelledPart = seedPart("Cancelled Order Part", 10);
 		Long cancelledOrder = seedOrder();
-		seedOrderLine(cancelledOrder, cancelledPart, 5, 5);
-		markTaken(cancelledOrder);
+		Long cancelledLine = seedOrderLine(cancelledOrder, cancelledPart, 5, 5);
+		pick(session, cancelledOrder, cancelledLine, 1);
+		// Raw SQL kept: no endpoint can cancel an order yet (cancellation is a future slice).
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate
 			.update("UPDATE orders SET status = 'CANCELLED' WHERE id = ?", cancelledOrder));
 
@@ -378,11 +375,11 @@ class OrderCompletionIntegrationTests {
 
 		Long completedPart = seedPart("Completed Order Part", 10);
 		Long completedOrder = seedOrder();
-		seedOrderLine(completedOrder, completedPart, 5, 0);
-		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"UPDATE orders SET taken_at = now(), completion_reported_at = now(), completion_reported_by = ?, "
-						+ "status = 'COMPLETED', completed_at = now() WHERE id = ?",
-				technicianId, completedOrder));
+		Long completedLine = seedOrderLine(completedOrder, completedPart, 5, 5);
+		pick(session, completedOrder, completedLine, 5);
+		report(session, completedOrder);
+		confirm(manager, completedOrder);
+		assertThat(statusOf(completedOrder)).isEqualTo("COMPLETED");
 		Timestamp completedReportedAt = completionReportedAtOf(completedOrder);
 
 		mockMvc.perform(post("/picking/{orderId}/report-completion", completedOrder).session(session).with(csrf()))
@@ -403,8 +400,8 @@ class OrderCompletionIntegrationTests {
 	void unauthenticatedReportRedirectsToLoginAndChangesNothing() throws Exception {
 		Long partId = seedPart("Anonymous Report Part", 10);
 		Long orderId = seedOrder();
-		seedOrderLine(orderId, partId, 5, 5);
-		markTaken(orderId);
+		Long lineId = seedOrderLine(orderId, partId, 5, 5);
+		pick(technicianSession(), orderId, lineId, 1);
 
 		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).with(csrf()))
 			.andExpect(status().is3xxRedirection())
@@ -458,6 +455,7 @@ class OrderCompletionIntegrationTests {
 			.andExpect(content().string(containsString(TECHNICIAN_EMAIL)))
 			.andExpect(content().string(matchesPattern("(?s).*, <span>" + MINUTE_PATTERN + "</span>.*")))
 			.andExpect(content().string(containsString("Shared Resistor: pobrano 2 z 10")))
+			.andExpect(content().string(containsString("Brakująca ilość")))
 			.andExpect(content().string(containsString(CONFIRM_BUTTON)))
 			.andExpect(content().string(containsString(REJECT_BUTTON)));
 		mockMvc.perform(get("/purchasing").session(manager))
@@ -490,6 +488,7 @@ class OrderCompletionIntegrationTests {
 		mockMvc.perform(get("/orders/{id}", orderA).session(manager))
 			.andExpect(status().isOk())
 			.andExpect(content().string(matchesPattern("(?s).*Zakończone <span>" + MINUTE_PATTERN + "</span>.*")))
+			.andExpect(content().string(not(containsString("Brakująca ilość"))))
 			.andExpect(content().string(not(containsString(CONFIRM_BUTTON))))
 			.andExpect(content().string(not(containsString(REJECT_BUTTON))));
 	}
@@ -665,6 +664,7 @@ class OrderCompletionIntegrationTests {
 
 		int pendingSection = html.indexOf(PENDING_SECTION);
 		int openSection = html.indexOf(OPEN_SECTION);
+		assertThat(html).containsPattern("<td>" + MINUTE_PATTERN + "</td>");
 		assertThat(pendingSection).isNotNegative();
 		assertThat(openSection).isGreaterThan(pendingSection);
 		int reportedPosition = html.indexOf("Reported Board");

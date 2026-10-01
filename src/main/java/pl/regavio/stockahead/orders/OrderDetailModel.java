@@ -1,9 +1,6 @@
 package pl.regavio.stockahead.orders;
 
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 
@@ -27,19 +24,16 @@ class OrderDetailModel {
 
 	static final String VIEW = "orders-detail";
 
-	/**
-	 * Report/completion moments shown to the manager: date and minute in the
-	 * plant's local time, independent of the server's default zone.
-	 */
-	private static final DateTimeFormatter MOMENT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-		.withZone(ZoneId.of("Europe/Warsaw"));
-
 	private final OrderRepository orderRepository;
 
 	private final TransactionTemplate readTransaction;
 
-	OrderDetailModel(OrderRepository orderRepository, PlatformTransactionManager transactionManager) {
+	private final OrderMoments orderMoments;
+
+	OrderDetailModel(OrderRepository orderRepository, PlatformTransactionManager transactionManager,
+			OrderMoments orderMoments) {
 		this.orderRepository = orderRepository;
+		this.orderMoments = orderMoments;
 		this.readTransaction = new TransactionTemplate(transactionManager);
 		this.readTransaction.setReadOnly(true);
 	}
@@ -76,7 +70,7 @@ class OrderDetailModel {
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		List<LineView> lines = order.getLines().stream()
 			.map(line -> new LineView(line.getPart().getName(), line.getRequiredQuantity(),
-					line.getReservedQuantity(), line.getRequiredQuantity() - line.getReservedQuantity(),
+					line.getReservedQuantity(), line.getMissingQuantity(),
 					line.getPickedQuantity()))
 			.sorted(Comparator.comparing(LineView::partName))
 			.toList();
@@ -84,12 +78,9 @@ class OrderDetailModel {
 				: order.getCompletionReportedBy().getEmail();
 		OrderView orderView = new OrderView(order.getProject().getName(), order.getQuantityUnits(),
 				order.getPriority(), order.getRequiredDate(), order.getStatus(), order.isCompletionReported(),
-				formatMoment(order.getCompletionReportedAt()), reportedByEmail, formatMoment(order.getCompletedAt()));
+				orderMoments.format(order.getCompletionReportedAt()), reportedByEmail,
+				orderMoments.format(order.getCompletedAt()));
 		return new DetailData(orderView, lines);
-	}
-
-	private static String formatMoment(Instant moment) {
-		return moment == null ? null : MOMENT_FORMAT.format(moment);
 	}
 
 	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate,
@@ -98,8 +89,8 @@ class OrderDetailModel {
 	}
 
 	/**
-	 * {@code missingQuantity} is the unreserved shortfall (what the shopping
-	 * list counts); unmet quantity for the completion warning is
+	 * {@code missingQuantity} is the shortfall neither reserved nor picked
+	 * (what the shopping list counts); unmet quantity for the completion warning is
 	 * {@code pickedQuantity < requiredQuantity}, since
 	 * {@code reservedQuantity} is live and already nets out past picks.
 	 */

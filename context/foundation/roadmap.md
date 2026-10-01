@@ -52,7 +52,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-05  | shopping-list-and-csv-export     | Kierownik widzi listę zakupów z blokowanymi zleceniami i eksportuje ją do CSV                   | S-04          | FR-015, FR-016                              | done |
 | S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | done     |
 | S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | done |
-| S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | proposed |
+| S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | in-progress |
 | S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | proposed |
 | S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | proposed |
 | S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | proposed |
@@ -194,7 +194,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Domyka cykl życia zlecenia: bez potwierdzenia rezerwacje zakończonych zleceń wiszą i fałszują listę zakupów. Ryzyko produktowe zapisane w PRD to wąskie gardło na kierowniku — roadmapa go nie rozwiązuje, tylko utrzymuje podział z FR-014/FR-020.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-09: Zmiana priorytetu i terminu oraz anulowanie zlecenia
 
@@ -270,10 +270,11 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 1. **Czy odświeżenie rezerwacji i listy zakupów w mniej niż 2 s musi docierać do pozostałych zalogowanych użytkowników, czy wystarczy odpowiedź serwera dla osoby, która wykonała akcję?** — Owner: user. Block: wpływa na S-04, S-05, S-07, S-10, S-11, S-12, ale nie blokuje ich planowania. `tech-stack.md` deklaruje `has_realtime: true` i mechanizm push, a §Wymagania niefunkcjonalne mówią tylko „bez ręcznego odświeżania" — te dwa zdania da się spełnić na dwa sposoby o bardzo różnym koszcie. Roadmapa celowo nie przesądza odpowiedzi i nie tworzy na to osobnego fundamentu.
 2. **Jaki format plików CSV obowiązuje po obu stronach — eksport listy zakupów (FR-016) i import kartoteki (FR-017)?** — Owner: user. Block: wpływa na S-05 i S-12, nie blokuje ich planowania. Jedna decyzja obsługuje oba kierunki; brak odpowiedzi oznacza, że każdy z tych kawałków zdefiniuje własny format i trzeba będzie je później uzgodnić.
 3. **Czy edycja BOM projektu, który ma otwarte zlecenia, przelicza ich rezerwacje, czy jest zablokowana do czasu zamknięcia zleceń?** — Owner: user. Block: wpływa na S-03 i S-04, nie blokuje ich planowania. PRD odnotowuje w FR-007, że kwestia była rozważana, ale nie rozstrzyga jej wprost.
+4. **Czy zlecenie podjęte, któremu brakuje części, może dostać jednostki zwolnione później (potwierdzenie zakończenia innego zlecenia, dostawa)?** — Owner: user. Block: wpływa na S-10, nie blokuje jej planowania. §Business Logic mówi tylko, że niepobranych rezerwacji zleceń podjętych nie można przejąć; obecny `ReservationAllocator` nie zapisuje linii podjętych zleceń wcale, więc zwolnione przy potwierdzeniu (S-08) jednostki trafiają wyłącznie do niepodjętych zleceń. Jeśli odpowiedź brzmi „tak", zmiana alokatora wymaga osobnego planu z testami współbieżności (zob. lessons.md o zawężaniu blokady alokatora). Źródło: przegląd implementacji `order-completion`, F6 (2026-10-01).
 
 ## Parked
 
-- **Historia ruchów magazynowych (FR-006)** — Why parked: §Non-Goals wymienia ją jako nice-to-have poza MVP; korekta stanu (FR-018) została uznana za ważniejszą i jest w zakresie jako S-11.
+- **Historia ruchów magazynowych (FR-006)** — Why parked: §Non-Goals wymienia ją jako nice-to-have poza MVP; korekta stanu (FR-018) została uznana za ważniejszą i jest w zakresie jako S-11. Zgłoszone zapotrzebowanie (2026-10-01, przy testach S-08): przy zgłoszeniu zakończenia kierownik chce widzieć, ile części pobrała każda osoba — wymaga dziennika pobrań (konto, linia, ilość, czas) zapisywanego przez akcję pobrania; dotychczasowe pobrania nie mają autora. Do zaplanowania jako osobna zmiana.
 - **Dołączanie i usuwanie plików projektu (FR-008)** — Why parked: §Non-Goals; w MVP wystarczają linki do dokumentacji (FR-019, w zakresie S-03).
 - **Podgląd PDF w przeglądarce (FR-009)** — Why parked: §Non-Goals; realizowalne wyłącznie razem z FR-008, więc odpada razem z nim. To zarazem Kryterium sukcesu (Secondary), które MVP świadomie zostawia.
 - **Reset hasła** — Why parked: FR-001 odnotowuje, że reset hasła był rozważany i nie został dodany; w MVP hasła ustawia kierownik przy zakładaniu konta (S-06).

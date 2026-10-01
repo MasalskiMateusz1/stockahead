@@ -10,14 +10,25 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import pl.regavio.stockahead.TestcontainersConfiguration;
+import pl.regavio.stockahead.account.Account;
+import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Proves {@link ReservationAllocator#reallocateForParts(Set)} against
@@ -28,17 +39,33 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Postgres via Testcontainers. {@code created_at} is always passed
  * explicitly (a few seconds apart where tie-breaking matters) since
  * concurrent inserts sharing the default {@code now()} could otherwise
- * collide at second granularity.
+ * collide at second granularity. An order becomes taken only through the
+ * real pick endpoint, so a taken order's stock, reservation and pick counts
+ * are exactly what the app produces.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
+@AutoConfigureMockMvc
 class ReservationAllocatorTests {
+
+	private static final String TECHNICIAN_EMAIL = "reservation-allocator-technician@example.com";
+
+	private static final String PASSWORD = "correct-password";
 
 	@Autowired
 	private ReservationAllocator reservationAllocator;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	private MockMvc mockMvc;
+
+	@Autowired
+	private AccountRepository accountRepository;
+
+	@Autowired
+	private PasswordEncoder passwordEncoder;
 
 	@Autowired
 	private PlatformTransactionManager transactionManager;
@@ -64,6 +91,7 @@ class ReservationAllocatorTests {
 		jdbcTemplate.update("DELETE FROM projects");
 		jdbcTemplate.update("DELETE FROM part_locations");
 		jdbcTemplate.update("DELETE FROM parts");
+		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
 	}
 
 	// ---- fixtures -----------------------------------------------------
@@ -103,14 +131,31 @@ class ReservationAllocatorTests {
 				lineId);
 	}
 
-	private void setPickedQuantity(Long lineId, int pickedQuantity) {
-		transactionTemplate.executeWithoutResult(status -> jdbcTemplate
-			.update("UPDATE order_lines SET picked_quantity = ? WHERE id = ?", pickedQuantity, lineId));
+	private int stockOf(Long partId) {
+		return jdbcTemplate.queryForObject("SELECT quantity FROM parts WHERE id = ?", Integer.class, partId);
 	}
 
-	private void markOrderTaken(Long orderId) {
-		transactionTemplate.executeWithoutResult(status -> jdbcTemplate
-			.update("UPDATE orders SET taken_at = ? WHERE id = ?", Timestamp.from(Instant.now()), orderId));
+	private MockHttpSession technicianSession() throws Exception {
+		transactionTemplate.executeWithoutResult(status -> {
+			Account account = new Account();
+			account.setEmail(TECHNICIAN_EMAIL);
+			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
+			account.setRole(Role.TECHNICIAN);
+			account.setActive(true);
+			account.setCreatedAt(Instant.now());
+			accountRepository.save(account);
+		});
+		return (MockHttpSession) mockMvc.perform(formLogin().user(TECHNICIAN_EMAIL).password(PASSWORD))
+			.andExpect(status().is3xxRedirection())
+			.andReturn().getRequest().getSession();
+	}
+
+	/** Takes the order the only way the app can: a real pick through the picking endpoint. */
+	private void pick(Long orderId, Long lineId, int quantity) throws Exception {
+		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(technicianSession())
+			.with(csrf())
+			.param("quantity", Integer.toString(quantity)))
+			.andExpect(status().is3xxRedirection());
 	}
 
 	/**
@@ -211,7 +256,7 @@ class ReservationAllocatorTests {
 	}
 
 	@Test
-	void takenOrdersReservationSurvivesANewHigherPriorityCompetitor() {
+	void takenOrdersReservationSurvivesANewHigherPriorityCompetitor() throws Exception {
 		Long projectId = seedProject("Taken Order Board");
 		Long partId = seedPart("Scarce Part", 5);
 		Long lowOrderId = seedOrder(projectId, 1, Priority.LOW, LocalDate.now().plusDays(7), Instant.now());
@@ -219,7 +264,8 @@ class ReservationAllocatorTests {
 
 		reallocate(Set.of(partId));
 		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(5);
-		markOrderTaken(lowOrderId);
+		pick(lowOrderId, lowLineId, 1);
+		assertThat(stockOf(partId)).isEqualTo(4);
 
 		Long highOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7),
 				Instant.now().plusSeconds(10));
@@ -227,12 +273,13 @@ class ReservationAllocatorTests {
 
 		reallocate(Set.of(partId));
 
-		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(5);
+		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(4);
+		assertThat(pickedQuantityOf(lowLineId)).isEqualTo(1);
 		assertThat(reservedQuantityOf(highLineId)).isEqualTo(0);
 	}
 
 	@Test
-	void takenOrderWithPartialPickKeepsItsRemainingReservationProtected() {
+	void takenOrderWithPartialPickKeepsItsRemainingReservationProtected() throws Exception {
 		Long projectId = seedProject("Partial Pick Board");
 		Long partId = seedPart("Scarce Part", 4);
 		Long takenOrderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(7), Instant.now());
@@ -240,8 +287,8 @@ class ReservationAllocatorTests {
 
 		reallocate(Set.of(partId));
 		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(4);
-		markOrderTaken(takenOrderId);
-		setPickedQuantity(takenLineId, 3);
+		pick(takenOrderId, takenLineId, 3);
+		assertThat(stockOf(partId)).isEqualTo(1);
 
 		Long competingOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7),
 				Instant.now().plusSeconds(10));
@@ -249,13 +296,13 @@ class ReservationAllocatorTests {
 
 		reallocate(Set.of(partId));
 
-		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(4);
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(1);
 		assertThat(pickedQuantityOf(takenLineId)).isEqualTo(3);
 		assertThat(reservedQuantityOf(competingLineId)).isEqualTo(0);
 	}
 
 	@Test
-	void nonTakenOrdersStillCompeteNormallyAmongThemselves() {
+	void nonTakenOrdersStillCompeteNormallyAmongThemselves() throws Exception {
 		Long projectId = seedProject("Mixed Competition Board");
 		Long partId = seedPart("Scarce Part", 10);
 		Instant takenCreatedAt = Instant.now();
@@ -264,7 +311,8 @@ class ReservationAllocatorTests {
 
 		reallocate(Set.of(partId));
 		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(5);
-		markOrderTaken(takenOrderId);
+		pick(takenOrderId, takenLineId, 1);
+		assertThat(stockOf(partId)).isEqualTo(9);
 
 		Instant earlyCreatedAt = takenCreatedAt.plusSeconds(5);
 		Long earlyOrderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(2), earlyCreatedAt);
@@ -275,7 +323,7 @@ class ReservationAllocatorTests {
 
 		reallocate(Set.of(partId));
 
-		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(5);
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(4);
 		assertThat(reservedQuantityOf(earlyLineId)).isEqualTo(5);
 		assertThat(reservedQuantityOf(lateLineId)).isEqualTo(0);
 	}

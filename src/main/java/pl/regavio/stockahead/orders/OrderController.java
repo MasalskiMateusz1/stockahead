@@ -7,7 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import org.springframework.context.MessageSource;
@@ -118,16 +118,14 @@ public class OrderController {
 	@PostMapping("/orders/{id}/confirm-completion")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String confirmCompletion(@PathVariable Long id, Model model, Locale locale) {
-		return transitionReportedOrder(id, model, locale, order -> {
+		return transitionReportedOrder(id, model, locale, (order, partIds) -> {
 			order.setStatus(OrderStatus.COMPLETED);
 			order.setCompletedAt(Instant.now());
 			for (OrderLine line : order.getLines()) {
 				line.setReservedQuantity(0);
 			}
 			orderRepository.saveAndFlush(order);
-			reservationAllocator.reallocateForParts(order.getLines().stream()
-				.map(line -> line.getPart().getId())
-				.collect(Collectors.toSet()));
+			reservationAllocator.reallocateForParts(partIds);
 		});
 	}
 
@@ -139,7 +137,7 @@ public class OrderController {
 	@PostMapping("/orders/{id}/reject-completion")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String rejectCompletion(@PathVariable Long id, Model model, Locale locale) {
-		return transitionReportedOrder(id, model, locale, order -> {
+		return transitionReportedOrder(id, model, locale, (order, partIds) -> {
 			order.setCompletionReportedAt(null);
 			order.setCompletionReportedBy(null);
 			orderRepository.saveAndFlush(order);
@@ -151,12 +149,13 @@ public class OrderController {
 	 * part-id lookup (never {@code Order.getLines()} before the lock — see
 	 * {@code PickingController}), the same part-row locks a pick takes, a
 	 * fresh re-read of the order, and a re-check that it is still
-	 * {@code OPEN} and reported before {@code transition} runs. An unknown
+	 * {@code OPEN} and reported before {@code transition} runs (it receives
+	 * the locked part ids). An unknown
 	 * order is 404; a business or DB/lock failure re-renders the detail page
 	 * with a friendly error.
 	 */
 	private String transitionReportedOrder(Long orderId, Model model, Locale locale,
-			Consumer<Order> transition) {
+			BiConsumer<Order, Set<Long>> transition) {
 		Set<Long> partIds = transactionTemplate
 			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId)));
 
@@ -173,7 +172,7 @@ public class OrderController {
 					return messageSource.getMessage("orders.error.notReported", null, locale);
 				}
 
-				transition.accept(order);
+				transition.accept(order, partIds);
 				return null;
 			}));
 		}

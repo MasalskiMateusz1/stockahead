@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
 
@@ -204,7 +205,7 @@ public class PickingController {
 					return messageSource.getMessage("picking.error.alreadyReported", null, locale);
 				}
 
-				Account reporter = accountRepository.findByEmail(authentication.getName())
+				Account reporter = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
 				order.setCompletionReportedAt(Instant.now());
 				order.setCompletionReportedBy(reporter);

@@ -19,7 +19,7 @@ import pl.regavio.stockahead.parts.Part;
 /**
  * Fills the {@code purchasing-list} page model and backs the CSV export with
  * the same read path. Groups every open order line with a shortage
- * ({@code requiredQuantity > reservedQuantity}) by part, one aggregated row
+ * ({@code OrderLine.getMissingQuantity() > 0}) by part, one aggregated row
  * per part, sorted by part name. Always re-reads inside its own read-only
  * transaction and copies the data into plain view records, never reusing the
  * caller's entities — same shape as {@code OrderDetailModel}.
@@ -67,12 +67,12 @@ class ShoppingListModel {
 	private ShoppingListRow toRow(List<OrderLine> linesForPart) {
 		Part part = linesForPart.get(0).getPart();
 		int missingQuantity = linesForPart.stream()
-			.mapToInt(line -> line.getRequiredQuantity() - line.getReservedQuantity())
+			.mapToInt(OrderLine::getMissingQuantity)
 			.sum();
 		List<BlockedOrderView> blockedOrders = linesForPart.stream()
 			.sorted(Comparator.comparing(OrderLine::getOrder, ReservationAllocator.ALLOCATION_ORDER))
 			.map(line -> new BlockedOrderView(line.getOrder().getId(), line.getOrder().getProject().getName(),
-					line.getOrder().getRequiredDate(), line.getRequiredQuantity() - line.getReservedQuantity()))
+					line.getOrder().getRequiredDate(), line.getMissingQuantity()))
 			.toList();
 		return new ShoppingListRow(part.getName(), part.isActive(), missingQuantity, blockedOrders);
 	}

@@ -43,7 +43,7 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Long> {
 
 	@Query("SELECT ol FROM OrderLine ol JOIN FETCH ol.order o JOIN FETCH o.project JOIN FETCH ol.part "
 			+ "WHERE o.status = pl.regavio.stockahead.orders.OrderStatus.OPEN "
-			+ "AND ol.requiredQuantity > ol.reservedQuantity")
+			+ "AND ol.requiredQuantity > ol.reservedQuantity + ol.pickedQuantity")
 	List<OrderLine> findOpenLinesWithShortage();
 
 }

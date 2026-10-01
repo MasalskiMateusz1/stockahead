@@ -63,6 +63,8 @@ class PickingIntegrationTests {
 
 	private static final String TECHNICIAN_EMAIL = "picking-action-technician@example.com";
 
+	private static final String MANAGER_EMAIL = "picking-action-manager@example.com";
+
 	private static final String ORDER_NOT_OPEN_ERROR = "Zlecenie nie jest już otwarte.";
 
 	private static final String COMPLETION_REPORTED_ERROR =
@@ -108,6 +110,7 @@ class PickingIntegrationTests {
 		jdbcTemplate.update("DELETE FROM part_locations");
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 	}
 
 	// ---- fixtures -----------------------------------------------------
@@ -167,29 +170,21 @@ class PickingIntegrationTests {
 						orderId));
 	}
 
-	/**
-	 * Puts the order into the state the confirm action produces (V8 requires
-	 * a {@code COMPLETED} order to be taken, reported and stamped with
-	 * {@code completed_at}), reported by {@code reporterEmail}.
-	 */
-	private void markCompleted(Long orderId, String reporterEmail) {
-		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"UPDATE orders SET taken_at = now(), completion_reported_at = now(), "
-						+ "completion_reported_by = (SELECT id FROM accounts WHERE email = ?), "
-						+ "status = 'COMPLETED', completed_at = now() WHERE id = ?",
-				reporterEmail, orderId));
+	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
+		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
+			.with(csrf())
+			.param("quantity", Integer.toString(quantity)))
+			.andExpect(status().is3xxRedirection());
 	}
 
-	/**
-	 * Stamps a completion report on an already-taken order, as the report
-	 * action will (it only accepts taken, OPEN, unreported orders).
-	 */
-	private void markCompletionReported(Long orderId, String reporterEmail) {
-		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"UPDATE orders SET completion_reported_at = now(), "
-						+ "completion_reported_by = (SELECT id FROM accounts WHERE email = ?) "
-						+ "WHERE id = ? AND taken_at IS NOT NULL",
-				reporterEmail, orderId));
+	private void reportCompletion(MockHttpSession session, Long orderId) throws Exception {
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+			.andExpect(status().is3xxRedirection());
+	}
+
+	private void confirmCompletion(MockHttpSession managerSession, Long orderId) throws Exception {
+		mockMvc.perform(post("/orders/{id}/confirm-completion", orderId).session(managerSession).with(csrf()))
+			.andExpect(status().is3xxRedirection());
 	}
 
 	private int reservedQuantityOf(Long lineId) {
@@ -259,21 +254,33 @@ class PickingIntegrationTests {
 
 	@Test
 	void pickOnCancelledOrCompletedOrderIsRejectedAndLeavesStateUnchanged() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
 		MockHttpSession session = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
 
 		for (OrderStatus notOpenStatus : new OrderStatus[] { OrderStatus.CANCELLED, OrderStatus.COMPLETED }) {
 			Long partId = seedPart("Part for " + notOpenStatus, 10);
 			Long orderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(7), Instant.now());
-			// A confirmed order has its reservation released (zeroed); a cancelled
-			// one is seeded with its reservation intact.
-			int reserved = notOpenStatus == OrderStatus.COMPLETED ? 0 : 5;
-			Long lineId = seedOrderLine(orderId, partId, 5, reserved);
+			Long lineId = seedOrderLine(orderId, partId, 5, 5);
 			if (notOpenStatus == OrderStatus.COMPLETED) {
-				markCompleted(orderId, TECHNICIAN_EMAIL);
+				// Reach COMPLETED the way the app does: first pick, report, manager confirm.
+				pick(session, orderId, lineId, 3);
+				reportCompletion(session, orderId);
+				confirmCompletion(manager, orderId);
 			}
 			else {
+				// Raw SQL kept: no endpoint can cancel an order yet (cancellation is a future slice);
+				// the order stays untaken with its reservation intact, a consistent state.
 				setOrderStatus(orderId, notOpenStatus);
 			}
+			assertThat(jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class, orderId))
+				.isEqualTo(notOpenStatus.name());
+			// A confirmed order keeps its 3 picked units and has the rest of its
+			// reservation released; a cancelled one keeps its reservation intact.
+			boolean completed = notOpenStatus == OrderStatus.COMPLETED;
+			int expectedStock = completed ? 7 : 10;
+			int expectedReserved = completed ? 0 : 5;
+			int expectedPicked = completed ? 3 : 0;
 
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 				.with(csrf())
@@ -281,9 +288,9 @@ class PickingIntegrationTests {
 				.andExpect(status().isOk())
 				.andExpect(content().string(containsString(ORDER_NOT_OPEN_ERROR)));
 
-			assertThat(stockOf(partId)).isEqualTo(10);
-			assertThat(reservedQuantityOf(lineId)).isEqualTo(reserved);
-			assertThat(pickedQuantityOf(lineId)).isEqualTo(0);
+			assertThat(stockOf(partId)).isEqualTo(expectedStock);
+			assertThat(reservedQuantityOf(lineId)).isEqualTo(expectedReserved);
+			assertThat(pickedQuantityOf(lineId)).isEqualTo(expectedPicked);
 		}
 	}
 
@@ -298,11 +305,8 @@ class PickingIntegrationTests {
 		MockHttpSession session = technicianSession();
 
 		// Take the order through the real pick action, then report it.
-		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
-			.with(csrf())
-			.param("quantity", "4"))
-			.andExpect(status().is3xxRedirection());
-		markCompletionReported(orderId, TECHNICIAN_EMAIL);
+		pick(session, orderId, lineId, 4);
+		reportCompletion(session, orderId);
 		Timestamp takenAt = takenAtOf(orderId);
 		assertThat(takenAt).isNotNull();
 

@@ -45,7 +45,7 @@
 				<th>Wymagana ilość</th>
 				<th>Zarezerwowana ilość</th>
 				<th>Pobrana ilość</th>
-				<th>Brakująca ilość</th>
+				<th th:if="${order.status.name() == 'OPEN'}">Brakująca ilość</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -54,7 +54,7 @@
 				<td th:text="${line.requiredQuantity}"></td>
 				<td th:text="${line.reservedQuantity}"></td>
 				<td th:text="${line.pickedQuantity}"></td>
-				<td th:text="${line.missingQuantity}"></td>
+				<td th:if="${order.status.name() == 'OPEN'}" th:text="${line.missingQuantity}"></td>
 			</tr>
 		</tbody>
 	</table>

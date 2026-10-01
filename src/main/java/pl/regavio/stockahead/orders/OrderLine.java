@@ -84,4 +84,14 @@ public class OrderLine {
 		this.pickedQuantity = pickedQuantity;
 	}
 
+	/**
+	 * Units still neither reserved nor picked — what the shopping list must
+	 * buy. {@code reservedQuantity} is live (a pick moves units out of it into
+	 * {@code pickedQuantity}), so picked units must be subtracted too, or
+	 * every pick would reappear as a shortage.
+	 */
+	public int getMissingQuantity() {
+		return requiredQuantity - reservedQuantity - pickedQuantity;
+	}
+
 }

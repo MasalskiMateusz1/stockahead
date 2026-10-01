@@ -61,6 +61,8 @@ class OrderCompletionConcurrencyTests {
 
 	private static final String TECHNICIAN_EMAIL = "order-completion-concurrency-technician@example.com";
 
+	private static final String MANAGER_EMAIL = "order-completion-concurrency-manager@example.com";
+
 	private static final String PASSWORD = "correct-password";
 
 	private static final String COMPLETION_REPORTED_ERROR =
@@ -69,6 +71,9 @@ class OrderCompletionConcurrencyTests {
 	private static final int ITERATIONS = 6;
 
 	private static final int INITIAL_STOCK = 10;
+
+	/** The real first pick that makes the order taken before the race starts. */
+	private static final int FIRST_PICK_QUANTITY = 1;
 
 	private static final int PICK_QUANTITY = 2;
 
@@ -116,6 +121,7 @@ class OrderCompletionConcurrencyTests {
 		jdbcTemplate.update("DELETE FROM part_locations");
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 	}
 
 	private void installPickAfterReportDetector() {
@@ -145,16 +151,20 @@ class OrderCompletionConcurrencyTests {
 	// ---- fixtures -----------------------------------------------------
 
 	private MockHttpSession technicianSession() throws Exception {
+		return sessionFor(TECHNICIAN_EMAIL, Role.TECHNICIAN);
+	}
+
+	private MockHttpSession sessionFor(String email, Role role) throws Exception {
 		transactionTemplate.executeWithoutResult(status -> {
 			Account account = new Account();
-			account.setEmail(TECHNICIAN_EMAIL);
+			account.setEmail(email);
 			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(Role.TECHNICIAN);
+			account.setRole(role);
 			account.setActive(true);
 			account.setCreatedAt(Instant.now());
 			accountRepository.save(account);
 		});
-		return (MockHttpSession) mockMvc.perform(formLogin().user(TECHNICIAN_EMAIL).password(PASSWORD))
+		return (MockHttpSession) mockMvc.perform(formLogin().user(email).password(PASSWORD))
 			.andExpect(status().is3xxRedirection())
 			.andReturn().getRequest().getSession();
 	}
@@ -165,20 +175,27 @@ class OrderCompletionConcurrencyTests {
 				INITIAL_STOCK));
 	}
 
-	/** An OPEN order that is already taken, so it can be reported right away. */
-	private Long seedTakenOrder() {
+	private Long seedPartWithStock(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, taken_at) "
-						+ "VALUES (?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
-				Long.class, projectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()),
-				Timestamp.from(Instant.now())));
+				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
+				quantity));
 	}
 
-	private Long seedOrderLine(Long orderId, Long partId) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, 5, 5) RETURNING id",
-				Long.class, orderId, partId));
+	/** A not-yet-taken OPEN order holding the given reservation, as the allocator would leave it. */
+	private Long seedUntakenOrderLine(Long partId, int required, int reserved) {
+		return transactionTemplate.execute(status -> {
+			Long orderId = jdbcTemplate.queryForObject(
+					"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
+							+ "VALUES (?, 1, 'HIGH', ?, ?) RETURNING id",
+					Long.class, projectId, LocalDate.now().plusDays(3), Timestamp.from(Instant.now()));
+			jdbcTemplate.update("INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
+					+ "VALUES (?, ?, ?, ?)", orderId, partId, required, reserved);
+			return orderId;
+		});
+	}
+
+	private Long lineIdOf(Long orderId) {
+		return jdbcTemplate.queryForObject("SELECT id FROM order_lines WHERE order_id = ?", Long.class, orderId);
 	}
 
 	private int pickedQuantityOf(Long lineId) {
@@ -198,8 +215,13 @@ class OrderCompletionConcurrencyTests {
 
 		for (int iteration = 0; iteration < ITERATIONS; iteration++) {
 			Long partId = seedPart("Race Part " + iteration);
-			Long orderId = seedTakenOrder();
-			Long lineId = seedOrderLine(orderId, partId);
+			Long orderId = seedUntakenOrderLine(partId, 5, 5);
+			Long lineId = lineIdOf(orderId);
+			// Take the order through the real first pick, so it can be reported.
+			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
+				.with(csrf())
+				.param("quantity", Integer.toString(FIRST_PICK_QUANTITY)))
+				.andExpect(status().is3xxRedirection());
 			// Alternate between both requests starting together and the report
 			// arriving while the pick is already inside its (slowed) write.
 			long reportDelayMillis = iteration % 2 == 0 ? 0 : 50;
@@ -250,16 +272,116 @@ class OrderCompletionConcurrencyTests {
 
 			int picked = pickedQuantityOf(lineId);
 			assertThat(stockOf(partId)).isEqualTo(INITIAL_STOCK - picked);
-			if (picked == 0) {
+			if (picked == FIRST_PICK_QUANTITY) {
 				// The pick lost the race and must have been rejected, not silently dropped.
 				assertThat(pickResult.getResponse().getStatus()).isEqualTo(200);
 				assertThat(pickResult.getResponse().getContentAsString()).contains(COMPLETION_REPORTED_ERROR);
 			}
 			else {
-				assertThat(picked).isEqualTo(PICK_QUANTITY);
+				assertThat(picked).isEqualTo(FIRST_PICK_QUANTITY + PICK_QUANTITY);
 				assertThat(pickResult.getResponse().getStatus()).isEqualTo(302);
 			}
 		}
 	}
+
+	/**
+	 * Confirm is the first transition that frees reserved stock. Racing it
+	 * against a manager creating a competing order on the same part must
+	 * never over-reserve or fail: whichever commits first, the new order ends
+	 * up holding every unit the confirmed order released. The confirmed order
+	 * reaches "taken" and "reported" through the real pick and report
+	 * endpoints, never a raw-SQL shortcut.
+	 */
+	@Test
+	void concurrentConfirmAndOrderCreationHandReleasedUnitsToTheNewOrderWithoutOverReserving() throws Exception {
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = sessionFor(MANAGER_EMAIL, Role.MANAGER);
+
+		for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+			int iterationIndex = iteration;
+			Long partId = seedPartWithStock("Confirm Race Part " + iteration, 6);
+			Long newProjectId = transactionTemplate.execute(status -> {
+				Long id = jdbcTemplate.queryForObject(
+						"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class,
+						"Confirm Race Board " + iterationIndex);
+				jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, 4)",
+						id, partId);
+				return id;
+			});
+			Long confirmedOrderId = seedUntakenOrderLine(partId, 6, 6);
+			Long confirmedLineId = lineIdOf(confirmedOrderId);
+
+			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", confirmedOrderId, confirmedLineId)
+				.session(technician).with(csrf()).param("quantity", "2"))
+				.andExpect(status().is3xxRedirection());
+			mockMvc.perform(post("/picking/{orderId}/report-completion", confirmedOrderId)
+				.session(technician).with(csrf()))
+				.andExpect(status().is3xxRedirection());
+			assertThat(stockOf(partId)).isEqualTo(4);
+
+			// Alternate which request goes first, so both orderings are exercised:
+			// creation-then-confirm needs the confirm's reallocation to hand the
+			// released units over; confirm-then-creation needs the creation's own
+			// allocation to see them.
+			long confirmDelayMillis = iteration % 2 == 0 ? 50 : 0;
+			long createDelayMillis = iteration % 2 == 0 ? 0 : 50;
+			CountDownLatch bothReady = new CountDownLatch(2);
+			ExecutorService executor = Executors.newFixedThreadPool(2);
+
+			Callable<MvcResult> confirmTask = () -> {
+				bothReady.countDown();
+				bothReady.await(5, TimeUnit.SECONDS);
+				Thread.sleep(confirmDelayMillis);
+				return mockMvc.perform(post("/orders/{id}/confirm-completion", confirmedOrderId).session(manager)
+					.with(csrf())).andReturn();
+			};
+			Callable<MvcResult> createTask = () -> {
+				bothReady.countDown();
+				bothReady.await(5, TimeUnit.SECONDS);
+				Thread.sleep(createDelayMillis);
+				return mockMvc.perform(post("/orders").session(manager)
+					.with(csrf())
+					.param("projectId", newProjectId.toString())
+					.param("quantityUnits", "1")
+					.param("priority", "LOW")
+					.param("requiredDate", LocalDate.now().plusDays(30).toString())).andReturn();
+			};
+
+			MvcResult confirmResult;
+			MvcResult createResult;
+			try {
+				Future<MvcResult> confirmFuture = executor.submit(confirmTask);
+				Future<MvcResult> createFuture = executor.submit(createTask);
+				confirmResult = confirmFuture.get(15, TimeUnit.SECONDS);
+				createResult = createFuture.get(15, TimeUnit.SECONDS);
+			}
+			finally {
+				executor.shutdownNow();
+			}
+
+			assertThat(confirmResult.getResponse().getStatus()).as("iteration %d: confirm", iteration).isEqualTo(302);
+			assertThat(createResult.getResponse().getStatus()).as("iteration %d: create", iteration).isEqualTo(302);
+
+			assertThat(jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class,
+					confirmedOrderId)).isEqualTo("COMPLETED");
+			assertThat(jdbcTemplate.queryForObject("SELECT reserved_quantity FROM order_lines WHERE id = ?",
+					Integer.class, confirmedLineId)).isZero();
+			assertThat(pickedQuantityOf(confirmedLineId)).isEqualTo(2);
+			assertThat(stockOf(partId)).isEqualTo(4);
+
+			Integer reservedOnOpenOrders = jdbcTemplate.queryForObject(
+					"SELECT COALESCE(SUM(ol.reserved_quantity), 0) FROM order_lines ol JOIN orders o ON o.id = ol.order_id "
+							+ "WHERE ol.part_id = ? AND o.status = 'OPEN'",
+					Integer.class, partId);
+			assertThat(reservedOnOpenOrders).as("iteration %d: reserved vs stock", iteration).isLessThanOrEqualTo(4);
+			assertThat(jdbcTemplate.queryForObject(
+					"SELECT ol.reserved_quantity FROM order_lines ol JOIN orders o ON o.id = ol.order_id "
+							+ "WHERE o.project_id = ?",
+					Integer.class, newProjectId))
+				.as("iteration %d: new order receives the released units", iteration)
+				.isEqualTo(4);
+		}
+	}
+
 
 }
