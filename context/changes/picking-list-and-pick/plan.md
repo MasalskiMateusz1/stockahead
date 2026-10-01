@@ -348,13 +348,13 @@ No data backfill: `taken_at` defaults to `NULL` (no existing order has been pick
 
 #### Automated
 
-- [x] 4.1 `PickingListAndDetailIntegrationTests` passes (role access, 404, rendered content)
-- [x] 4.2 `PickingIntegrationTests` passes (valid pick, overpick rejection, non-OPEN rejection, repeat pick on taken order)
-- [x] 4.3 `./mvnw verify` passes (full suite)
+- [x] 4.1 `PickingListAndDetailIntegrationTests` passes (role access, 404, rendered content) — fa83764
+- [x] 4.2 `PickingIntegrationTests` passes (valid pick, overpick rejection, non-OPEN rejection, repeat pick on taken order) — fa83764
+- [x] 4.3 `./mvnw verify` passes (full suite) — fa83764
 
 #### Manual
 
-- [x] 4.4 Manual technician pick flow confirmed (stock/reserved/picked numbers move correctly)
-- [x] 4.5 Manual overpick error confirmed (friendly error, not 500)
-- [x] 4.6 Manual taken-order-survives-new-competitor flow confirmed
-- [x] 4.7 Manual manager-can-also-pick role-parity confirmed
+- [x] 4.4 Manual technician pick flow confirmed (stock/reserved/picked numbers move correctly) — fa83764
+- [x] 4.5 Manual overpick error confirmed (friendly error, not 500) — fa83764
+- [x] 4.6 Manual taken-order-survives-new-competitor flow confirmed — fa83764
+- [x] 4.7 Manual manager-can-also-pick role-parity confirmed — fa83764
