@@ -50,6 +50,8 @@ class ReservationAllocatorTests {
 
 	private static final String TECHNICIAN_EMAIL = "reservation-allocator-technician@example.com";
 
+	private static final String MANAGER_EMAIL = "reservation-allocator-manager@example.com";
+
 	private static final String PASSWORD = "correct-password";
 
 	@Autowired
@@ -92,6 +94,7 @@ class ReservationAllocatorTests {
 		jdbcTemplate.update("DELETE FROM part_locations");
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 	}
 
 	// ---- fixtures -----------------------------------------------------
@@ -135,19 +138,35 @@ class ReservationAllocatorTests {
 		return jdbcTemplate.queryForObject("SELECT quantity FROM parts WHERE id = ?", Integer.class, partId);
 	}
 
-	private MockHttpSession technicianSession() throws Exception {
+	private void setStock(Long partId, int quantity) {
+		jdbcTemplate.update("UPDATE parts SET quantity = ? WHERE id = ?", quantity, partId);
+	}
+
+	/**
+	 * Logs in as {@code email}, creating the account on first use only, so a
+	 * test can pick (or report) more than once without colliding on the
+	 * account's unique email.
+	 */
+	private MockHttpSession session(String email, Role role) throws Exception {
 		transactionTemplate.executeWithoutResult(status -> {
+			if (accountRepository.findByEmail(email).isPresent()) {
+				return;
+			}
 			Account account = new Account();
-			account.setEmail(TECHNICIAN_EMAIL);
+			account.setEmail(email);
 			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(Role.TECHNICIAN);
+			account.setRole(role);
 			account.setActive(true);
 			account.setCreatedAt(Instant.now());
 			accountRepository.save(account);
 		});
-		return (MockHttpSession) mockMvc.perform(formLogin().user(TECHNICIAN_EMAIL).password(PASSWORD))
+		return (MockHttpSession) mockMvc.perform(formLogin().user(email).password(PASSWORD))
 			.andExpect(status().is3xxRedirection())
 			.andReturn().getRequest().getSession();
+	}
+
+	private MockHttpSession technicianSession() throws Exception {
+		return session(TECHNICIAN_EMAIL, Role.TECHNICIAN);
 	}
 
 	/** Takes the order the only way the app can: a real pick through the picking endpoint. */
@@ -156,6 +175,26 @@ class ReservationAllocatorTests {
 			.with(csrf())
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection());
+	}
+
+	/** Reports a taken order's completion through the real picking endpoint. */
+	private void reportCompletion(Long orderId) throws Exception {
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technicianSession())
+			.with(csrf()))
+			.andExpect(status().is3xxRedirection());
+		assertThat(jdbcTemplate.queryForObject(
+				"SELECT completion_reported_at IS NOT NULL FROM orders WHERE id = ?", Boolean.class, orderId))
+			.isTrue();
+	}
+
+	/** Rejects a pending completion report through the real manager endpoint. */
+	private void rejectCompletion(Long orderId) throws Exception {
+		mockMvc.perform(post("/orders/{id}/reject-completion", orderId).session(session(MANAGER_EMAIL, Role.MANAGER))
+			.with(csrf()))
+			.andExpect(status().is3xxRedirection());
+		assertThat(jdbcTemplate.queryForObject(
+				"SELECT completion_reported_at IS NULL FROM orders WHERE id = ?", Boolean.class, orderId))
+			.isTrue();
 	}
 
 	/**
@@ -326,6 +365,168 @@ class ReservationAllocatorTests {
 		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(4);
 		assertThat(reservedQuantityOf(earlyLineId)).isEqualTo(5);
 		assertThat(reservedQuantityOf(lateLineId)).isEqualTo(0);
+	}
+
+	@Test
+	void takenShortOrderReceivesNewlyAvailableUnits() throws Exception {
+		Long projectId = seedProject("Top-Up Board");
+		Long partId = seedPart("Scarce Part", 4);
+		Long takenOrderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(7), Instant.now());
+		Long takenLineId = seedOrderLine(takenOrderId, partId, 10);
+
+		reallocate(Set.of(partId));
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(4);
+		pick(takenOrderId, takenLineId, 2);
+		assertThat(stockOf(partId)).isEqualTo(2);
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(2);
+
+		// Stand-in for a future delivery or stock correction: 5 new units.
+		setStock(partId, 7);
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(7);
+		assertThat(pickedQuantityOf(takenLineId)).isEqualTo(2);
+	}
+
+	@Test
+	void takenOrderTopUpIsCappedAtRequiredMinusPicked() throws Exception {
+		Long projectId = seedProject("Top-Up Cap Board");
+		Long partId = seedPart("Scarce Part", 6);
+		Long takenOrderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(7), Instant.now());
+		Long takenLineId = seedOrderLine(takenOrderId, partId, 10);
+
+		reallocate(Set.of(partId));
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(6);
+		pick(takenOrderId, takenLineId, 2);
+		pick(takenOrderId, takenLineId, 3);
+		assertThat(stockOf(partId)).isEqualTo(1);
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(1);
+		assertThat(pickedQuantityOf(takenLineId)).isEqualTo(5);
+
+		// Far more stock than the line can ever use: 20 new units.
+		setStock(partId, 21);
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(5);
+		assertThat(pickedQuantityOf(takenLineId)).isEqualTo(5);
+		assertThat(reservedQuantityOf(takenLineId) + pickedQuantityOf(takenLineId)).isLessThanOrEqualTo(10);
+
+		// A second pass on the same row must not grow it again.
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(takenLineId)).isEqualTo(5);
+		assertThat(pickedQuantityOf(takenLineId)).isEqualTo(5);
+	}
+
+	@Test
+	void nonTakenHigherPriorityOrderGetsExtraUnitsBeforeTakenLowerPriorityOrder() throws Exception {
+		Long projectId = seedProject("Top-Up Order Board");
+		Long partId = seedPart("Scarce Part", 4);
+		Long takenLowOrderId = seedOrder(projectId, 1, Priority.LOW, LocalDate.now().plusDays(7), Instant.now());
+		Long takenLowLineId = seedOrderLine(takenLowOrderId, partId, 10);
+
+		reallocate(Set.of(partId));
+		pick(takenLowOrderId, takenLowLineId, 1);
+		assertThat(stockOf(partId)).isEqualTo(3);
+		assertThat(reservedQuantityOf(takenLowLineId)).isEqualTo(3);
+
+		Long highOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7),
+				Instant.now().plusSeconds(10));
+		Long highLineId = seedOrderLine(highOrderId, partId, 5);
+		reallocate(Set.of(partId));
+		assertThat(reservedQuantityOf(highLineId)).isEqualTo(0);
+
+		// 7 new units: HIGH takes its 5 first, the taken LOW order gets the last 2.
+		setStock(partId, 10);
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(highLineId)).isEqualTo(5);
+		assertThat(reservedQuantityOf(takenLowLineId)).isEqualTo(5);
+		assertThat(pickedQuantityOf(takenLowLineId)).isEqualTo(1);
+	}
+
+	@Test
+	void takenHigherPriorityOrderTopsUpBeforeNonTakenLowerPriorityOrder() throws Exception {
+		Long projectId = seedProject("Top-Up Preemption Board");
+		Long partId = seedPart("Scarce Part", 4);
+		Long takenHighOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7), Instant.now());
+		Long takenHighLineId = seedOrderLine(takenHighOrderId, partId, 10);
+
+		reallocate(Set.of(partId));
+		pick(takenHighOrderId, takenHighLineId, 1);
+		assertThat(stockOf(partId)).isEqualTo(3);
+		assertThat(reservedQuantityOf(takenHighLineId)).isEqualTo(3);
+
+		// While HIGH's completion is reported it gets nothing extra, so new
+		// units go to the non-taken LOW order.
+		reportCompletion(takenHighOrderId);
+		Long lowOrderId = seedOrder(projectId, 1, Priority.LOW, LocalDate.now().plusDays(7),
+				Instant.now().plusSeconds(10));
+		Long lowLineId = seedOrderLine(lowOrderId, partId, 5);
+		setStock(partId, 7);
+		reallocate(Set.of(partId));
+		assertThat(reservedQuantityOf(takenHighLineId)).isEqualTo(3);
+		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(4);
+
+		// Back to picking: HIGH tops up first, LOW shrinks as normal preemption.
+		rejectCompletion(takenHighOrderId);
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(takenHighLineId)).isEqualTo(7);
+		assertThat(pickedQuantityOf(takenHighLineId)).isEqualTo(1);
+		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(0);
+	}
+
+	@Test
+	void reportedTakenOrderReceivesNoExtraUnits() throws Exception {
+		Long projectId = seedProject("Reported Board");
+		Long partId = seedPart("Scarce Part", 4);
+		Long reportedOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7), Instant.now());
+		Long reportedLineId = seedOrderLine(reportedOrderId, partId, 10);
+
+		reallocate(Set.of(partId));
+		pick(reportedOrderId, reportedLineId, 1);
+		assertThat(reservedQuantityOf(reportedLineId)).isEqualTo(3);
+		reportCompletion(reportedOrderId);
+
+		Long otherOrderId = seedOrder(projectId, 1, Priority.LOW, LocalDate.now().plusDays(7),
+				Instant.now().plusSeconds(10));
+		Long otherLineId = seedOrderLine(otherOrderId, partId, 2);
+		setStock(partId, 8);
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(reportedLineId)).isEqualTo(3);
+		assertThat(pickedQuantityOf(reportedLineId)).isEqualTo(1);
+		assertThat(reservedQuantityOf(otherLineId)).isEqualTo(2);
+	}
+
+	@Test
+	void takenOrderReservationIsNeverReducedByTopUpPass() throws Exception {
+		Long projectId = seedProject("Floor Board");
+		Long partId = seedPart("Scarce Part", 5);
+		Long takenLowOrderId = seedOrder(projectId, 1, Priority.LOW, LocalDate.now().plusDays(7), Instant.now());
+		Long takenLowLineId = seedOrderLine(takenLowOrderId, partId, 10);
+
+		reallocate(Set.of(partId));
+		pick(takenLowOrderId, takenLowLineId, 1);
+		assertThat(stockOf(partId)).isEqualTo(4);
+		assertThat(reservedQuantityOf(takenLowLineId)).isEqualTo(4);
+
+		Long highOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7),
+				Instant.now().plusSeconds(10));
+		Long highLineId = seedOrderLine(highOrderId, partId, 6);
+		// 3 new units: not enough for HIGH, which must not reach into LOW's 4.
+		setStock(partId, 7);
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(highLineId)).isEqualTo(3);
+		assertThat(reservedQuantityOf(takenLowLineId)).isEqualTo(4);
+
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(highLineId)).isEqualTo(3);
+		assertThat(reservedQuantityOf(takenLowLineId)).isEqualTo(4);
+		assertThat(pickedQuantityOf(takenLowLineId)).isEqualTo(1);
 	}
 
 }

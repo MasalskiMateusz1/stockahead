@@ -22,14 +22,20 @@ import pl.regavio.stockahead.parts.PartRepository;
  * or modifies the triggering row, passing every part id their own
  * already-loaded writes touch — never derive the set from a separate query.
  * The part locks and the order writes then commit atomically together.
- * Because every event fully rebuilds the allocation for the affected parts
- * from the current set of <em>non-taken</em> open orders touching them,
- * priority preemption (a new high-priority order taking stock from an
- * existing lower-priority one) falls out for free, with no special-case
- * "steal reservation" logic. A taken order (one with a first pick already
- * done) is frozen: its current reservation is removed from the stock pool
- * up front and its lines are never written to, so it can never be
- * preempted by a later, higher-priority competitor.
+ * Because every event fully rebuilds the allocation of the <em>non-taken</em>
+ * open orders touching the affected parts, priority preemption (a new
+ * high-priority order taking stock from an existing lower-priority one)
+ * falls out for free, with no special-case "steal reservation" logic. A
+ * taken order (one with a first pick already done) is <em>protected</em>,
+ * not excluded: its current reservation is removed from the stock pool up
+ * front and can never shrink, so no later, higher-priority competitor can
+ * take it over. A taken order whose completion has not been reported still
+ * joins the allocation pass in its normal allocation-order position, but
+ * can only <em>grow</em>: it is topped up by what the pool has left, at
+ * most to {@code requiredQuantity - pickedQuantity}. A taken order whose
+ * completion has been reported (awaiting the manager's confirm/reject) keeps
+ * its reservation and receives nothing extra, since it can no longer be
+ * picked.
  */
 @Component
 public class ReservationAllocator {
@@ -50,16 +56,21 @@ public class ReservationAllocator {
 	}
 
 	/**
-	 * Recomputes {@code reservedQuantity} for every non-taken {@code OPEN}
-	 * order line touching one of {@code partIds}, from a running per-part
-	 * stock pool seeded with each part's current {@code quantity} (picking
-	 * may have already drawn it down), minus the current reservation of any
-	 * taken order's lines on those parts — a taken order's reservation is
-	 * protected and its lines are left untouched. Non-taken orders are
-	 * processed in allocation order; each order's lines are processed in
-	 * their natural order, which is safe because
-	 * {@code UNIQUE(order_id, part_id)} guarantees each line of an order
-	 * touches a distinct part.
+	 * Recomputes {@code reservedQuantity} for the {@code OPEN} order lines
+	 * touching one of {@code partIds}, from a running per-part stock pool
+	 * seeded with each part's current {@code quantity} (picking may have
+	 * already drawn it down), minus the current reservation of every taken
+	 * order's lines on those parts (reported or not) — that floor leaves the
+	 * pool before any order is processed, so no order can absorb units a
+	 * taken order already holds. Then non-taken orders and taken orders whose
+	 * completion is not reported are processed together in allocation order:
+	 * a non-taken line is rebuilt as {@code min(pool, required)}; a taken
+	 * line keeps its reservation and gains
+	 * {@code min(pool, required - picked - reserved)}. Either way the pool
+	 * shrinks by what was granted. Lines of a completion-reported order are
+	 * never written. Each order's lines are processed in their natural order,
+	 * which is safe because {@code UNIQUE(order_id, part_id)} guarantees each
+	 * line of an order touches a distinct part.
 	 */
 	void reallocateForParts(Set<Long> partIds) {
 		if (partIds.isEmpty()) {
@@ -80,7 +91,8 @@ public class ReservationAllocator {
 
 		List<OrderLine> affectedLines = orderLineRepository.findOpenLinesForParts(partIds);
 		List<OrderLine> takenLines = affectedLines.stream().filter(line -> line.getOrder().isTaken()).toList();
-		List<OrderLine> reallocatableLines = affectedLines.stream().filter(line -> !line.getOrder().isTaken())
+		List<OrderLine> allocatableLines = affectedLines.stream()
+			.filter(line -> !line.getOrder().isTaken() || !line.getOrder().isCompletionReported())
 			.toList();
 
 		for (OrderLine takenLine : takenLines) {
@@ -89,18 +101,30 @@ public class ReservationAllocator {
 		}
 		remainingStockByPartId.replaceAll((partId, remaining) -> Math.max(0, remaining));
 
-		Map<Long, Order> ordersById = reallocatableLines.stream()
+		Map<Long, Order> ordersById = allocatableLines.stream()
 			.collect(Collectors.toMap(l -> l.getOrder().getId(), OrderLine::getOrder, (a, b) -> a));
-		Map<Long, List<OrderLine>> linesByOrderId = reallocatableLines.stream()
+		Map<Long, List<OrderLine>> linesByOrderId = allocatableLines.stream()
 			.collect(Collectors.groupingBy(l -> l.getOrder().getId()));
 
 		for (Order order : ordersById.values().stream().sorted(ALLOCATION_ORDER).toList()) {
 			for (OrderLine line : linesByOrderId.get(order.getId())) {
 				Long partId = line.getPart().getId();
 				int remaining = remainingStockByPartId.getOrDefault(partId, 0);
-				int reserved = Math.min(remaining, line.getRequiredQuantity());
-				line.setReservedQuantity(reserved);
-				remainingStockByPartId.put(partId, remaining - reserved);
+				int granted;
+				if (order.isTaken()) {
+					// Top-up only: the current reservation already left the pool above
+					// and is a floor; reservedQuantity is net of picks, so the unmet
+					// remainder is required - picked - reserved (disjoint counters).
+					int unmet = Math.max(0,
+							line.getRequiredQuantity() - line.getPickedQuantity() - line.getReservedQuantity());
+					granted = Math.min(remaining, unmet);
+					line.setReservedQuantity(line.getReservedQuantity() + granted);
+				}
+				else {
+					granted = Math.min(remaining, line.getRequiredQuantity());
+					line.setReservedQuantity(granted);
+				}
+				remainingStockByPartId.put(partId, remaining - granted);
 			}
 		}
 	}
