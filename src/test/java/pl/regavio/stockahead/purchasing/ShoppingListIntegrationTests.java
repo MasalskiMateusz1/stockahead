@@ -213,13 +213,19 @@ class ShoppingListIntegrationTests {
 				"CANCELLED");
 		seedOrderLine(cancelledOrderId, cancelledPartId, 5, 1);
 
+		MockHttpSession session = managerSession();
+
+		// A confirmed order: taken, reported, completed (V8 CHECKs), with its
+		// reservation released to zero as the confirm action leaves it.
 		Long completedPartId = seedPart("Completed Order Part", 2);
 		Long completedProjectId = seedProject("Completed Line", true);
-		Long completedOrderId = seedOrder(completedProjectId, 1, "NORMAL", LocalDate.now().plusDays(3),
-				"COMPLETED");
-		seedOrderLine(completedOrderId, completedPartId, 5, 1);
-
-		MockHttpSession session = managerSession();
+		Long completedOrderId = seedOrder(completedProjectId, 1, "NORMAL", LocalDate.now().plusDays(3));
+		seedOrderLine(completedOrderId, completedPartId, 5, 0);
+		transactionTemplate.executeWithoutResult(txStatus -> jdbcTemplate.update(
+				"UPDATE orders SET taken_at = now(), completion_reported_at = now(), "
+						+ "completion_reported_by = (SELECT id FROM accounts WHERE email = ?), "
+						+ "status = 'COMPLETED', completed_at = now() WHERE id = ?",
+				MANAGER_EMAIL, completedOrderId));
 
 		mockMvc.perform(get("/purchasing").session(session))
 			.andExpect(status().isOk())

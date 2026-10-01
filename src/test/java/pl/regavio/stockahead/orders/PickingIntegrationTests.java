@@ -65,6 +65,9 @@ class PickingIntegrationTests {
 
 	private static final String ORDER_NOT_OPEN_ERROR = "Zlecenie nie jest już otwarte.";
 
+	private static final String COMPLETION_REPORTED_ERROR =
+			"Zlecenie zostało zgłoszone jako zakończone — pobieranie jest wstrzymane.";
+
 	@Autowired
 	private MockMvc mockMvc;
 
@@ -164,6 +167,31 @@ class PickingIntegrationTests {
 						orderId));
 	}
 
+	/**
+	 * Puts the order into the state the confirm action produces (V8 requires
+	 * a {@code COMPLETED} order to be taken, reported and stamped with
+	 * {@code completed_at}), reported by {@code reporterEmail}.
+	 */
+	private void markCompleted(Long orderId, String reporterEmail) {
+		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
+				"UPDATE orders SET taken_at = now(), completion_reported_at = now(), "
+						+ "completion_reported_by = (SELECT id FROM accounts WHERE email = ?), "
+						+ "status = 'COMPLETED', completed_at = now() WHERE id = ?",
+				reporterEmail, orderId));
+	}
+
+	/**
+	 * Stamps a completion report on an already-taken order, as the report
+	 * action will (it only accepts taken, OPEN, unreported orders).
+	 */
+	private void markCompletionReported(Long orderId, String reporterEmail) {
+		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
+				"UPDATE orders SET completion_reported_at = now(), "
+						+ "completion_reported_by = (SELECT id FROM accounts WHERE email = ?) "
+						+ "WHERE id = ? AND taken_at IS NOT NULL",
+				reporterEmail, orderId));
+	}
+
 	private int reservedQuantityOf(Long lineId) {
 		return jdbcTemplate.queryForObject("SELECT reserved_quantity FROM order_lines WHERE id = ?", Integer.class,
 				lineId);
@@ -236,8 +264,16 @@ class PickingIntegrationTests {
 		for (OrderStatus notOpenStatus : new OrderStatus[] { OrderStatus.CANCELLED, OrderStatus.COMPLETED }) {
 			Long partId = seedPart("Part for " + notOpenStatus, 10);
 			Long orderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(7), Instant.now());
-			Long lineId = seedOrderLine(orderId, partId, 5, 5);
-			setOrderStatus(orderId, notOpenStatus);
+			// A confirmed order has its reservation released (zeroed); a cancelled
+			// one is seeded with its reservation intact.
+			int reserved = notOpenStatus == OrderStatus.COMPLETED ? 0 : 5;
+			Long lineId = seedOrderLine(orderId, partId, 5, reserved);
+			if (notOpenStatus == OrderStatus.COMPLETED) {
+				markCompleted(orderId, TECHNICIAN_EMAIL);
+			}
+			else {
+				setOrderStatus(orderId, notOpenStatus);
+			}
 
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 				.with(csrf())
@@ -246,8 +282,42 @@ class PickingIntegrationTests {
 				.andExpect(content().string(containsString(ORDER_NOT_OPEN_ERROR)));
 
 			assertThat(stockOf(partId)).isEqualTo(10);
-			assertThat(reservedQuantityOf(lineId)).isEqualTo(5);
+			assertThat(reservedQuantityOf(lineId)).isEqualTo(reserved);
 			assertThat(pickedQuantityOf(lineId)).isEqualTo(0);
+		}
+	}
+
+	// ---- completion reported -----------------------------------------------
+
+	@Test
+	void pickOnCompletionReportedOrderIsRejectedAndLeavesStockAndLinesUnchanged() throws Exception {
+		Long partId = seedPart("Reported Order Resistor", 20);
+		Long orderId = seedOrder(projectId, 1, Priority.NORMAL, LocalDate.now().plusDays(7), Instant.now());
+		Long lineId = seedOrderLine(orderId, partId, 10, 10);
+
+		MockHttpSession session = technicianSession();
+
+		// Take the order through the real pick action, then report it.
+		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
+			.with(csrf())
+			.param("quantity", "4"))
+			.andExpect(status().is3xxRedirection());
+		markCompletionReported(orderId, TECHNICIAN_EMAIL);
+		Timestamp takenAt = takenAtOf(orderId);
+		assertThat(takenAt).isNotNull();
+
+		// Rejected every time, not just on the first attempt.
+		for (int attempt = 0; attempt < 2; attempt++) {
+			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
+				.with(csrf())
+				.param("quantity", "2"))
+				.andExpect(status().isOk())
+				.andExpect(content().string(containsString(COMPLETION_REPORTED_ERROR)));
+
+			assertThat(stockOf(partId)).isEqualTo(16);
+			assertThat(reservedQuantityOf(lineId)).isEqualTo(6);
+			assertThat(pickedQuantityOf(lineId)).isEqualTo(4);
+			assertThat(takenAtOf(orderId)).isEqualTo(takenAt);
 		}
 	}
 

@@ -10,6 +10,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -18,6 +19,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
+import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.projects.Project;
 
 @Entity
@@ -51,6 +53,16 @@ public class Order {
 
 	@Column(name = "taken_at")
 	private Instant takenAt;
+
+	@Column(name = "completion_reported_at")
+	private Instant completionReportedAt;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "completion_reported_by")
+	private Account completionReportedBy;
+
+	@Column(name = "completed_at")
+	private Instant completedAt;
 
 	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<OrderLine> lines = new ArrayList<>();
@@ -121,6 +133,42 @@ public class Order {
 
 	public boolean isTaken() {
 		return takenAt != null;
+	}
+
+	public Instant getCompletionReportedAt() {
+		return completionReportedAt;
+	}
+
+	public void setCompletionReportedAt(Instant completionReportedAt) {
+		this.completionReportedAt = completionReportedAt;
+	}
+
+	public Account getCompletionReportedBy() {
+		return completionReportedBy;
+	}
+
+	public void setCompletionReportedBy(Account completionReportedBy) {
+		this.completionReportedBy = completionReportedBy;
+	}
+
+	public Instant getCompletedAt() {
+		return completedAt;
+	}
+
+	public void setCompletedAt(Instant completedAt) {
+		this.completedAt = completedAt;
+	}
+
+	public boolean isCompletionReported() {
+		return completionReportedAt != null;
+	}
+
+	/**
+	 * True when the order may be reported as finished: still {@code OPEN},
+	 * already taken (first pick done), and not reported yet.
+	 */
+	public boolean canReportCompletion() {
+		return status == OrderStatus.OPEN && isTaken() && !isCompletionReported();
 	}
 
 	public List<OrderLine> getLines() {

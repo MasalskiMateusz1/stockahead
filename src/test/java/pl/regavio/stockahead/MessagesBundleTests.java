@@ -187,6 +187,12 @@ class MessagesBundleTests {
 	}
 
 	@Test
+	void pickingErrorCompletionReported() {
+		assertThat(messageSource.getMessage("picking.error.completionReported", null, PL))
+			.isEqualTo("Zlecenie zostało zgłoszone jako zakończone — pobieranie jest wstrzymane.");
+	}
+
+	@Test
 	void purchasingCsvHeaderPartName() {
 		assertThat(messageSource.getMessage("purchasing.csv.header.partName", null, PL)).isEqualTo("Część");
 	}

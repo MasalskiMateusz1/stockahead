@@ -118,6 +118,9 @@ public class PickingController {
 				if (order.getStatus() != OrderStatus.OPEN) {
 					return messageSource.getMessage("picking.error.orderNotOpen", null, locale);
 				}
+				if (order.isCompletionReported()) {
+					return messageSource.getMessage("picking.error.completionReported", null, locale);
+				}
 				// reservedQuantity already nets out every prior pick on this line (each
 				// pick shifts its amount out of reservedQuantity into pickedQuantity), so
 				// it IS the current pickable amount — subtracting pickedQuantity again
