@@ -1,7 +1,7 @@
 ---
 change_id: narrow-reservation-locking
 title: Narrow reservation locking
-status: implementing
+status: implemented
 created: 2026-09-30
 updated: 2026-10-01
 archived_at: null

@@ -446,8 +446,8 @@ None — no schema change; this plan touches only Java/JPQL.
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes including the new multi-part concurrency test
+- [x] 3.1 `./mvnw verify` passes including the new multi-part concurrency test — 962f422
 
 #### Manual
 
-- [x] 3.2 Breaking `ORDER BY p.id` temporarily makes the new test fail, confirming it's load-bearing
+- [x] 3.2 Breaking `ORDER BY p.id` temporarily makes the new test fail, confirming it's load-bearing — 962f422
