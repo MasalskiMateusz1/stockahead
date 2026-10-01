@@ -286,4 +286,4 @@ Cover the aggregation correctness, the two new routes, and the CSV format agains
 
 #### Automated
 
-- [x] 4.1 `./mvnw verify` passes, including `ShoppingListIntegrationTests` and the full existing suite
+- [x] 4.1 `./mvnw verify` passes, including `ShoppingListIntegrationTests` and the full existing suite — 826df8f

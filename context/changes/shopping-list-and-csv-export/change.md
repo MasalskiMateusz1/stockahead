@@ -1,7 +1,7 @@
 ---
 change_id: shopping-list-and-csv-export
 title: Lista zakupów i eksport do CSV
-status: implementing
+status: implemented
 created: 2026-10-01
 updated: 2026-10-01
 ---
