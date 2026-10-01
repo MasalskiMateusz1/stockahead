@@ -1,7 +1,7 @@
 ---
 change_id: picking-list-and-pick
 title: Lista kompletacyjna i pobranie części
-status: implemented
+status: impl_reviewed
 created: 2026-10-01
 updated: 2026-10-01
 ---

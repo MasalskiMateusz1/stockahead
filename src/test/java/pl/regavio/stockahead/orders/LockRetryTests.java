@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * pin down that a retry actually fired, nor how many times. A regression narrowing the caught
  * exception type or changing the attempt bound could otherwise pass CI on a lucky run.
  */
-class OrderControllerTests {
+class LockRetryTests {
 
 	@Test
 	void retriesUpToThreeTimesThenSucceeds() {

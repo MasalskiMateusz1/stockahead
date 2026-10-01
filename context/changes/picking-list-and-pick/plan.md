@@ -127,6 +127,8 @@ remainingStockByPartId.replaceAll((partId, remaining) -> Math.max(0, remaining))
 ```
 Taken lines are never written to (not even re-saved with the same value) — they are simply absent from the write set. The `Math.max(0, remaining)` floor is a defensive guard; it should never actually trigger if every other write path upholds `reservedQuantity ≤ stock`.
 
+**Stock-pool seeding must use a scalar projection, not the locked entities.** `remainingStockByPartId` is seeded from `PartRepository.findCurrentQuantities(partIds)` — a `SELECT p.id, p.quantity` scalar projection — not from the `Part` entities returned by `partRepository.findByIdInForUpdate(partIds)` (that call is still made, but only for its locking side effect; its return value is discarded). This is the same `spring.jpa.open-in-view` staleness hazard Phase 3 documents for `PickingController`'s pre-lock `partId` lookup: `OrderController.create` resolves `BomLine.getPart()` into the request's shared persistence context before calling `reallocateForParts`, so a second full-entity read for the same `Part` id would return that already-managed (and potentially stale) instance via Hibernate's identity map instead of the DB's current row. A scalar projection bypasses the identity map entirely, so it always reflects the row as it stands after the lock.
+
 ### Success Criteria:
 
 #### Automated Verification:
@@ -157,7 +159,7 @@ Add the controller, view-model, and locking/validation logic that lets a technic
 
 **Intent**: `PickingController` needs the same "retry up to 3 times on lock contention" behavior `OrderController.executeWithLockRetry` already has. Extract it once instead of duplicating the loop a second time.
 
-**Contract**: A small package-private component/utility exposing `<T> T executeWithLockRetry(Supplier<T> action)` with the same `MAX_LOCK_RETRY_ATTEMPTS = 3`, no-backoff, re-throw-last-failure behavior currently in `OrderController.java:171-182`. `OrderController` delegates to it instead of keeping its own copy; the existing `OrderControllerTests` keeps its name but its two existing cases retarget to call `LockRetry` directly (same two test cases, same assertions).
+**Contract**: A small package-private component/utility exposing `<T> T executeWithLockRetry(Supplier<T> action)` with the same `MAX_LOCK_RETRY_ATTEMPTS = 3`, no-backoff, re-throw-last-failure behavior currently in `OrderController.java:171-182`. `OrderController` delegates to it instead of keeping its own copy; `OrderControllerTests`' two existing lock-retry cases retarget to call `LockRetry` directly (same two test cases, same assertions), and since the class no longer has any `OrderController` coverage left, it's renamed to `LockRetryTests`.
 
 #### 2. PickingDetailModel
 
@@ -206,7 +208,7 @@ Add the controller, view-model, and locking/validation logic that lets a technic
 
 #### Automated Verification:
 
-- `./mvnw test -Dtest=OrderControllerTests,PickingConcurrencyTests` passes — `OrderControllerTests` keeps its name but its two existing cases retarget to call `LockRetry` directly instead of `OrderController#executeWithLockRetry`.
+- `./mvnw test -Dtest=LockRetryTests,PickingConcurrencyTests` passes — `OrderControllerTests` is renamed to `LockRetryTests` since its two cases retarget to call `LockRetry` directly instead of `OrderController#executeWithLockRetry`.
 - `./mvnw verify` passes (full suite).
 
 #### Manual Verification:
@@ -247,6 +249,14 @@ Add the picking-list and picking-detail templates, a dashboard link both roles c
 
 **Contract**: Add `<p><a th:href="@{/picking}">Lista kompletacyjna</a></p>` unguarded (same pattern as the existing `/parts`/`/projects` links at `dashboard.html:12-13`), near the manager-only `/orders` link.
 
+#### 3a. Orders list — missing "new order" link
+
+**File**: `src/main/resources/templates/orders-list.html`
+
+**Intent**: `orders-list.html` has no link to `/orders/new`, a pre-existing gap from the already-archived `order-reserves-parts` change (the route itself already exists and is correctly role-gated). This phase's integration tests need to create orders through the real UI, so the gap must close here.
+
+**Contract**: Add `<p><a th:href="@{/orders/new}">Nowe zlecenie</a></p>` near the existing "Powrót do pulpitu" link.
+
 #### 4. List/detail integration tests
 
 **File**: `src/test/java/pl/regavio/stockahead/orders/PickingListAndDetailIntegrationTests.java` (new, mirrors `OrderListAndDetailIntegrationTests`)
@@ -282,7 +292,7 @@ Add the picking-list and picking-detail templates, a dashboard link both roles c
 ### Unit Tests:
 
 - `ReservationAllocatorTests` — taken-order exclusion/protection (Phase 2).
-- `OrderControllerTests`/relocated lock-retry tests — retry-count and re-throw behavior (Phase 3).
+- `LockRetryTests` (renamed from `OrderControllerTests`) — retry-count and re-throw behavior (Phase 3).
 
 ### Integration Tests:
 
