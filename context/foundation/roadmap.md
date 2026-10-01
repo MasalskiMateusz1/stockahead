@@ -48,7 +48,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-01  | login-and-role-access            | Użytkownik loguje się e-mailem i hasłem, a dostęp zależy od roli                                | F-01          | FR-001, §Kontrola dostępu                   | done     |
 | S-02  | parts-catalog                    | Kierownik prowadzi kartotekę części z lokalizacjami, każdy ją przeszukuje                       | S-01          | FR-003, FR-005                              | done |
 | S-03  | project-bom                       | Kierownik prowadzi projekty urządzeń z listą części i linkami do dokumentacji                   | S-01          | FR-007, FR-019                              | done |
-| S-04  | order-reserves-parts             | Kierownik zleca produkcję N sztuk i widzi rezerwacje oraz braki                                 | S-02, S-03    | US-01, FR-010, FR-005, §Business Logic      | proposed |
+| S-04  | order-reserves-parts             | Kierownik zleca produkcję N sztuk i widzi rezerwacje oraz braki                                 | S-02, S-03    | US-01, FR-010, FR-005, §Business Logic      | in-progress |
 | S-05  | shopping-list-and-csv-export     | Kierownik widzi listę zakupów z blokowanymi zleceniami i eksportuje ją do CSV                   | S-04          | FR-015, FR-016                              | proposed |
 | S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | done     |
 | S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | proposed |
@@ -145,7 +145,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Czy przeliczanie całej alokacji po każdym zdarzeniu wystarczy przy skali zakładu, czy potrzebne jest przeliczanie przyrostowe? — Owner: user. Block: no.
 - **Risk:** To jest gwiazda przewodnia i jednocześnie najtrudniejsza część systemu: kolejność przydziału (priorytet → wcześniejszy termin → starsze zlecenie) plus przejmowanie niepobranych rezerwacji przez zlecenia wyżej w kolejności. Wyjątki dotyczące zleceń podjętych i części już pobranych nie mieszczą się tu, bo pobrania powstają dopiero w S-07 — ten kawałek dowozi kolejność i przejmowanie między zleceniami niepodjętymi, a S-07 dokłada wyłączenia. Rozliczany kryterium akceptacji US-01: BOM 10 rezystorów, stan 6, zlecenie na 1 sztukę → rezerwacja 6, brak 4.
-- **Status:** proposed
+- **Status:** in-progress — plan i brief w `context/changes/order-reserves-parts/`.
 
 ### S-05: Lista zakupów i eksport do CSV
 

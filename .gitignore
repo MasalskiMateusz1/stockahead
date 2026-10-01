@@ -45,3 +45,8 @@ build/
 .claude/**/10x-*
 .github/**/10x-*
 .agents/**/10x-*
+.claude/.10x-cli-manifest.json
+.claude/.10x-cli-manifest.json.bak
+.agents/.10x-cli-manifest.json
+.agents/.10x-cli-manifest.json.bak
+.claude/prompts/
