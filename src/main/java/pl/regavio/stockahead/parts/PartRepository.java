@@ -28,6 +28,10 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	@Query("SELECT p FROM Part p WHERE p.id IN :ids ORDER BY p.id")
 	List<Part> findByIdInForUpdate(@Param("ids") Collection<Long> ids);
 
+	/** Every distinct location in use across all parts, as plain strings (no {@link Part} hydrated). */
+	@Query("SELECT DISTINCT l.location FROM PartLocation l ORDER BY l.location")
+	List<String> findAllLocationNames();
+
 	@Query("SELECT DISTINCT p FROM Part p LEFT JOIN FETCH p.locations WHERE p.id IN :ids")
 	List<Part> findWithLocationsByIdIn(@Param("ids") Collection<Long> ids);
 
