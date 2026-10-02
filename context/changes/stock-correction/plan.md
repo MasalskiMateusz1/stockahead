@@ -364,18 +364,18 @@ V11 only adds a table, so existing data is untouched. No backfill: there were no
 
 #### Automated
 
-- [x] 3.1 Correction integration tests pass: `./mvnw test -Dtest=StockCorrectionIntegrationTests`
-- [x] 3.2 Full suite passes: `./mvnw verify`
+- [x] 3.1 Correction integration tests pass: `./mvnw test -Dtest=StockCorrectionIntegrationTests` — 98907b3
+- [x] 3.2 Full suite passes: `./mvnw verify` — 98907b3
 
 #### Manual
 
-- [x] 3.3 Count down a fully reserved part on `/parts/{id}/correction`; `/purchasing` and the order detail show the new shortage without manual steps
-- [x] 3.4 Open the form in two tabs, pick a unit in between, submit "Ustaw stan": the page refuses and shows the fresh stock
-- [x] 3.5 The past-corrections table shows the new row with your e-mail and reason
+- [x] 3.3 Count down a fully reserved part on `/parts/{id}/correction`; `/purchasing` and the order detail show the new shortage without manual steps — 98907b3
+- [x] 3.4 Open the form in two tabs, pick a unit in between, submit "Ustaw stan": the page refuses and shows the fresh stock — 98907b3
+- [x] 3.5 The past-corrections table shows the new row with your e-mail and reason — 98907b3
 
 ### Phase 4: Concurrency guarantees
 
 #### Automated
 
-- [ ] 4.1 Concurrency tests pass reliably over several runs: `./mvnw test -Dtest=StockCorrectionConcurrencyTests`
-- [ ] 4.2 Full suite passes: `./mvnw verify`
+- [x] 4.1 Concurrency tests pass reliably over several runs: `./mvnw test -Dtest=StockCorrectionConcurrencyTests`
+- [x] 4.2 Full suite passes: `./mvnw verify`
