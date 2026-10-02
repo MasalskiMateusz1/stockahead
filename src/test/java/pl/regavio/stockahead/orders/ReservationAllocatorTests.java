@@ -468,10 +468,15 @@ class ReservationAllocatorTests {
 		assertThat(reservedQuantityOf(takenHighLineId)).isEqualTo(3);
 		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(4);
 
-		// Back to picking: HIGH tops up first, LOW shrinks as normal preemption.
+		// Back to picking: reject reallocates by itself — HIGH tops up first,
+		// LOW shrinks as normal preemption.
 		rejectCompletion(takenHighOrderId);
-		reallocate(Set.of(partId));
+		assertThat(reservedQuantityOf(takenHighLineId)).isEqualTo(7);
+		assertThat(pickedQuantityOf(takenHighLineId)).isEqualTo(1);
+		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(0);
 
+		// A second pass changes nothing.
+		reallocate(Set.of(partId));
 		assertThat(reservedQuantityOf(takenHighLineId)).isEqualTo(7);
 		assertThat(pickedQuantityOf(takenHighLineId)).isEqualTo(1);
 		assertThat(reservedQuantityOf(lowLineId)).isEqualTo(0);

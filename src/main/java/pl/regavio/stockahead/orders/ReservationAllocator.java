@@ -35,7 +35,13 @@ import pl.regavio.stockahead.parts.PartRepository;
  * most to {@code requiredQuantity - pickedQuantity}. A taken order whose
  * completion has been reported (awaiting the manager's confirm/reject) keeps
  * its reservation and receives nothing extra, since it can no longer be
- * picked.
+ * picked. Units granted by a top-up become part of the taken order's
+ * protected reservation at once, so a higher-priority order created later
+ * cannot take them back — the order in which events happen decides it. Top-up
+ * only happens when an event calls this allocator, so every write that raises
+ * a part's stock (delivery, correction, import) must call
+ * {@link #reallocateForParts(Set)} for that part under its row lock, or short
+ * taken orders never receive the new units.
  */
 @Component
 public class ReservationAllocator {

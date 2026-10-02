@@ -18,7 +18,7 @@ A taken order (first pick done) is protected from takeover, but today it is also
 ## Desired End State
 
 - On any reallocation for a set of parts, each taken, unreported OPEN order line with unmet quantity (required − picked − reserved > 0) receives extra units in `ALLOCATION_ORDER` alongside non-taken orders. It never ends below its previous reservation and never above required − picked.
-- A completion-reported order keeps its reservation and receives nothing extra. When its report is rejected, its parts are reallocated in the same transaction, so it catches up immediately.
+- A completion-reported order keeps its reservation and receives nothing extra. When its report is rejected, its parts are reallocated in the same transaction, so it catches up immediately with whatever is still unprotected (units already handed to an order that has since been taken stay there).
 - `/picking` shows a "Do pobrania" count per order (sum of `reservedQuantity`), so a waiting order that just received parts stands out.
 - PRD § Business Logic states the rule; Roadmap Open Question 4 is closed with the decision.
 - Verify: `./mvnw verify` green, including new allocator, integration and concurrency tests.
@@ -31,7 +31,7 @@ A taken order (first pick done) is protected from takeover, but today it is also
 
 ## What We're NOT Doing
 
-- No "taken orders first" bonus: extra units follow normal allocation order, so a taken LOW order does not beat a non-taken HIGH one.
+- No "taken orders first" bonus: extra units follow normal allocation order, so a taken LOW order does not beat a non-taken HIGH one within a single reallocation pass. Units already granted by a top-up are protected at once, so a higher-priority order created later cannot reclaim them; the order of events decides.
 - No partial completion / built-units count. That is roadmap S-13 (`order-partial-completion`).
 - No new stock-freeing events (cancel, delivery, correction, import). Those are S-09 to S-12; they inherit this rule by calling the allocator.
 - No schema change and no new lock type.

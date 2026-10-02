@@ -406,8 +406,9 @@ class OrderCompletionConcurrencyTests {
 	 * Confirm tops up short taken orders, so it writes a taken line a
 	 * technician may be picking at the same moment. Racing confirm of A
 	 * against a pick on short taken order B (same part) must serialize on the
-	 * part-row lock: whichever commits first, B ends up with the same
-	 * reservation and pick counts, and no invariant is ever broken. A and B
+	 * part-row lock. The pick asks for more than B held before the top-up, so
+	 * the two legal orderings end in two distinct exact states, and no
+	 * invariant is ever broken in either. A and B
 	 * reach "taken" (and A "reported") only through the real endpoints.
 	 */
 	@Test
@@ -455,7 +456,7 @@ class OrderCompletionConcurrencyTests {
 				return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", shortOrderId, shortLineId)
 					.session(technician)
 					.with(csrf())
-					.param("quantity", "2")).andReturn();
+					.param("quantity", "4")).andReturn();
 			};
 
 			MvcResult confirmResult;
@@ -471,7 +472,11 @@ class OrderCompletionConcurrencyTests {
 			}
 
 			assertThat(confirmResult.getResponse().getStatus()).as("iteration %d: confirm", iteration).isEqualTo(302);
-			assertThat(pickResult.getResponse().getStatus()).as("iteration %d: pick", iteration).isEqualTo(302);
+			// The pick asks for 4, more than B's 3 reserved before the top-up: it
+			// succeeds (302) only if confirm committed first, else it is rejected
+			// with the form re-rendered (200).
+			int pickStatus = pickResult.getResponse().getStatus();
+			assertThat(pickStatus).as("iteration %d: pick", iteration).isIn(200, 302);
 			assertThat(jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class,
 					confirmedOrderId)).isEqualTo("COMPLETED");
 
@@ -490,10 +495,18 @@ class OrderCompletionConcurrencyTests {
 			assertThat(reservedOnOpenOrders).as("iteration %d: reserved vs stock", iteration)
 				.isLessThanOrEqualTo(stock);
 
-			// Either order: stock 8 - 2 = 6; B picked 1 + 2 = 3 and topped up to 8 - 3 = 5.
-			assertThat(stock).isEqualTo(6);
-			assertThat(pickedQuantityOf(shortLineId)).isEqualTo(3);
-			assertThat(reservedQuantityOf(shortLineId)).isEqualTo(5);
+			if (pickStatus == 302) {
+				// Confirm first: B topped up 3 -> 7, then the pick takes 4 of the top-up.
+				assertThat(stock).as("iteration %d: stock after top-up then pick", iteration).isEqualTo(4);
+				assertThat(pickedQuantityOf(shortLineId)).isEqualTo(5);
+				assertThat(reservedQuantityOf(shortLineId)).isEqualTo(3);
+			}
+			else {
+				// Pick first: rejected at 3 reserved; confirm then tops B up to 7.
+				assertThat(stock).as("iteration %d: stock after rejected pick", iteration).isEqualTo(8);
+				assertThat(pickedQuantityOf(shortLineId)).isEqualTo(1);
+				assertThat(reservedQuantityOf(shortLineId)).isEqualTo(7);
+			}
 		}
 	}
 
