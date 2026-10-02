@@ -54,7 +54,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | done |
 | S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | done |
 | S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | done |
-| S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | in-progress |
+| S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | done |
 | S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | proposed |
 | S-12  | parts-csv-import                 | Kierownik importuje części z CSV po obejrzeniu podglądu stanów wynikowych                       | S-02, S-04    | FR-017                                      | proposed |
 | S-13  | order-partial-completion         | Technik zamyka zlecenie jako częściowo wykonane, podając liczbę zbudowanych sztuk              | S-08          | FR-014, FR-020 (rozszerzenie spoza PRD v1)  | proposed |
@@ -219,7 +219,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Pierwszy z trzech wyzwalaczy przeliczenia poza samym zleceniem; sekwencjonowany po S-04, bo bez rezerwacji „przelicza się automatycznie" nie ma treści. Razem z S-11 i S-12 tworzy niezależny strumień C, który można puścić obok kompletacji.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-11: Korekta stanu z powodem
 
@@ -315,3 +315,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-07: Technik widzi listę zleceń do zmontowania, dla każdego z nich listę kompletacyjną z częściami, ilościami i lokalizacjami, i pobiera zarezerwowane części ze stanu — także częściowo, np. 6 z 10.** — Archived 2026-10-01 → `context/archive/2026-10-01-picking-list-and-pick/`. Lesson: —.
 - **S-08: Technik zgłasza zlecenie jako zakończone, a kierownik je potwierdza; niepobrane rezerwacje zostają wtedy zwolnione i wracają do kolejnych zleceń.** — Archived 2026-10-01 → `context/archive/2026-10-01-order-completion/`. Lesson: —.
 - **S-09: Kierownik zmienia priorytet i wymagany termin zlecenia, dopóki nie zostało podjęte, albo anuluje zlecenie — w obu przypadkach rezerwacje są przeliczane, a przy anulowaniu części już pobrane wracają na stan.** — Archived 2026-10-02 → `context/archive/2026-10-02-order-change-and-cancel/`. Lesson: —.
+- **S-10: Technik przyjmuje dostawę części, zwiększając jej stan, a rezerwacje i lista zakupów przeliczają się automatycznie — nowe sztuki uzupełniają braki zgodnie z kolejnością przydziału.** — Archived 2026-10-02 → `context/archive/2026-10-02-delivery-receipt/`. Lesson: —.

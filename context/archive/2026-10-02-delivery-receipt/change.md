@@ -1,9 +1,10 @@
 ---
 change_id: delivery-receipt
 title: Technician receives a multi-line delivery and reservations recompute (S-10)
-status: impl_reviewed
+status: archived
 created: 2026-10-02
 updated: 2026-10-02
+archived_at: 2026-10-02T15:57:33Z
 ---
 
 ## Notes
