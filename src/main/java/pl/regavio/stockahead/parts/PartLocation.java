@@ -61,13 +61,16 @@ public class PartLocation {
 	/**
 	 * Turns a typed or pasted location into its stored form: non-breaking
 	 * spaces (U+00A0, U+2007, U+202F, common in values copied from a
-	 * spreadsheet) become plain spaces, then leading and trailing whitespace
-	 * is stripped. {@link String#trim()} and {@link String#strip()} both keep
-	 * non-breaking spaces, so a pasted "A1" with a trailing one would
-	 * otherwise be a second shelf.
+	 * spreadsheet) become plain spaces, then leading and trailing whitespace,
+	 * zero-width spaces (U+200B) and byte-order marks (U+FEFF) are stripped,
+	 * in any mix. {@link String#trim()} and {@link String#strip()} keep
+	 * non-breaking and zero-width characters, so a pasted "A1" ending in one
+	 * would otherwise be a second shelf. Occurrences inside the location are
+	 * kept.
 	 */
 	static String normalize(String location) {
-		return location.replaceAll("[\\u00A0\\u2007\\u202F]", " ").strip();
+		return location.replaceAll("[\\u00A0\\u2007\\u202F]", " ")
+			.replaceAll("^[\\p{javaWhitespace}\\u200B\\uFEFF]+|[\\p{javaWhitespace}\\u200B\\uFEFF]+$", "");
 	}
 
 }

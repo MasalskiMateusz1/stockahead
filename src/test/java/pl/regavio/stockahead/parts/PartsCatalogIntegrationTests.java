@@ -96,6 +96,8 @@ class PartsCatalogIntegrationTests {
 	}
 
 	private void cleanUp() {
+		jdbcTemplate.execute("DROP TRIGGER IF EXISTS test_part_location_conflict_trigger ON part_locations");
+		jdbcTemplate.execute("DROP FUNCTION IF EXISTS test_part_location_conflict()");
 		jdbcTemplate.update("DELETE FROM order_lines");
 		jdbcTemplate.update("DELETE FROM orders");
 		jdbcTemplate.update("DELETE FROM project_links");
@@ -599,20 +601,36 @@ class PartsCatalogIntegrationTests {
 		assertThat(partRepository.findByName("Pasted Duplicate")).isEmpty();
 	}
 
+	/**
+	 * Stands in for a concurrent write that added the same shelf to this part
+	 * first: a throwaway trigger makes the edit's location insert fail the
+	 * way the {@code (part_id, lower(location))} index would, and the form
+	 * must name the location clash, not a duplicate part name.
+	 */
 	@Test
-	void editKeepsTheExactSpellingWhenLegacyRowsDifferOnlyByCase() throws Exception {
+	void locationIndexViolationOnEditReRendersWithLocationConflict() throws Exception {
 		seedManager();
-		Long partId = seedPart("Legacy Widget", 3, true, "a1", "A1");
-		Long idUpper = locationIdOf(partId, "A1");
+		Long partId = seedPart("Contested Widget", 3, true, "A1");
+		jdbcTemplate.execute("""
+				CREATE FUNCTION test_part_location_conflict() RETURNS trigger LANGUAGE plpgsql AS $$
+				BEGIN
+					RAISE unique_violation USING
+						MESSAGE = 'duplicate key value violates unique constraint "part_locations_part_location_ci_idx"',
+						CONSTRAINT = 'part_locations_part_location_ci_idx';
+				END
+				$$""");
+		jdbcTemplate.execute("CREATE TRIGGER test_part_location_conflict_trigger BEFORE INSERT ON part_locations "
+				+ "FOR EACH ROW EXECUTE FUNCTION test_part_location_conflict()");
 
 		MockHttpSession session = loginAs(MANAGER_EMAIL);
 		mockMvc.perform(post("/parts/" + partId).session(session).with(csrf())
-				.param("name", "Legacy Widget")
-				.param("locations", "A1"))
-			.andExpect(status().is3xxRedirection());
+				.param("name", "Contested Widget")
+				.param("locations", "A1\nB2"))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Ta lokalizacja została właśnie dodana do części")))
+			.andExpect(content().string(not(containsString("Część o tej nazwie już istnieje."))));
 
 		assertThat(locationValuesOf(partId)).containsExactly("A1");
-		assertThat(locationIdOf(partId, "A1")).isEqualTo(idUpper);
 	}
 
 	@Test

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,8 @@ import pl.regavio.stockahead.orders.OrderLineRepository;
 public class PartController {
 
 	private static final int MAX_FIELD_LENGTH = 255;
+
+	private static final String LOCATION_INDEX = "part_locations_part_location_ci_idx";
 
 	private final PartRepository partRepository;
 
@@ -170,7 +173,7 @@ public class PartController {
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderNewPartError(model, messageSource.getMessage("parts.error.duplicateName", null, locale),
+			return renderNewPartError(model, messageSource.getMessage(constraintErrorKey(ex), null, locale),
 					name, quantity, locations);
 		}
 
@@ -249,7 +252,7 @@ public class PartController {
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderEditPartError(model, id, messageSource.getMessage("parts.error.duplicateName", null, locale),
+			return renderEditPartError(model, id, messageSource.getMessage(constraintErrorKey(ex), null, locale),
 					name, currentQuantity, locations);
 		}
 
@@ -310,27 +313,16 @@ public class PartController {
 	 * rows for target strings with no matching existing row. Matching is
 	 * case-insensitive ({@link PartLocation#sameLocation}): a row matched
 	 * only by case is kept and re-spelled to the target, never deleted and
-	 * re-inserted. Exact matches are claimed first, so a legacy pair such as
-	 * "a1"/"A1" resolves without updating one row onto the other's spelling,
-	 * which would violate {@code UNIQUE (part_id, location)} before the
-	 * other row's delete is flushed.
+	 * re-inserted. The {@code (part_id, lower(location))} index means a part
+	 * holds at most one row per shelf, so each target matches at most one
+	 * existing row.
 	 */
 	private void reconcileLocations(Part part, List<String> targetLocations) {
 		List<PartLocation> existingLocations = new ArrayList<>(part.getLocations());
 		Map<String, PartLocation> matched = new HashMap<>();
 		for (String targetLocation : targetLocations) {
 			existingLocations.stream()
-				.filter(existing -> existing.getLocation().equals(targetLocation))
-				.findFirst()
-				.ifPresent(existing -> matched.put(targetLocation, existing));
-		}
-		for (String targetLocation : targetLocations) {
-			if (matched.containsKey(targetLocation)) {
-				continue;
-			}
-			existingLocations.stream()
-				.filter(existing -> !matched.containsValue(existing)
-						&& PartLocation.sameLocation(existing.getLocation(), targetLocation))
+				.filter(existing -> PartLocation.sameLocation(existing.getLocation(), targetLocation))
 				.findFirst()
 				.ifPresent(existing -> {
 					existing.setLocation(targetLocation);
@@ -349,6 +341,21 @@ public class PartController {
 				part.addLocation(newLocation);
 			}
 		}
+	}
+
+	/**
+	 * A part write can break two unique constraints: the part name, or the
+	 * per-part location index when a concurrent write added the same shelf
+	 * first. Picks the message for whichever one the database reported.
+	 */
+	private String constraintErrorKey(DataIntegrityViolationException ex) {
+		for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+			if (cause instanceof ConstraintViolationException violation
+					&& LOCATION_INDEX.equals(violation.getConstraintName())) {
+				return "parts.error.locationConflict";
+			}
+		}
+		return "parts.error.duplicateName";
 	}
 
 	private String joinLocations(List<PartLocation> locations) {

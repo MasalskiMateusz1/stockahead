@@ -668,6 +668,21 @@ class DeliveryIntegrationTests {
 	}
 
 	@Test
+	void locationsPastedWithZeroWidthCharactersMatchTypedOnes() throws Exception {
+		MockHttpSession session = technicianSession();
+
+		receive(session,
+				"rows", "5",
+				"partId0", resistorId.toString(), "quantity0", "5", "location0", "Regał A1​",
+				"partId1", capacitorId.toString(), "quantity1", "1", "location1", "﻿regał b2");
+
+		assertThat(stockOf(resistorId)).isEqualTo(45);
+		assertThat(stockOf(capacitorId)).isEqualTo(8);
+		assertThat(locationsOf(resistorId)).containsExactly("Regał A1");
+		assertThat(locationsOf(capacitorId)).containsExactly("Regał B2");
+	}
+
+	@Test
 	void technicianCanReceiveIntoAnInactivePart() throws Exception {
 		MockHttpSession session = technicianSession();
 
