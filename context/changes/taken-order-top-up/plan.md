@@ -247,20 +247,20 @@ None. No schema change. Existing taken orders start receiving units on the next 
 
 #### Automated
 
-- [x] 1.1 `./mvnw -q test -Dtest=ReservationAllocatorTests` passes, including the six new tests
-- [x] 1.2 `./mvnw verify` passes
+- [x] 1.1 `./mvnw -q test -Dtest=ReservationAllocatorTests` passes, including the six new tests — 0e2c0f4
+- [x] 1.2 `./mvnw verify` passes — 0e2c0f4
 
 ### Phase 2: Event paths: confirm, create, reject
 
 #### Automated
 
-- [ ] 2.1 `./mvnw -q test -Dtest='OrderCompletionIntegrationTests,OrderCompletionConcurrencyTests'` passes, including the four new tests
-- [ ] 2.2 `./mvnw verify` passes
+- [x] 2.1 `./mvnw -q test -Dtest='OrderCompletionIntegrationTests,OrderCompletionConcurrencyTests'` passes, including the four new tests
+- [x] 2.2 `./mvnw verify` passes
 
 #### Manual
 
-- [ ] 2.3 As technician: pick part of order B (short), report order A complete; as manager confirm A, and check that B's picking page offers the freed parts
-- [ ] 2.4 Report B, confirm another order sharing the part, check B gets nothing; reject B's report, check B's pick forms show the units
+- [x] 2.3 As technician: pick part of order B (short), report order A complete; as manager confirm A, and check that B's picking page offers the freed parts
+- [x] 2.4 Report B, confirm another order sharing the part, check B gets nothing; reject B's report, check B's pick forms show the units
 
 ### Phase 3: Technician signal and docs
 

@@ -49,6 +49,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the next open order (and off the shopping list), reject clears the report
  * and picking resumes, both refuse an unreported order, both are 403 for a
  * technician, and the report-reject-report-confirm cycle works on one order.
+ * Also proves the taken-order top-up end to end: confirm hands released
+ * units to a short taken order (which then picks them), a reported order is
+ * skipped until reject catches it up in allocation order, and a new lower
+ * priority order never takes units ahead of a short taken order.
  * Against real Postgres via Testcontainers,
  * deliberately not {@code @Transactional} so the V8 constraints fire for
  * real.
@@ -188,6 +192,17 @@ class OrderCompletionIntegrationTests {
 				Long.class, orderProjectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now())));
 	}
 
+	/**
+	 * An OPEN order with an explicit priority and {@code created_at}, so tests
+	 * that depend on allocation order never tie on a shared {@code now()}.
+	 */
+	private Long seedOrder(Long orderProjectId, Priority priority, Instant createdAt) {
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
+				Long.class, orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt)));
+	}
+
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
@@ -218,6 +233,14 @@ class OrderCompletionIntegrationTests {
 		mockMvc.perform(post("/orders/{id}/reject-completion", orderId).session(session).with(csrf()))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/orders"));
+	}
+
+	/**
+	 * Raises a part's stock directly, standing in for a future delivery or
+	 * stock correction (no such endpoint exists yet).
+	 */
+	private void raiseStock(Long partId, int delta) {
+		jdbcTemplate.update("UPDATE parts SET quantity = quantity + ? WHERE id = ?", delta, partId);
 	}
 
 	private String statusOf(Long orderId) {
@@ -671,6 +694,142 @@ class OrderCompletionIntegrationTests {
 		assertThat(reportedPosition).isBetween(pendingSection, openSection);
 		assertThat(html.indexOf("Reported Board", openSection)).isNegative();
 		assertThat(html.indexOf("Still Open Board")).isGreaterThan(openSection);
+	}
+
+	// ---- taken-order top-up -------------------------------------------------
+
+	@Test
+	void confirmHandsReleasedUnitsToAShortTakenOrder() throws Exception {
+		Long partId = seedPart("Top-Up Resistor", 10);
+		Instant now = Instant.now();
+		Long orderA = seedOrder(projectId, Priority.HIGH, now.minusSeconds(20));
+		Long lineA = seedOrderLine(orderA, partId, 6, 6);
+		Long orderB = seedOrder(seedProject("Short Taken Board"), Priority.NORMAL, now.minusSeconds(10));
+		Long lineB = seedOrderLine(orderB, partId, 8, 4);
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+
+		pick(technician, orderA, lineA, 1);
+		pick(technician, orderB, lineB, 1);
+		report(technician, orderA);
+		assertThat(partQuantityOf(partId)).isEqualTo(8);
+		assertThat(reservedOf(lineB)).isEqualTo(3);
+
+		confirm(manager, orderA);
+
+		// Pool after confirm: stock 8 - B's protected 3 = 5; B is short by 8 - 1 - 3 = 4.
+		assertThat(statusOf(orderA)).isEqualTo("COMPLETED");
+		assertThat(reservedOf(lineA)).isZero();
+		assertThat(reservedOf(lineB)).isEqualTo(7);
+		assertThat(pickedOf(lineB)).isEqualTo(1);
+
+		mockMvc.perform(get("/picking/{id}", orderB).session(technician))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(PICK_BUTTON)));
+
+		// Two real picks on the topped-up line, the second taking the remainder.
+		pick(technician, orderB, lineB, 2);
+		assertThat(reservedOf(lineB)).isEqualTo(5);
+		assertThat(pickedOf(lineB)).isEqualTo(3);
+		pick(technician, orderB, lineB, 5);
+		assertThat(reservedOf(lineB)).isZero();
+		assertThat(pickedOf(lineB)).isEqualTo(8);
+		assertThat(partQuantityOf(partId)).isEqualTo(1);
+	}
+
+	@Test
+	void reportedShortOrderIsSkippedUntilRejectCatchesItUp() throws Exception {
+		Long partId = seedPart("Reported Top-Up Resistor", 10);
+		Instant now = Instant.now();
+		Long orderA = seedOrder(projectId, Priority.HIGH, now.minusSeconds(30));
+		Long lineA = seedOrderLine(orderA, partId, 6, 6);
+		Long orderB = seedOrder(seedProject("Reported Short Board"), Priority.NORMAL, now.minusSeconds(20));
+		Long lineB = seedOrderLine(orderB, partId, 6, 4);
+		Long orderC = seedOrder(seedProject("Waiting Low Board"), Priority.LOW, now.minusSeconds(10));
+		Long lineC = seedOrderLine(orderC, partId, 4, 0);
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+
+		pick(technician, orderA, lineA, 1);
+		pick(technician, orderB, lineB, 1);
+		report(technician, orderB);
+		report(technician, orderA);
+		assertThat(partQuantityOf(partId)).isEqualTo(8);
+		assertThat(reservedOf(lineB)).isEqualTo(3);
+
+		confirm(manager, orderA);
+
+		// B is reported: it keeps its 3 and gets nothing; the freed units go to C.
+		assertThat(reservedOf(lineB)).isEqualTo(3);
+		assertThat(reservedOf(lineC)).isEqualTo(4);
+
+		reject(manager, orderB);
+
+		// Pool: 8 - B's 3 = 5. B (NORMAL) before C (LOW): B tops up by 6 - 1 - 3 = 2,
+		// C (not taken) is rebuilt from the remaining 3.
+		assertThat(completionReportedAtOf(orderB)).isNull();
+		assertThat(reservedOf(lineB)).isEqualTo(5);
+		assertThat(reservedOf(lineC)).isEqualTo(3);
+		assertThat(reservedOf(lineB) + reservedOf(lineC)).isLessThanOrEqualTo(partQuantityOf(partId));
+
+		mockMvc.perform(get("/picking/{id}", orderB).session(technician))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString(PENDING_NOTICE))))
+			.andExpect(content().string(containsString(PICK_BUTTON)));
+		pick(technician, orderB, lineB, 2);
+		pick(technician, orderB, lineB, 3);
+		assertThat(reservedOf(lineB)).isZero();
+		assertThat(pickedOf(lineB)).isEqualTo(6);
+		assertThat(partQuantityOf(partId)).isEqualTo(3);
+		assertThat(reservedOf(lineC)).isEqualTo(3);
+	}
+
+	@Test
+	void newLowPriorityOrderDoesNotTakeUnitsAShortTakenHigherOrderNeeds() throws Exception {
+		Long partId = seedPart("Creation Top-Up Resistor", 10);
+		Instant now = Instant.now();
+		Long orderA = seedOrder(projectId, Priority.HIGH, now.minusSeconds(20));
+		Long lineA = seedOrderLine(orderA, partId, 6, 6);
+		Long orderB = seedOrder(seedProject("Very Short Board"), Priority.NORMAL, now.minusSeconds(10));
+		Long lineB = seedOrderLine(orderB, partId, 12, 4);
+		Long lowProjectId = seedProject("Late Low Board");
+		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
+				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, 5)", lowProjectId,
+				partId));
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+
+		pick(technician, orderA, lineA, 1);
+		pick(technician, orderB, lineB, 1);
+		report(technician, orderA);
+		confirm(manager, orderA);
+
+		// Pool after confirm: 8 - 3 = 5, all of it to B (short by 12 - 1 - 3 = 8).
+		assertThat(reservedOf(lineB)).isEqualTo(8);
+		assertThat(partQuantityOf(partId)).isEqualTo(8);
+
+		// Stand-in for a delivery; the creation event below is what reallocates it.
+		raiseStock(partId, 5);
+
+		mockMvc.perform(post("/orders").session(manager)
+			.with(csrf())
+			.param("projectId", lowProjectId.toString())
+			.param("quantityUnits", "1")
+			.param("priority", "LOW")
+			.param("requiredDate", LocalDate.now().plusDays(1).toString()))
+			.andExpect(status().is3xxRedirection());
+		Long newLineId = jdbcTemplate.queryForObject(
+				"SELECT ol.id FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.project_id = ?",
+				Long.class, lowProjectId);
+
+		// Pool: 13 - B's 8 = 5. B (NORMAL) tops up its remaining 3 first; the LOW order gets 2.
+		assertThat(reservedOf(lineB)).isEqualTo(11);
+		assertThat(pickedOf(lineB)).isEqualTo(1);
+		assertThat(reservedOf(newLineId)).isEqualTo(2);
+		assertThat(reservedOf(lineB) + reservedOf(newLineId)).isLessThanOrEqualTo(partQuantityOf(partId));
 	}
 
 }

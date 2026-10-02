@@ -52,7 +52,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * same part-row locks as a pick, the report commits during that sleep and
  * the log gets a row; with the locks, the report waits for the pick to
  * commit and the log stays empty. Same {@code MockMvc}/shared-session style
- * as {@code PickingConcurrencyTests}.
+ * as {@code PickingConcurrencyTests}. Also races confirm against order
+ * creation and against a pick on a short taken order the confirm tops up.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -194,6 +195,19 @@ class OrderCompletionConcurrencyTests {
 		});
 	}
 
+	/** An OPEN order with an explicit priority and created-at, holding the given reservation. */
+	private Long seedOrderLine(Long partId, Priority priority, Instant createdAt, int required, int reserved) {
+		return transactionTemplate.execute(status -> {
+			Long orderId = jdbcTemplate.queryForObject(
+					"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
+							+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
+					Long.class, projectId, priority.name(), LocalDate.now().plusDays(3), Timestamp.from(createdAt));
+			jdbcTemplate.update("INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
+					+ "VALUES (?, ?, ?, ?)", orderId, partId, required, reserved);
+			return orderId;
+		});
+	}
+
 	private Long lineIdOf(Long orderId) {
 		return jdbcTemplate.queryForObject("SELECT id FROM order_lines WHERE order_id = ?", Long.class, orderId);
 	}
@@ -205,6 +219,11 @@ class OrderCompletionConcurrencyTests {
 
 	private int stockOf(Long partId) {
 		return jdbcTemplate.queryForObject("SELECT quantity FROM parts WHERE id = ?", Integer.class, partId);
+	}
+
+	private int reservedQuantityOf(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT reserved_quantity FROM order_lines WHERE id = ?", Integer.class,
+				lineId);
 	}
 
 	// ---- tests ----------------------------------------------------------
@@ -383,5 +402,99 @@ class OrderCompletionConcurrencyTests {
 		}
 	}
 
+	/**
+	 * Confirm tops up short taken orders, so it writes a taken line a
+	 * technician may be picking at the same moment. Racing confirm of A
+	 * against a pick on short taken order B (same part) must serialize on the
+	 * part-row lock: whichever commits first, B ends up with the same
+	 * reservation and pick counts, and no invariant is ever broken. A and B
+	 * reach "taken" (and A "reported") only through the real endpoints.
+	 */
+	@Test
+	void concurrentConfirmAndPickOnTheTakenOrderBeingToppedUp() throws Exception {
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = sessionFor(MANAGER_EMAIL, Role.MANAGER);
+
+		for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+			Long partId = seedPartWithStock("Top-Up Race Part " + iteration, 10);
+			Instant now = Instant.now();
+			Long confirmedOrderId = seedOrderLine(partId, Priority.HIGH, now.minusSeconds(20), 6, 6);
+			Long confirmedLineId = lineIdOf(confirmedOrderId);
+			Long shortOrderId = seedOrderLine(partId, Priority.NORMAL, now.minusSeconds(10), 8, 4);
+			Long shortLineId = lineIdOf(shortOrderId);
+
+			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", confirmedOrderId, confirmedLineId)
+				.session(technician).with(csrf()).param("quantity", "1"))
+				.andExpect(status().is3xxRedirection());
+			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", shortOrderId, shortLineId)
+				.session(technician).with(csrf()).param("quantity", "1"))
+				.andExpect(status().is3xxRedirection());
+			mockMvc.perform(post("/picking/{orderId}/report-completion", confirmedOrderId)
+				.session(technician).with(csrf()))
+				.andExpect(status().is3xxRedirection());
+			assertThat(stockOf(partId)).isEqualTo(8);
+			assertThat(reservedQuantityOf(shortLineId)).isEqualTo(3);
+
+			// Alternate which request goes first, as in the confirm-vs-create race.
+			long confirmDelayMillis = iteration % 2 == 0 ? 50 : 0;
+			long pickDelayMillis = iteration % 2 == 0 ? 0 : 50;
+			CountDownLatch bothReady = new CountDownLatch(2);
+			ExecutorService executor = Executors.newFixedThreadPool(2);
+
+			Callable<MvcResult> confirmTask = () -> {
+				bothReady.countDown();
+				bothReady.await(5, TimeUnit.SECONDS);
+				Thread.sleep(confirmDelayMillis);
+				return mockMvc.perform(post("/orders/{id}/confirm-completion", confirmedOrderId).session(manager)
+					.with(csrf())).andReturn();
+			};
+			Callable<MvcResult> pickTask = () -> {
+				bothReady.countDown();
+				bothReady.await(5, TimeUnit.SECONDS);
+				Thread.sleep(pickDelayMillis);
+				return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", shortOrderId, shortLineId)
+					.session(technician)
+					.with(csrf())
+					.param("quantity", "2")).andReturn();
+			};
+
+			MvcResult confirmResult;
+			MvcResult pickResult;
+			try {
+				Future<MvcResult> confirmFuture = executor.submit(confirmTask);
+				Future<MvcResult> pickFuture = executor.submit(pickTask);
+				confirmResult = confirmFuture.get(15, TimeUnit.SECONDS);
+				pickResult = pickFuture.get(15, TimeUnit.SECONDS);
+			}
+			finally {
+				executor.shutdownNow();
+			}
+
+			assertThat(confirmResult.getResponse().getStatus()).as("iteration %d: confirm", iteration).isEqualTo(302);
+			assertThat(pickResult.getResponse().getStatus()).as("iteration %d: pick", iteration).isEqualTo(302);
+			assertThat(jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class,
+					confirmedOrderId)).isEqualTo("COMPLETED");
+
+			int stock = stockOf(partId);
+			assertThat(stock).as("iteration %d: stock", iteration).isNotNegative();
+			assertThat(jdbcTemplate.queryForObject(
+					"SELECT COUNT(*) FROM order_lines WHERE part_id = ? "
+							+ "AND reserved_quantity + picked_quantity > required_quantity",
+					Integer.class, partId))
+				.as("iteration %d: reserved + picked over required", iteration)
+				.isZero();
+			Integer reservedOnOpenOrders = jdbcTemplate.queryForObject(
+					"SELECT COALESCE(SUM(ol.reserved_quantity), 0) FROM order_lines ol JOIN orders o ON o.id = ol.order_id "
+							+ "WHERE ol.part_id = ? AND o.status = 'OPEN'",
+					Integer.class, partId);
+			assertThat(reservedOnOpenOrders).as("iteration %d: reserved vs stock", iteration)
+				.isLessThanOrEqualTo(stock);
+
+			// Either order: stock 8 - 2 = 6; B picked 1 + 2 = 3 and topped up to 8 - 3 = 5.
+			assertThat(stock).isEqualTo(6);
+			assertThat(pickedQuantityOf(shortLineId)).isEqualTo(3);
+			assertThat(reservedQuantityOf(shortLineId)).isEqualTo(5);
+		}
+	}
 
 }

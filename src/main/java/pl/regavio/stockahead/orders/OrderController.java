@@ -45,8 +45,9 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * <p>
  * Also hosts the manager's side of the completion workflow: confirming a
  * reported order ({@code COMPLETED}, its unpicked reservations released and
- * reallocated to the next open orders) or rejecting the report (back to
- * normal picking). Both follow {@code PickingController.reportCompletion}'s
+ * reallocated to the open orders in allocation order, including short taken
+ * ones) or rejecting the report (back to normal picking, with its parts
+ * reallocated so it catches up). Both follow {@code PickingController.reportCompletion}'s
  * scalar-lookup-then-lock-then-re-read shape for the same open-in-view
  * stale-cache reason documented there.
  */
@@ -108,8 +109,8 @@ public class OrderController {
 	/**
 	 * Confirms a pending completion report: the order becomes
 	 * {@code COMPLETED}, every line's unpicked {@code reservedQuantity} is
-	 * released, and the freed stock is reallocated to the remaining open
-	 * orders on those parts. The order is flushed as {@code COMPLETED} with
+	 * released, and the freed stock is reallocated to the open orders on those
+	 * parts in allocation order, including short taken ones. The order is flushed as {@code COMPLETED} with
 	 * zeroed reservations BEFORE {@link ReservationAllocator#reallocateForParts}
 	 * runs — otherwise the still-{@code OPEN}, taken order's frozen reservation
 	 * would be subtracted from the pool and the released units would never
@@ -132,7 +133,12 @@ public class OrderController {
 	/**
 	 * Rejects a pending completion report, clearing
 	 * {@code completionReportedAt}/{@code completionReportedBy} so the order
-	 * goes back to normal picking. Reservations are untouched.
+	 * goes back to normal picking, then reallocates the order's parts so it
+	 * immediately catches up on units it missed while reported (a reported
+	 * order receives no top-up). The report is cleared and flushed BEFORE
+	 * {@link ReservationAllocator#reallocateForParts} runs — otherwise the
+	 * allocator would still see the order as reported and skip it. Its
+	 * existing reservation is never reduced.
 	 */
 	@PostMapping("/orders/{id}/reject-completion")
 	@PreAuthorize("hasRole('MANAGER')")
@@ -141,6 +147,7 @@ public class OrderController {
 			order.setCompletionReportedAt(null);
 			order.setCompletionReportedBy(null);
 			orderRepository.saveAndFlush(order);
+			reservationAllocator.reallocateForParts(partIds);
 		});
 	}
 
