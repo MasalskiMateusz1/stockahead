@@ -351,27 +351,27 @@ V11 only adds a table, so existing data is untouched. No backfill: there were no
 
 #### Automated
 
-- [x] 2.1 Migration V11 applies on startup and in tests: `./mvnw verify`
-- [x] 2.2 Screen tests pass: `./mvnw test -Dtest=StockCorrectionIntegrationTests`
-- [x] 2.3 Bundle test passes with the new keys: `./mvnw test -Dtest=MessagesBundleTests`
+- [x] 2.1 Migration V11 applies on startup and in tests: `./mvnw verify` — 7506059
+- [x] 2.2 Screen tests pass: `./mvnw test -Dtest=StockCorrectionIntegrationTests` — 7506059
+- [x] 2.3 Bundle test passes with the new keys: `./mvnw test -Dtest=MessagesBundleTests` — 7506059
 
 #### Manual
 
-- [x] 2.4 As manager, `/parts` → "Koryguj stan" opens the page with correct stock/reserved/available and both forms
-- [x] 2.5 As technician, the link is absent and the URL returns 403
+- [x] 2.4 As manager, `/parts` → "Koryguj stan" opens the page with correct stock/reserved/available and both forms — 7506059
+- [x] 2.5 As technician, the link is absent and the URL returns 403 — 7506059
 
 ### Phase 3: Set-total and adjust write paths
 
 #### Automated
 
-- [ ] 3.1 Correction integration tests pass: `./mvnw test -Dtest=StockCorrectionIntegrationTests`
-- [ ] 3.2 Full suite passes: `./mvnw verify`
+- [x] 3.1 Correction integration tests pass: `./mvnw test -Dtest=StockCorrectionIntegrationTests`
+- [x] 3.2 Full suite passes: `./mvnw verify`
 
 #### Manual
 
-- [ ] 3.3 Count down a fully reserved part on `/parts/{id}/correction`; `/purchasing` and the order detail show the new shortage without manual steps
-- [ ] 3.4 Open the form in two tabs, pick a unit in between, submit "Ustaw stan": the page refuses and shows the fresh stock
-- [ ] 3.5 The past-corrections table shows the new row with your e-mail and reason
+- [x] 3.3 Count down a fully reserved part on `/parts/{id}/correction`; `/purchasing` and the order detail show the new shortage without manual steps
+- [x] 3.4 Open the form in two tabs, pick a unit in between, submit "Ustaw stan": the page refuses and shows the fresh stock
+- [x] 3.5 The past-corrections table shows the new row with your e-mail and reason
 
 ### Phase 4: Concurrency guarantees
 

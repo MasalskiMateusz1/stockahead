@@ -243,4 +243,88 @@ class MessagesBundleTests {
 			.isEqualTo("Brakująca ilość");
 	}
 
+	@Test
+	void correctionsErrorNewQuantityNotInteger() {
+		assertThat(messageSource.getMessage("corrections.error.newQuantityNotInteger", null, PL))
+			.isEqualTo("Nowy stan musi być liczbą całkowitą.");
+	}
+
+	@Test
+	void correctionsErrorNewQuantityNegative() {
+		assertThat(messageSource.getMessage("corrections.error.newQuantityNegative", null, PL))
+			.isEqualTo("Nowy stan nie może być ujemny.");
+	}
+
+	@Test
+	void correctionsErrorNewQuantityTooLarge() {
+		assertThat(messageSource.getMessage("corrections.error.newQuantityTooLarge", new Object[] { Integer.MAX_VALUE }, PL))
+			.isEqualTo("Nowy stan nie może przekraczać 2147483647.");
+	}
+
+	@Test
+	void correctionsErrorDeltaNotInteger() {
+		assertThat(messageSource.getMessage("corrections.error.deltaNotInteger", null, PL))
+			.isEqualTo("Zmiana musi być liczbą całkowitą.");
+	}
+
+	@Test
+	void correctionsErrorDeltaZero() {
+		assertThat(messageSource.getMessage("corrections.error.deltaZero", null, PL))
+			.isEqualTo("Zmiana nie może wynosić 0.");
+	}
+
+	@Test
+	void correctionsErrorDeltaTooLarge() {
+		assertThat(messageSource.getMessage("corrections.error.deltaTooLarge", new Object[] { 1_000_000 }, PL))
+			.isEqualTo("Zmiana nie może przekraczać 1000000 szt. w żadną stronę.");
+	}
+
+	@Test
+	void correctionsErrorReasonRequired() {
+		assertThat(messageSource.getMessage("corrections.error.reasonRequired", null, PL))
+			.isEqualTo("Podaj powód korekty.");
+	}
+
+	@Test
+	void correctionsErrorReasonTooLong() {
+		assertThat(messageSource.getMessage("corrections.error.reasonTooLong", new Object[] { 500 }, PL))
+			.isEqualTo("Powód może mieć maksymalnie 500 znaków.");
+	}
+
+	@Test
+	void correctionsErrorStale() {
+		assertThat(messageSource.getMessage("corrections.error.stale", new Object[] { 1234 }, PL))
+			.isEqualTo("Stan części zmienił się w międzyczasie i wynosi teraz 1234. Sprawdź go i zatwierdź ponownie.");
+	}
+
+	@Test
+	void correctionsErrorNoChange() {
+		assertThat(messageSource.getMessage("corrections.error.noChange", new Object[] { 1234 }, PL))
+			.isEqualTo("Nowy stan jest równy obecnemu (1234). Nie ma czego korygować.");
+	}
+
+	@Test
+	void correctionsErrorStockOverflow() {
+		assertThat(messageSource.getMessage("corrections.error.stockOverflow", null, PL))
+			.isEqualTo("Stan części przekroczyłby dopuszczalny zakres.");
+	}
+
+	@Test
+	void correctionsErrorBelowZero() {
+		assertThat(messageSource.getMessage("corrections.error.belowZero", new Object[] { 1234 }, PL))
+			.isEqualTo("Stan nie może spaść poniżej zera: obecny stan to 1234.");
+	}
+
+	@Test
+	void correctionsErrorSaveFailed() {
+		assertThat(messageSource.getMessage("corrections.error.saveFailed", null, PL))
+			.isEqualTo("Nie udało się zapisać korekty. Spróbuj ponownie.");
+	}
+
+	@Test
+	void correctionsApplied() {
+		assertThat(messageSource.getMessage("corrections.applied", new Object[] { "Rezystor 10k", 1200, 5 }, PL))
+			.isEqualTo("Skorygowano stan części „Rezystor 10k”: 1200 → 5.");
+	}
+
 }
