@@ -14,6 +14,8 @@
 
 	<p th:if="${deliveryReceived}" th:text="${deliveryReceived}"></p>
 
+	<p th:if="${stockCorrected}" th:text="${stockCorrected}"></p>
+
 	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
 
 	<p><a th:href="@{/deliveries/new}">Przyjmij dostawę</a></p>
@@ -56,6 +58,7 @@
 				<td th:text="${#strings.listJoin(row.part.locations.![location], ', ')}"></td>
 				<td sec:authorize="hasRole('MANAGER')">
 					<a th:href="@{/parts/{id}/edit(id=${row.part.id})}">Edytuj</a>
+					<a th:href="@{/parts/{id}/correction(id=${row.part.id})}">Koryguj stan</a>
 					<form th:if="${row.part.active}" th:action="@{/parts/{id}/deactivate(id=${row.part.id})}" method="post" style="display:inline">
 						<button type="submit">Dezaktywuj</button>
 					</form>

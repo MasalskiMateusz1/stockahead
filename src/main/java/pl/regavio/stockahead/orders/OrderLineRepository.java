@@ -14,6 +14,13 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Long> {
 	List<Object[]> reservedQuantitiesByPart();
 
 	/**
+	 * Units reserved for one part across OPEN orders. {@code reservedQuantity}
+	 * is live (already net of picks), so nothing else is subtracted.
+	 */
+	@Query("SELECT COALESCE(SUM(ol.reservedQuantity), 0) FROM OrderLine ol WHERE ol.order.status = pl.regavio.stockahead.orders.OrderStatus.OPEN AND ol.part.id = :partId")
+	long reservedQuantityForPart(@Param("partId") Long partId);
+
+	/**
 	 * Units still waiting to be picked per OPEN order: {@code reservedQuantity}
 	 * is live (each pick moves units out of it), so its sum alone is what is
 	 * left to pick. Rows are {@code [orderId (Long), sum (Long)]}.

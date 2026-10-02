@@ -340,25 +340,25 @@ V11 only adds a table, so existing data is untouched. No backfill: there were no
 
 #### Automated
 
-- [x] 1.1 New allocator tests pass: `./mvnw test -Dtest=ReservationAllocatorTests`
-- [x] 1.2 Full suite passes, including all existing allocator, picking, completion and delivery tests: `./mvnw verify`
+- [x] 1.1 New allocator tests pass: `./mvnw test -Dtest=ReservationAllocatorTests` — cb7a411
+- [x] 1.2 Full suite passes, including all existing allocator, picking, completion and delivery tests: `./mvnw verify` — cb7a411
 
 #### Manual
 
-- [x] 1.3 AGENTS.md and PRD § Business Logic read consistently with the new allocator Javadoc
+- [x] 1.3 AGENTS.md and PRD § Business Logic read consistently with the new allocator Javadoc — cb7a411
 
 ### Phase 2: Corrections schema and correction screen (read-only)
 
 #### Automated
 
-- [ ] 2.1 Migration V11 applies on startup and in tests: `./mvnw verify`
-- [ ] 2.2 Screen tests pass: `./mvnw test -Dtest=StockCorrectionIntegrationTests`
-- [ ] 2.3 Bundle test passes with the new keys: `./mvnw test -Dtest=MessagesBundleTests`
+- [x] 2.1 Migration V11 applies on startup and in tests: `./mvnw verify`
+- [x] 2.2 Screen tests pass: `./mvnw test -Dtest=StockCorrectionIntegrationTests`
+- [x] 2.3 Bundle test passes with the new keys: `./mvnw test -Dtest=MessagesBundleTests`
 
 #### Manual
 
-- [ ] 2.4 As manager, `/parts` → "Koryguj stan" opens the page with correct stock/reserved/available and both forms
-- [ ] 2.5 As technician, the link is absent and the URL returns 403
+- [x] 2.4 As manager, `/parts` → "Koryguj stan" opens the page with correct stock/reserved/available and both forms
+- [x] 2.5 As technician, the link is absent and the URL returns 403
 
 ### Phase 3: Set-total and adjust write paths
 

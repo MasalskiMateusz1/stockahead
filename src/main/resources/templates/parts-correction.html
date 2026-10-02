@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>Korekta stanu — Stockahead</title>
+	<style>
+		td, th {
+			text-align: center;
+		}
+	</style>
+</head>
+<body>
+	<h1>Korekta stanu: <span th:text="${partName}"></span><span th:unless="${partActive}"> (nieaktywna)</span></h1>
+
+	<p id="summary">
+		Stan: <strong th:text="${quantity}"></strong>,
+		zarezerwowane: <strong th:text="${reserved}"></strong>,
+		dostępne: <strong th:text="${available}"></strong>
+	</p>
+
+	<p th:if="${error}" th:text="${error}"></p>
+
+	<h2>Ustaw stan po spisie</h2>
+	<form th:action="@{/parts/{id}/correction/set(id=${partId})}" method="post">
+		<input type="hidden" name="expectedQuantity" th:value="${expectedQuantity}">
+		<div>
+			<label for="newQuantity">Nowy stan</label>
+			<input type="text" size="8" id="newQuantity" name="newQuantity" th:value="${newQuantity}">
+		</div>
+		<div>
+			<label for="setReason">Powód</label>
+			<input type="text" size="60" maxlength="500" id="setReason" name="reason" th:value="${setReason}">
+		</div>
+		<button type="submit">Ustaw stan</button>
+	</form>
+
+	<h2>Zmień stan o</h2>
+	<form th:action="@{/parts/{id}/correction/adjust(id=${partId})}" method="post">
+		<div>
+			<label for="delta">Zmiana (np. -3 lub 5)</label>
+			<input type="text" size="8" id="delta" name="delta" th:value="${delta}">
+		</div>
+		<div>
+			<label for="adjustReason">Powód</label>
+			<input type="text" size="60" maxlength="500" id="adjustReason" name="reason" th:value="${adjustReason}">
+		</div>
+		<button type="submit">Zmień stan</button>
+	</form>
+
+	<h2>Poprzednie korekty</h2>
+	<p th:if="${#lists.isEmpty(corrections)}">Brak korekt</p>
+	<table th:unless="${#lists.isEmpty(corrections)}">
+		<thead>
+			<tr>
+				<th>Data</th>
+				<th>Autor</th>
+				<th>Przed → Po</th>
+				<th>Zmiana</th>
+				<th>Powód</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="correction : ${corrections}">
+				<td th:text="${@orderMoments.format(correction.createdAt)}"></td>
+				<td th:text="${correction.account.email}"></td>
+				<td th:text="${correction.quantityBefore} + ' → ' + ${correction.quantityAfter}"></td>
+				<td th:text="${correction.delta > 0} ? '+' + ${correction.delta} : ${correction.delta}"></td>
+				<td th:text="${correction.reason}"></td>
+			</tr>
+		</tbody>
+	</table>
+
+	<p><a th:href="@{/parts}">Powrót do kartoteki części</a></p>
+</body>
+</html>
