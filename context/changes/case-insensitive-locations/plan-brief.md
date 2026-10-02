@@ -82,9 +82,8 @@ data satisfy both invariants and enforces the per-part one.
 
 ## Open Risks & Assumptions
 
-- Across parts, "one spelling" is app-level only. Two concurrent writes that introduce the same
-  brand-new shelf on two different parts in different case can store two spellings. This was
-  accepted, because the per-part index is the guarantee that protects stock rows.
+- Across parts, "one spelling" is app-level only. Concurrent writers are serialized per shelf by a
+  transaction-scoped advisory lock, added after the implementation review (F1); there is no DB constraint.
 - Postgres `lower()` and Java `equalsIgnoreCase` can disagree on exotic characters. If they do, the
   index still prevents duplicates and the user sees `locationConflict`. This is irrelevant for shelf
   codes.

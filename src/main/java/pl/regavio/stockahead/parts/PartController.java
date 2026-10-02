@@ -159,12 +159,12 @@ public class PartController {
 
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
+				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, parsedLocations);
 				Part part = new Part();
 				part.setName(trimmedName);
 				part.setQuantity(parsedQuantity);
 				part.setActive(true);
 				part.setCreatedAt(Instant.now());
-				LocationSpellings spellings = new LocationSpellings(partRepository);
 				for (String location : parsedLocations) {
 					PartLocation partLocation = new PartLocation();
 					partLocation.setLocation(spellings.resolve(location));
@@ -245,10 +245,14 @@ public class PartController {
 
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
+				// Lock every target shelf (new and re-spelled ones included) before
+				// anything is read or written, so a concurrent writer of the same
+				// shelf commits entirely before or after this edit.
+				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, parsedLocations);
 				Part part = partRepository.findById(id)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				part.setName(trimmedName);
-				List<String> respelled = reconcileLocations(part, parsedLocations);
+				List<String> respelled = reconcileLocations(part, parsedLocations, spellings);
 				// Flush this part's own rows first: the bulk update below bypasses
 				// the persistence context and must never touch them.
 				partRepository.saveAndFlush(part);
@@ -328,7 +332,7 @@ public class PartController {
 	 * Returns the typed spellings of rows that changed only by case; the
 	 * caller re-spells those shelves on every other part after flushing.
 	 */
-	private List<String> reconcileLocations(Part part, List<String> targetLocations) {
+	private List<String> reconcileLocations(Part part, List<String> targetLocations, LocationSpellings spellings) {
 		List<PartLocation> existingLocations = new ArrayList<>(part.getLocations());
 		Map<String, PartLocation> matched = new HashMap<>();
 		List<String> respelled = new ArrayList<>();
@@ -344,7 +348,6 @@ public class PartController {
 					matched.put(targetLocation, existing);
 				});
 		}
-		LocationSpellings spellings = new LocationSpellings(partRepository);
 		Map<String, String> addedSpellings = new HashMap<>();
 		for (String targetLocation : targetLocations) {
 			if (!matched.containsKey(targetLocation)) {

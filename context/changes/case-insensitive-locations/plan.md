@@ -67,9 +67,8 @@ This plan:
 
 - Collapsing runs of inner whitespace (`A  1` ≠ `A 1`). Zero-width characters are stripped only
   at the ends.
-- A DB guarantee of one spelling **across** parts. The new index is per part. Two concurrent writes that
-  introduce a brand-new shelf on two different parts with different case can still store two spellings
-  (see Open Risks in the brief).
+- A DB constraint for one spelling **across** parts. The new index is per part. Concurrent writers are
+  serialized per shelf by a transaction-scoped advisory lock instead (impl-review F1 addendum below).
 - A global `locations` entity or table. PRD § Non-Goals: locations are plain text.
 - Canonical lowercasing or uppercasing on write. The first spelling stored wins.
 - Normalizing legacy rows that contain NBSP or zero-width characters in SQL. V10 compares by
@@ -338,6 +337,21 @@ changes nothing.
 **Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
 
 ---
+
+## Addendum: per-shelf lock (impl-review F1, 2026-10-02)
+
+The implementation review found that a case-only respell on edit can race a receipt. `respellOnOtherParts`
+renames other parts' rows without locking them, so a delivery could resolve the old spelling and store
+it after the rename committed. The brand-new-shelf race the plan had accepted has the same shape.
+
+- `LocationSpellings.lockShelves(repo, locations)` replaces the constructor. It takes
+  `pg_advisory_xact_lock(namespace, key)` per shelf. The key is the hash of the location folded like
+  `equalsIgnoreCase`, and keys are locked in sorted order.
+- Every writer locks shelves first, before any part-row lock: delivery before `findByIdInForUpdate`,
+  create and edit at the start of their transactions. Edit locks every target shelf, re-spelled ones
+  included.
+- `LocationSpellingConcurrencyTests` covers edit-respell racing a receipt and two creates introducing
+  `n9` / `N9`. Both failed before the lock.
 
 ## Testing Strategy
 

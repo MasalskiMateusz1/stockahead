@@ -141,7 +141,8 @@ public class DeliveryController {
 	}
 
 	/**
-	 * Runs inside the receipt's transaction: locks the merged parts, checks
+	 * Runs inside the receipt's transaction: locks the receipt's shelves, then
+	 * the merged parts, checks
 	 * that every id exists and that no new stock total overflows {@code int}
 	 * (all before mutating anything), then raises stock, adds each location
 	 * the part lacks (case-insensitive, via {@link PartLocation#sameLocation})
@@ -151,6 +152,10 @@ public class DeliveryController {
 	 */
 	private String applyReceipt(Map<Long, ReceiptLine> lines, Locale locale) {
 		Set<Long> partIds = lines.keySet();
+		// Shelf locks always come before part-row locks (see LocationSpellings#lockShelves).
+		LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, lines.values().stream()
+			.flatMap(line -> line.locations().stream())
+			.toList());
 		List<Part> lockedParts = partRepository.findByIdInForUpdate(partIds);
 		if (lockedParts.size() != partIds.size()) {
 			return messageSource.getMessage("deliveries.error.partNotFound", null, locale);
@@ -170,7 +175,6 @@ public class DeliveryController {
 		// Resolve every location to its shelf's spelling in receipt order, before
 		// mutating anything: the first spelling typed for a shelf new to the
 		// database wins across parts, not the first by part id.
-		LocationSpellings spellings = new LocationSpellings(partRepository);
 		Map<String, String> resolvedSpellings = new HashMap<>();
 		for (ReceiptLine line : lines.values()) {
 			for (String location : line.locations()) {

@@ -54,6 +54,13 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 		""")
 	int respellOnOtherParts(@Param("spelling") String spelling, @Param("partId") Long partId);
 
+	/**
+	 * Waits for and takes a transaction-scoped advisory lock on one shelf;
+	 * see {@link LocationSpellings#lockShelves}.
+	 */
+	@Query(value = "SELECT 1 FROM pg_advisory_xact_lock(:namespace, :key)", nativeQuery = true)
+	Integer lockShelf(@Param("namespace") int namespace, @Param("key") int key);
+
 	@Query("SELECT DISTINCT p FROM Part p LEFT JOIN FETCH p.locations WHERE p.id IN :ids")
 	List<Part> findWithLocationsByIdIn(@Param("ids") Collection<Long> ids);
 
