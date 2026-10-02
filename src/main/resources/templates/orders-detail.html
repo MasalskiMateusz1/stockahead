@@ -19,6 +19,25 @@
 	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
 	<p th:if="${order.status.name() == 'COMPLETED'}">Zakończone <span th:text="${order.completedAt}"></span></p>
 
+	<section id="order-change" th:if="${order.changeable()}">
+		<h2>Zmiana priorytetu i terminu</h2>
+		<form th:action="@{/orders/{id}/change(id=${orderId})}" method="post">
+			<div>
+				<label for="priority">Priorytet</label>
+				<select id="priority" name="priority" required>
+					<option value="LOW" th:selected="${changePriority == 'LOW'}" th:text="#{orders.priority.low}"></option>
+					<option value="NORMAL" th:selected="${changePriority == 'NORMAL'}" th:text="#{orders.priority.normal}"></option>
+					<option value="HIGH" th:selected="${changePriority == 'HIGH'}" th:text="#{orders.priority.high}"></option>
+				</select>
+			</div>
+			<div>
+				<label for="requiredDate">Wymagany termin</label>
+				<input type="date" id="requiredDate" name="requiredDate" th:min="${changeMinDate}" th:value="${changeRequiredDate}" required>
+			</div>
+			<button type="submit">Zapisz zmiany</button>
+		</form>
+	</section>
+
 	<section id="completion-report" th:if="${order.completionReported and order.status.name() == 'OPEN'}">
 		<h2>Zgłoszenie zakończenia</h2>
 		<p>Zgłosił(a): <span th:text="${order.reportedByEmail}"></span>, <span th:text="${order.reportedAt}"></span></p>

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.context.MessageSource;
@@ -50,6 +51,10 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * reallocated so it catches up). Both follow {@code PickingController.reportCompletion}'s
  * scalar-lookup-then-lock-then-re-read shape for the same open-in-view
  * stale-cache reason documented there.
+ * <p>
+ * The same shape backs changing the priority and required date of an
+ * untaken order, which reallocates its parts so the new schedule takes
+ * effect at once.
  */
 @Controller
 public class OrderController {
@@ -152,17 +157,84 @@ public class OrderController {
 	}
 
 	/**
-	 * Shared lock/re-check shape for confirm and reject: a scalar pre-lock
-	 * part-id lookup (never {@code Order.getLines()} before the lock — see
-	 * {@code PickingController}), the same part-row locks a pick takes, a
-	 * fresh re-read of the order, and a re-check that it is still
-	 * {@code OPEN} and reported before {@code transition} runs (it receives
-	 * the locked part ids). An unknown
-	 * order is 404; a business or DB/lock failure re-renders the detail page
-	 * with a friendly error.
+	 * Changes the priority and required date of an {@code OPEN}, untaken
+	 * order (FR-021), then reallocates its parts so the new schedule reorders
+	 * the allocation at once: a raised priority can take unpicked reservations
+	 * from lower untaken orders, a lowered one gives them back. Taken orders
+	 * are never affected, since the allocator keeps their reservation as a
+	 * floor. The priority must be one of the three values (no create-style
+	 * fallback). The date must be a valid ISO date not before today, unless it
+	 * equals the order's current required date, compared against the value
+	 * re-read under the lock, so a past-due order can still be re-prioritized.
+	 * The order is flushed BEFORE {@link ReservationAllocator#reallocateForParts}
+	 * runs, which reads its schedule through the allocation order.
+	 */
+	@PostMapping("/orders/{id}/change")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String change(@PathVariable Long id,
+			@RequestParam(required = false) String priority,
+			@RequestParam(required = false) String requiredDate,
+			Model model,
+			Locale locale) {
+		Function<String, String> renderError = error -> orderDetailModel.render(model, id, error, priority,
+				requiredDate);
+
+		Priority parsedPriority = parseStrictPriority(priority);
+		if (parsedPriority == null) {
+			return renderError.apply(messageSource.getMessage("orders.error.priorityInvalid", null, locale));
+		}
+		LocalDate parsedRequiredDate = parseDate(requiredDate);
+		if (parsedRequiredDate == null) {
+			return renderError.apply(messageSource.getMessage("orders.error.dateRequired", null, locale));
+		}
+
+		return transitionOrder(id, locale, "orders.error.changeFailed", renderError, "redirect:/orders/" + id,
+				(order, partIds) -> {
+					if (order.getStatus() != OrderStatus.OPEN || order.isTaken()) {
+						return messageSource.getMessage("orders.error.notChangeable", null, locale);
+					}
+					if (parsedRequiredDate.isBefore(LocalDate.now())
+							&& !parsedRequiredDate.equals(order.getRequiredDate())) {
+						return messageSource.getMessage("orders.error.datePast", null, locale);
+					}
+					order.setPriority(parsedPriority);
+					order.setRequiredDate(parsedRequiredDate);
+					orderRepository.saveAndFlush(order);
+					reservationAllocator.reallocateForParts(partIds);
+					return null;
+				});
+	}
+
+	/**
+	 * Confirm/reject's precondition on top of {@link #transitionOrder}: the
+	 * order must still be {@code OPEN} and reported. Failures re-render the
+	 * detail page; success goes back to the order list.
 	 */
 	private String transitionReportedOrder(Long orderId, Model model, Locale locale,
 			BiConsumer<Order, Set<Long>> transition) {
+		return transitionOrder(orderId, locale, "orders.error.completionFailed",
+				error -> orderDetailModel.render(model, orderId, error), "redirect:/orders", (order, partIds) -> {
+					if (order.getStatus() != OrderStatus.OPEN || !order.isCompletionReported()) {
+						return messageSource.getMessage("orders.error.notReported", null, locale);
+					}
+					transition.accept(order, partIds);
+					return null;
+				});
+	}
+
+	/**
+	 * Shared lock/re-check shape for the manager's order transitions: a
+	 * scalar pre-lock part-id lookup (never {@code Order.getLines()} before
+	 * the lock — see {@code PickingController}), the same part-row locks a
+	 * pick takes, and a fresh re-read of the order handed to
+	 * {@code transition} (with the locked part ids), which re-checks its
+	 * precondition and returns a localized business error, or {@code null}
+	 * after applying the change. An unknown order is 404; a business error or
+	 * a DB/lock failure ({@code failureKey}) goes to {@code renderError}, and
+	 * success returns {@code successView}.
+	 */
+	private String transitionOrder(Long orderId, Locale locale, String failureKey,
+			Function<String, String> renderError, String successView, OrderTransition transition) {
 		Set<Long> partIds = transactionTemplate
 			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId)));
 
@@ -174,25 +246,30 @@ public class OrderController {
 				}
 				Order order = orderRepository.findById(orderId)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-
-				if (order.getStatus() != OrderStatus.OPEN || !order.isCompletionReported()) {
-					return messageSource.getMessage("orders.error.notReported", null, locale);
-				}
-
-				transition.accept(order, partIds);
-				return null;
+				return transition.apply(order, partIds);
 			}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
-			return orderDetailModel.render(model, orderId,
-					messageSource.getMessage("orders.error.completionFailed", null, locale));
+			return renderError.apply(messageSource.getMessage(failureKey, null, locale));
 		}
 
 		if (businessError != null) {
-			return orderDetailModel.render(model, orderId, businessError);
+			return renderError.apply(businessError);
 		}
 
-		return "redirect:/orders";
+		return successView;
+	}
+
+	/**
+	 * A transition applied under the part locks to a freshly re-read order:
+	 * returns a localized business error (nothing changed), or {@code null}
+	 * once applied.
+	 */
+	@FunctionalInterface
+	private interface OrderTransition {
+
+		String apply(Order order, Set<Long> partIds);
+
 	}
 
 	@GetMapping("/orders/new")
@@ -338,6 +415,37 @@ public class OrderController {
 		}
 		catch (IllegalArgumentException ex) {
 			return Priority.NORMAL;
+		}
+	}
+
+	/**
+	 * Parses a priority with no fallback: {@code null} for a missing or
+	 * unknown value.
+	 */
+	private static Priority parseStrictPriority(String rawPriority) {
+		if (rawPriority == null) {
+			return null;
+		}
+		try {
+			return Priority.valueOf(rawPriority.trim());
+		}
+		catch (IllegalArgumentException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * Parses an ISO date, or {@code null} when missing or malformed.
+	 */
+	private static LocalDate parseDate(String rawDate) {
+		if (rawDate == null || rawDate.isBlank()) {
+			return null;
+		}
+		try {
+			return LocalDate.parse(rawDate.trim());
+		}
+		catch (DateTimeParseException ex) {
+			return null;
 		}
 	}
 

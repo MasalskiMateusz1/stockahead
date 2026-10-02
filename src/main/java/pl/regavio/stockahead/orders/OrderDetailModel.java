@@ -52,9 +52,27 @@ class OrderDetailModel {
 	 * confirm/reject's re-render.
 	 */
 	String render(Model model, Long orderId, String error) {
+		return render(model, orderId, error, null, null);
+	}
+
+	/**
+	 * Same as {@link #render(Model, Long, String)}, keeping the priority and
+	 * required date a failed change submitted in the change form ({@code null}
+	 * for the order's current values).
+	 */
+	String render(Model model, Long orderId, String error, String submittedPriority, String submittedRequiredDate) {
 		DetailData data = readTransaction.execute(status -> load(orderId));
+		OrderView order = data.order();
 		model.addAttribute("orderId", orderId);
-		model.addAttribute("order", data.order());
+		model.addAttribute("order", order);
+		model.addAttribute("changePriority",
+				submittedPriority != null ? submittedPriority : order.priority().name());
+		model.addAttribute("changeRequiredDate",
+				submittedRequiredDate != null ? submittedRequiredDate : order.requiredDate().toString());
+		// A past-due order may keep its current date, so the picker must allow it.
+		LocalDate today = LocalDate.now();
+		model.addAttribute("changeMinDate",
+				(order.requiredDate().isBefore(today) ? order.requiredDate() : today).toString());
 		model.addAttribute("lines", data.lines());
 		model.addAttribute("unmetLines", data.lines().stream()
 			.filter(line -> line.pickedQuantity() < line.requiredQuantity())
@@ -79,13 +97,22 @@ class OrderDetailModel {
 		OrderView orderView = new OrderView(order.getProject().getName(), order.getQuantityUnits(),
 				order.getPriority(), order.getRequiredDate(), order.getStatus(), order.isCompletionReported(),
 				orderMoments.format(order.getCompletionReportedAt()), reportedByEmail,
-				orderMoments.format(order.getCompletedAt()));
+				orderMoments.format(order.getCompletedAt()), order.isTaken());
 		return new DetailData(orderView, lines);
 	}
 
+	/**
+	 * {@code changeable} gates the priority/date change form: only an
+	 * {@code OPEN} order nobody has picked from yet.
+	 */
 	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate,
 			OrderStatus status, boolean completionReported, String reportedAt, String reportedByEmail,
-			String completedAt) {
+			String completedAt, boolean taken) {
+
+		public boolean changeable() {
+			return status == OrderStatus.OPEN && !taken;
+		}
+
 	}
 
 	/**
