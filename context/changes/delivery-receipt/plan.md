@@ -301,18 +301,18 @@ No schema change. The existing `CHECK (quantity >= 0)` and `UNIQUE (part_id, loc
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 `DeliveryIntegrationTests` covers: US-01 fill, priority-ordered fill, taken top-up vs reported-taken exclusion, two successive receipts on one part, summed duplicate rows with both locations added, existing location not duplicated, inactive part accepted, overflow rejected atomically, unknown part rejected atomically, redirect + summary
+- [x] 2.1 `./mvnw verify` passes — 7cf4cab
+- [x] 2.2 `DeliveryIntegrationTests` covers: US-01 fill, priority-ordered fill, taken top-up vs reported-taken exclusion, two successive receipts on one part, summed duplicate rows with both locations added, existing location not duplicated, inactive part accepted, overflow rejected atomically, unknown part rejected atomically, redirect + summary — 7cf4cab
 
 #### Manual
 
-- [x] 2.3 As a technician: receive a delivery covering an order's shortage from the dashboard link; `/parts` shows the summary and updated stock/reserved/available; as manager `/purchasing` no longer lists (or lists a smaller) shortage for that part
-- [x] 2.4 A row with a new location shows that location on `/parts` afterwards
+- [x] 2.3 As a technician: receive a delivery covering an order's shortage from the dashboard link; `/parts` shows the summary and updated stock/reserved/available; as manager `/purchasing` no longer lists (or lists a smaller) shortage for that part — 7cf4cab
+- [x] 2.4 A row with a new location shows that location on `/parts` afterwards — 7cf4cab
 
 ### Phase 3: Concurrency guarantees
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes
-- [ ] 3.2 `DeliveryConcurrencyTests` proves no lost update across two concurrent receipts on one part
-- [ ] 3.3 `DeliveryConcurrencyTests` proves receipt-vs-pick and receipt-vs-order-creation keep stock ≥ 0 and reserved ≤ stock per part
+- [x] 3.1 `./mvnw verify` passes
+- [x] 3.2 `DeliveryConcurrencyTests` proves no lost update across two concurrent receipts on one part
+- [x] 3.3 `DeliveryConcurrencyTests` proves receipt-vs-pick and receipt-vs-order-creation keep stock ≥ 0 and reserved ≤ stock per part
