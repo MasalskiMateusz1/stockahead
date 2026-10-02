@@ -64,6 +64,13 @@ public class Order {
 	@Column(name = "completed_at")
 	private Instant completedAt;
 
+	@Column(name = "cancelled_at")
+	private Instant cancelledAt;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "cancelled_by")
+	private Account cancelledBy;
+
 	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<OrderLine> lines = new ArrayList<>();
 
@@ -159,6 +166,22 @@ public class Order {
 		this.completedAt = completedAt;
 	}
 
+	public Instant getCancelledAt() {
+		return cancelledAt;
+	}
+
+	public void setCancelledAt(Instant cancelledAt) {
+		this.cancelledAt = cancelledAt;
+	}
+
+	public Account getCancelledBy() {
+		return cancelledBy;
+	}
+
+	public void setCancelledBy(Account cancelledBy) {
+		this.cancelledBy = cancelledBy;
+	}
+
 	public boolean isCompletionReported() {
 		return completionReportedAt != null;
 	}
@@ -169,6 +192,14 @@ public class Order {
 	 */
 	public boolean canReportCompletion() {
 		return status == OrderStatus.OPEN && isTaken() && !isCompletionReported();
+	}
+
+	/**
+	 * True when the manager may cancel the order: still {@code OPEN} and not
+	 * reported as finished (a pending report must be rejected first).
+	 */
+	public boolean canCancel() {
+		return status == OrderStatus.OPEN && !isCompletionReported();
 	}
 
 	public List<OrderLine> getLines() {

@@ -3,6 +3,8 @@ package pl.regavio.stockahead.orders;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -11,8 +13,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.parts.Part;
+import pl.regavio.stockahead.parts.PartLocation;
+
 /**
- * Fills the {@code orders-detail} page model. Always re-reads inside its own
+ * Fills the {@code orders-detail} page model, and the {@code orders-cancel}
+ * confirmation page model. Always re-reads inside its own
  * read-only transaction and copies the data into plain view records, never
  * reusing the caller's entities — same shape as
  * {@code ProjectDetailModel}. Order routes are manager-only for every caller
@@ -23,6 +29,8 @@ import org.springframework.web.server.ResponseStatusException;
 class OrderDetailModel {
 
 	static final String VIEW = "orders-detail";
+
+	static final String CANCEL_VIEW = "orders-cancel";
 
 	private final OrderRepository orderRepository;
 
@@ -89,25 +97,86 @@ class OrderDetailModel {
 		List<LineView> lines = order.getLines().stream()
 			.map(line -> new LineView(line.getPart().getName(), line.getRequiredQuantity(),
 					line.getReservedQuantity(), line.getMissingQuantity(),
-					line.getPickedQuantity()))
+					line.getPickedQuantity(), line.getReturnedQuantity()))
 			.sorted(Comparator.comparing(LineView::partName))
 			.toList();
 		String reportedByEmail = order.getCompletionReportedBy() == null ? null
 				: order.getCompletionReportedBy().getEmail();
+		String cancelledByEmail = order.getCancelledBy() == null ? null : order.getCancelledBy().getEmail();
 		OrderView orderView = new OrderView(order.getProject().getName(), order.getQuantityUnits(),
 				order.getPriority(), order.getRequiredDate(), order.getStatus(), order.isCompletionReported(),
 				orderMoments.format(order.getCompletionReportedAt()), reportedByEmail,
-				orderMoments.format(order.getCompletedAt()), order.isTaken());
+				orderMoments.format(order.getCompletedAt()), order.isTaken(),
+				orderMoments.format(order.getCancelledAt()), cancelledByEmail, order.canCancel());
 		return new DetailData(orderView, lines);
 	}
 
 	/**
+	 * Loads the cancel page's data for {@code orderId} in its own read-only
+	 * transaction. An unknown order is 404.
+	 */
+	CancelPage loadCancel(Long orderId) {
+		return readTransaction.execute(status -> {
+			Order order = orderRepository.findByIdWithDetails(orderId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+			List<CancelLineView> lines = order.getLines().stream()
+				.filter(line -> line.getPickedQuantity() > 0)
+				.map(line -> new CancelLineView(line.getId(), line.getPart().getName(),
+						joinLocations(line.getPart()), line.getPickedQuantity(),
+						Integer.toString(line.getPickedQuantity())))
+				.sorted(Comparator.comparing(CancelLineView::partName))
+				.toList();
+			return new CancelPage(order.getProject().getName(), order.canCancel(), lines);
+		});
+	}
+
+	/**
+	 * Populates the cancel page for {@code orderId}, re-read fresh, with a
+	 * page-level error ({@code null} for none). Each shown line's return field
+	 * keeps the raw value a failed cancel submitted for it (by line id), or is
+	 * prefilled with the line's picked amount; the hidden seen-picked value is
+	 * always the current one, so a resubmission after a stale-form error
+	 * compares against what the page now shows.
+	 * @return the {@code orders-cancel} view name
+	 */
+	String renderCancel(Model model, Long orderId, String error, Map<Long, String> submittedReturns) {
+		return renderCancel(model, orderId, loadCancel(orderId), error, submittedReturns);
+	}
+
+	/**
+	 * Same as {@link #renderCancel(Model, Long, String, Map)}, with the page
+	 * data already loaded by {@link #loadCancel(Long)}.
+	 */
+	String renderCancel(Model model, Long orderId, CancelPage page, String error,
+			Map<Long, String> submittedReturns) {
+		List<CancelLineView> lines = page.lines().stream()
+			.map(line -> submittedReturns.containsKey(line.lineId())
+					? new CancelLineView(line.lineId(), line.partName(), line.locations(), line.pickedQuantity(),
+							submittedReturns.get(line.lineId()))
+					: line)
+			.toList();
+		model.addAttribute("orderId", orderId);
+		model.addAttribute("projectName", page.projectName());
+		model.addAttribute("cancellable", page.cancellable());
+		model.addAttribute("lines", lines);
+		if (error != null) {
+			model.addAttribute("error", error);
+		}
+		return CANCEL_VIEW;
+	}
+
+	private static String joinLocations(Part part) {
+		return part.getLocations().stream().map(PartLocation::getLocation).collect(Collectors.joining(", "));
+	}
+
+	/**
 	 * {@code changeable} gates the priority/date change form: only an
-	 * {@code OPEN} order nobody has picked from yet.
+	 * {@code OPEN} order nobody has picked from yet; {@code canCancel} gates
+	 * the cancel link ({@code OPEN} and not reported).
 	 */
 	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate,
 			OrderStatus status, boolean completionReported, String reportedAt, String reportedByEmail,
-			String completedAt, boolean taken) {
+			String completedAt, boolean taken, String cancelledAt, String cancelledByEmail, boolean canCancel) {
 
 		public boolean changeable() {
 			return status == OrderStatus.OPEN && !taken;
@@ -120,9 +189,26 @@ class OrderDetailModel {
 	 * (what the shopping list counts); unmet quantity for the completion warning is
 	 * {@code pickedQuantity < requiredQuantity}, since
 	 * {@code reservedQuantity} is live and already nets out past picks.
+	 * {@code returnedQuantity} is what a cancel put back into stock.
 	 */
 	record LineView(String partName, int requiredQuantity, int reservedQuantity, int missingQuantity,
-			int pickedQuantity) {
+			int pickedQuantity, int returnedQuantity) {
+	}
+
+	/**
+	 * The cancel page: the order's lines with something picked, and whether
+	 * the order can still be cancelled.
+	 */
+	record CancelPage(String projectName, boolean cancellable, List<CancelLineView> lines) {
+	}
+
+	/**
+	 * One picked line on the cancel page. {@code pickedQuantity} is cumulative
+	 * ({@code reservedQuantity} is live), so it alone is the returnable
+	 * amount; {@code returnValue} is the raw text shown in the return field.
+	 */
+	record CancelLineView(Long lineId, String partName, String locations, int pickedQuantity,
+			String returnValue) {
 	}
 
 	private record DetailData(OrderView order, List<LineView> lines) {

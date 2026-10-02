@@ -145,18 +145,13 @@ class ShoppingListIntegrationTests {
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
-		return seedOrder(projectId, quantityUnits, priority, requiredDate, "OPEN");
-	}
-
-	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate,
-			String status) {
 		return transactionTemplate.execute(txStatus -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, status, created_at)
-				VALUES (?, ?, ?, ?, ?, now())
+				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at)
+				VALUES (?, ?, ?, ?, now())
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, priority, requiredDate, status));
+				Long.class, projectId, quantityUnits, priority, requiredDate));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
@@ -252,12 +247,17 @@ class ShoppingListIntegrationTests {
 	void cancelledAndCompletedOrdersAreExcludedFromShortages() throws Exception {
 		Long cancelledPartId = seedPart("Cancelled Order Part", 2);
 		Long cancelledProjectId = seedProject("Cancelled Line", true);
-		// Raw SQL kept: no endpoint can cancel an order yet (cancellation is a future slice).
-		Long cancelledOrderId = seedOrder(cancelledProjectId, 1, "NORMAL", LocalDate.now().plusDays(3),
-				"CANCELLED");
-		seedOrderLine(cancelledOrderId, cancelledPartId, 5, 1);
+		Long cancelledOrderId = seedOrder(cancelledProjectId, 1, "NORMAL", LocalDate.now().plusDays(3));
+		seedOrderLine(cancelledOrderId, cancelledPartId, 5, 2);
 
 		MockHttpSession session = managerSession();
+
+		// A cancelled order, reached through the real cancel action; while still
+		// open its line was short (5 required, 2 reserved).
+		mockMvc.perform(post("/orders/{id}/cancel", cancelledOrderId).session(session).with(csrf()))
+			.andExpect(status().is3xxRedirection());
+		assertThat(jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class,
+				cancelledOrderId)).isEqualTo("CANCELLED");
 
 		// A confirmed order, reached through the real pick, report and confirm
 		// actions; while still open its line was short (5 required, 2 reserved).

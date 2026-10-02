@@ -271,29 +271,29 @@ Each event locks only the order's own parts (`findByIdInForUpdate`) and realloca
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes, including `OrderChangeIntegrationTests`
-- [x] 1.2 Raising or lowering priority reallocates reservations between untaken orders as asserted in `OrderChangeIntegrationTests`
-- [x] 1.3 Change on a taken order, a past non-current date, an unknown priority and a technician request are each rejected with no DB change
+- [x] 1.1 `./mvnw verify` passes, including `OrderChangeIntegrationTests` — ab221e2
+- [x] 1.2 Raising or lowering priority reallocates reservations between untaken orders as asserted in `OrderChangeIntegrationTests` — ab221e2
+- [x] 1.3 Change on a taken order, a past non-current date, an unknown priority and a technician request are each rejected with no DB change — ab221e2
 
 #### Manual
 
-- [x] 1.4 On `/orders/{id}` of an untaken order, changing priority to Wysoki moves reserved quantities from a lower order (visible on both detail pages and on `/purchasing`)
-- [x] 1.5 The change form is absent on a taken order's detail page
+- [x] 1.4 On `/orders/{id}` of an untaken order, changing priority to Wysoki moves reserved quantities from a lower order (visible on both detail pages and on `/purchasing`) — ab221e2
+- [x] 1.5 The change form is absent on a taken order's detail page — ab221e2
 
 ### Phase 2: Cancel with per-line returns
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes, including `OrderCancelIntegrationTests` and the V9 schema tests
-- [ ] 2.2 Cancelling a taken order raises part stock by exactly the entered returned quantities and hands freed units to the next open order
-- [ ] 2.3 A pick-twice-then-return-all cancel restores stock exactly
-- [ ] 2.4 Over-return, cancel of a reported, cancelled or completed order, and a technician request are each rejected with no DB change
+- [x] 2.1 `./mvnw verify` passes, including `OrderCancelIntegrationTests` and the V9 schema tests
+- [x] 2.2 Cancelling a taken order raises part stock by exactly the entered returned quantities and hands freed units to the next open order
+- [x] 2.3 A pick-twice-then-return-all cancel restores stock exactly
+- [x] 2.4 Over-return, cancel of a reported, cancelled or completed order, and a technician request are each rejected with no DB change
 
 #### Manual
 
-- [ ] 2.5 Cancelling a partly picked order through `/orders/{id}/cancel` with one line partially returned shows the expected stock on `/parts` and the expected reservations on another order
-- [ ] 2.6 The cancelled order disappears from `/orders`, `/picking` and `/purchasing`, and its detail page shows the cancel moment, the person who cancelled and the returned quantities
-- [ ] 2.7 An order awaiting completion confirmation shows no cancel link
+- [x] 2.5 Cancelling a partly picked order through `/orders/{id}/cancel` with one line partially returned shows the expected stock on `/parts` and the expected reservations on another order
+- [x] 2.6 The cancelled order disappears from `/orders`, `/picking` and `/purchasing`, and its detail page shows the cancel moment, the person who cancelled and the returned quantities
+- [x] 2.7 An order awaiting completion confirmation shows no cancel link
 
 ### Phase 3: Concurrency guarantees
 

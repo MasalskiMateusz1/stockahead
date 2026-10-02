@@ -3,9 +3,11 @@ package pl.regavio.stockahead.orders;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -16,6 +18,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,6 +29,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.account.Account;
+import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Emails;
+import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
 import pl.regavio.stockahead.projects.BomLine;
 import pl.regavio.stockahead.projects.Project;
@@ -54,12 +61,17 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * <p>
  * The same shape backs changing the priority and required date of an
  * untaken order, which reallocates its parts so the new schedule takes
- * effect at once.
+ * effect at once, and cancelling an {@code OPEN}, unreported order with the
+ * picked units the manager hands back returned to stock.
  */
 @Controller
 public class OrderController {
 
 	private static final int MAX_QUANTITY_UNITS = 1_000_000;
+
+	private static final String RETURNED_PARAM_PREFIX = "returned_";
+
+	private static final String SEEN_PICKED_PARAM_PREFIX = "seenPicked_";
 
 	private final ProjectRepository projectRepository;
 
@@ -77,12 +89,15 @@ public class OrderController {
 
 	private final TransactionTemplate transactionTemplate;
 
+	private final AccountRepository accountRepository;
+
 	private final MessageSource messageSource;
 
 	OrderController(ProjectRepository projectRepository, OrderRepository orderRepository,
 			OrderLineRepository orderLineRepository, PartRepository partRepository,
 			ReservationAllocator reservationAllocator, OrderDetailModel orderDetailModel, LockRetry lockRetry,
-			PlatformTransactionManager transactionManager, MessageSource messageSource) {
+			PlatformTransactionManager transactionManager, AccountRepository accountRepository,
+			MessageSource messageSource) {
 		this.projectRepository = projectRepository;
 		this.orderRepository = orderRepository;
 		this.orderLineRepository = orderLineRepository;
@@ -91,6 +106,7 @@ public class OrderController {
 		this.orderDetailModel = orderDetailModel;
 		this.lockRetry = lockRetry;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
+		this.accountRepository = accountRepository;
 		this.messageSource = messageSource;
 	}
 
@@ -203,6 +219,152 @@ public class OrderController {
 					reservationAllocator.reallocateForParts(partIds);
 					return null;
 				});
+	}
+
+	/**
+	 * The cancel confirmation page (FR-011): each line with picked units, its
+	 * return field prefilled with the picked amount. An order that can no
+	 * longer be cancelled goes back to its detail page.
+	 */
+	@GetMapping("/orders/{id}/cancel")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String cancelForm(@PathVariable Long id, Model model) {
+		OrderDetailModel.CancelPage page = orderDetailModel.loadCancel(id);
+		if (!page.cancellable()) {
+			return "redirect:/orders/" + id;
+		}
+		return orderDetailModel.renderCancel(model, id, page, null, Map.of());
+	}
+
+	/**
+	 * Cancels an {@code OPEN}, unreported order (FR-011). Each line the form
+	 * showed posts {@code returned_<lineId>} (picked units going back into
+	 * stock, the rest count as used) and {@code seenPicked_<lineId>} (the
+	 * picked amount the form displayed); a line it did not show counts as seen
+	 * with 0 picked. The return format is checked before the lock; under the
+	 * lock the order is re-checked, the form is rejected as stale when any
+	 * line's current {@code pickedQuantity} differs from the seen one (a pick
+	 * committed after the page loaded must not silently become "used"), and
+	 * each return is bounded by the line's cumulative {@code pickedQuantity}
+	 * alone ({@code reservedQuantity} is live, so it is not subtracted). Every
+	 * check runs before anything is mutated. Then: returns go into
+	 * {@code parts.quantity}, reservations are zeroed, the order becomes
+	 * {@code CANCELLED} with {@code cancelledAt}/{@code cancelledBy}, and the
+	 * order and parts are flushed BEFORE
+	 * {@link ReservationAllocator#reallocateForParts} runs — otherwise the
+	 * allocator would still see the order {@code OPEN} (subtracting a taken
+	 * order's reservation from the pool) and stale stock, and neither the freed
+	 * nor the returned units would reach the other open orders.
+	 */
+	@PostMapping("/orders/{id}/cancel")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String cancel(@PathVariable Long id, @RequestParam Map<String, String> params,
+			Authentication authentication, Model model, Locale locale) {
+		Map<Long, String> rawReturns = paramsByLineId(params, RETURNED_PARAM_PREFIX);
+		Map<Long, String> rawSeenPicked = paramsByLineId(params, SEEN_PICKED_PARAM_PREFIX);
+		Function<String, String> renderError = error -> orderDetailModel.renderCancel(model, id, error,
+				rawReturns);
+
+		Map<Long, Integer> returns = new HashMap<>();
+		for (Map.Entry<Long, String> entry : rawReturns.entrySet()) {
+			Integer parsed = parseNonNegativeInt(entry.getValue());
+			if (parsed == null) {
+				return renderError.apply(messageSource.getMessage("orders.error.returnNotInteger", null, locale));
+			}
+			returns.put(entry.getKey(), parsed);
+		}
+		Map<Long, Integer> seenPicked = new HashMap<>();
+		for (Map.Entry<Long, String> entry : rawSeenPicked.entrySet()) {
+			if (!returns.containsKey(entry.getKey())) {
+				// A shown line without its return field: missing is an error, not 0.
+				return renderError.apply(messageSource.getMessage("orders.error.returnNotInteger", null, locale));
+			}
+			Integer parsed = parseNonNegativeInt(entry.getValue());
+			if (parsed == null) {
+				return renderError.apply(messageSource.getMessage("orders.error.pickedChanged", null, locale));
+			}
+			seenPicked.put(entry.getKey(), parsed);
+		}
+
+		return transitionOrder(id, locale, "orders.error.cancelFailed", renderError, "redirect:/orders/" + id,
+				(order, partIds) -> {
+					if (!order.canCancel()) {
+						return messageSource.getMessage("orders.error.notCancellable", null, locale);
+					}
+					for (OrderLine line : order.getLines()) {
+						if (line.getPickedQuantity() != seenPicked.getOrDefault(line.getId(), 0)) {
+							return messageSource.getMessage("orders.error.pickedChanged", null, locale);
+						}
+					}
+					for (OrderLine line : order.getLines()) {
+						Integer returned = returns.get(line.getId());
+						if (returned == null && line.getPickedQuantity() > 0) {
+							return messageSource.getMessage("orders.error.returnNotInteger", null, locale);
+						}
+						if (returned != null && returned > line.getPickedQuantity()) {
+							return messageSource.getMessage("orders.error.returnExceedsPicked",
+									new Object[] { line.getPickedQuantity(), line.getPart().getName() }, locale);
+						}
+					}
+
+					Account canceller = accountRepository
+						.findByCanonicalEmail(Emails.canonical(authentication.getName()))
+						.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
+					for (OrderLine line : order.getLines()) {
+						int returned = returns.getOrDefault(line.getId(), 0);
+						Part part = line.getPart();
+						part.setQuantity(part.getQuantity() + returned);
+						line.setReturnedQuantity(returned);
+					}
+					for (OrderLine line : order.getLines()) {
+						line.setReservedQuantity(0);
+					}
+					order.setStatus(OrderStatus.CANCELLED);
+					order.setCancelledAt(Instant.now());
+					order.setCancelledBy(canceller);
+					// Flushes the whole persistence context: the order, its lines and the
+					// locked parts, so the allocator reads the returned stock.
+					orderRepository.saveAndFlush(order);
+					reservationAllocator.reallocateForParts(partIds);
+					return null;
+				});
+	}
+
+	/**
+	 * Collects the request params named {@code <prefix><lineId>} by line id;
+	 * a param whose suffix is not a line id is ignored.
+	 */
+	private static Map<Long, String> paramsByLineId(Map<String, String> params, String prefix) {
+		Map<Long, String> byLineId = new HashMap<>();
+		for (Map.Entry<String, String> entry : params.entrySet()) {
+			if (!entry.getKey().startsWith(prefix)) {
+				continue;
+			}
+			try {
+				byLineId.put(Long.valueOf(entry.getKey().substring(prefix.length())), entry.getValue());
+			}
+			catch (NumberFormatException ex) {
+				// Not one of ours.
+			}
+		}
+		return byLineId;
+	}
+
+	/**
+	 * Parses an integer of at least 0, or {@code null} when missing,
+	 * malformed, negative or out of {@code int} range.
+	 */
+	private static Integer parseNonNegativeInt(String raw) {
+		if (raw == null) {
+			return null;
+		}
+		try {
+			int parsed = Integer.parseInt(raw.trim());
+			return parsed < 0 ? null : parsed;
+		}
+		catch (NumberFormatException ex) {
+			return null;
+		}
 	}
 
 	/**

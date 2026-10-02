@@ -36,6 +36,9 @@ public class OrderLine {
 	@Column(name = "picked_quantity", nullable = false)
 	private int pickedQuantity = 0;
 
+	@Column(name = "returned_quantity", nullable = false)
+	private int returnedQuantity = 0;
+
 	public Long getId() {
 		return id;
 	}
@@ -82,6 +85,19 @@ public class OrderLine {
 
 	public void setPickedQuantity(int pickedQuantity) {
 		this.pickedQuantity = pickedQuantity;
+	}
+
+	/**
+	 * Picked units that went back into stock when the order was cancelled;
+	 * never more than {@code pickedQuantity} (cumulative), the rest count as
+	 * used.
+	 */
+	public int getReturnedQuantity() {
+		return returnedQuantity;
+	}
+
+	public void setReturnedQuantity(int returnedQuantity) {
+		this.returnedQuantity = returnedQuantity;
 	}
 
 	/**

@@ -386,9 +386,12 @@ class OrderCompletionIntegrationTests {
 		Long cancelledOrder = seedOrder();
 		Long cancelledLine = seedOrderLine(cancelledOrder, cancelledPart, 5, 5);
 		pick(session, cancelledOrder, cancelledLine, 1);
-		// Raw SQL kept: no endpoint can cancel an order yet (cancellation is a future slice).
-		transactionTemplate.executeWithoutResult(status -> jdbcTemplate
-			.update("UPDATE orders SET status = 'CANCELLED' WHERE id = ?", cancelledOrder));
+		mockMvc.perform(post("/orders/{id}/cancel", cancelledOrder).session(manager)
+			.with(csrf())
+			.param("seenPicked_" + cancelledLine, "1")
+			.param("returned_" + cancelledLine, "0"))
+			.andExpect(status().is3xxRedirection());
+		assertThat(statusOf(cancelledOrder)).isEqualTo("CANCELLED");
 
 		mockMvc.perform(post("/picking/{orderId}/report-completion", cancelledOrder).session(session).with(csrf()))
 			.andExpect(status().isOk())

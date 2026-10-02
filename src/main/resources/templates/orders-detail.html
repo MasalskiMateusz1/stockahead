@@ -18,6 +18,8 @@
 	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
 	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
 	<p th:if="${order.status.name() == 'COMPLETED'}">Zakończone <span th:text="${order.completedAt}"></span></p>
+	<p th:if="${order.status.name() == 'CANCELLED'}">Anulowane <span th:text="${order.cancelledAt}"></span>, <span th:text="${order.cancelledByEmail}"></span></p>
+	<p th:if="${order.canCancel()}"><a th:href="@{/orders/{id}/cancel(id=${orderId})}">Anuluj zlecenie</a></p>
 
 	<section id="order-change" th:if="${order.changeable()}">
 		<h2>Zmiana priorytetu i terminu</h2>
@@ -70,6 +72,7 @@
 				<th>Zarezerwowana ilość</th>
 				<th>Pobrana ilość</th>
 				<th th:if="${order.status.name() == 'OPEN'}">Brakująca ilość</th>
+				<th th:if="${order.status.name() == 'CANCELLED'}">Zwrócona ilość</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -79,6 +82,7 @@
 				<td th:text="${line.reservedQuantity}"></td>
 				<td th:text="${line.pickedQuantity}"></td>
 				<td th:if="${order.status.name() == 'OPEN'}" th:text="${line.missingQuantity}"></td>
+				<td th:if="${order.status.name() == 'CANCELLED'}" th:text="${line.returnedQuantity}"></td>
 			</tr>
 		</tbody>
 	</table>

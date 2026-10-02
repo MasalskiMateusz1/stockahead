@@ -164,12 +164,6 @@ class PickingIntegrationTests {
 				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
-	private void setOrderStatus(Long orderId, OrderStatus orderStatus) {
-		transactionTemplate.executeWithoutResult(
-				status -> jdbcTemplate.update("UPDATE orders SET status = ? WHERE id = ?", orderStatus.name(),
-						orderId));
-	}
-
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
@@ -269,17 +263,18 @@ class PickingIntegrationTests {
 				confirmCompletion(manager, orderId);
 			}
 			else {
-				// Raw SQL kept: no endpoint can cancel an order yet (cancellation is a future slice);
-				// the order stays untaken with its reservation intact, a consistent state.
-				setOrderStatus(orderId, notOpenStatus);
+				// Reach CANCELLED the way the app does: the manager cancels the untaken order.
+				mockMvc.perform(post("/orders/{id}/cancel", orderId).session(manager).with(csrf()))
+					.andExpect(status().is3xxRedirection());
 			}
 			assertThat(jdbcTemplate.queryForObject("SELECT status FROM orders WHERE id = ?", String.class, orderId))
 				.isEqualTo(notOpenStatus.name());
 			// A confirmed order keeps its 3 picked units and has the rest of its
-			// reservation released; a cancelled one keeps its reservation intact.
+			// reservation released; a cancelled untaken one has its whole
+			// reservation released and stock untouched.
 			boolean completed = notOpenStatus == OrderStatus.COMPLETED;
 			int expectedStock = completed ? 7 : 10;
-			int expectedReserved = completed ? 0 : 5;
+			int expectedReserved = 0;
 			int expectedPicked = completed ? 3 : 0;
 
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
