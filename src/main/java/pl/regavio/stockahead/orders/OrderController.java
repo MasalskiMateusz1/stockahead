@@ -406,7 +406,9 @@ public class OrderController {
 				if (!partIds.isEmpty()) {
 					partRepository.findByIdInForUpdate(partIds);
 				}
-				Order order = orderRepository.findById(orderId)
+				// An order with no lines has no part rows to serialize on, so lock its own row instead.
+				Order order = (partIds.isEmpty() ? orderRepository.findByIdForUpdate(orderId)
+						: orderRepository.findById(orderId))
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				return transition.apply(order, partIds);
 			}));

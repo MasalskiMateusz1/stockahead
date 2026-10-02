@@ -421,6 +421,35 @@ class OrderCancelIntegrationTests {
 		assertThat(reservedOf(nextLine)).isEqualTo(5);
 	}
 
+	@Test
+	void returnParamsForAnotherOrdersLineAreIgnored() throws Exception {
+		Instant now = Instant.now();
+		Long cancelledPart = seedPart("Cancelled Order Switch", 10);
+		Long otherPart = seedPart("Other Order Switch", 10);
+		Long cancelled = seedOrder(projectId, Priority.NORMAL, now.minusSeconds(60));
+		Long cancelledLine = seedOrderLine(cancelled, cancelledPart, 5, 5);
+		Long other = seedOrder(otherProjectId, Priority.NORMAL, now);
+		Long otherLine = seedOrderLine(other, otherPart, 5, 5);
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+
+		pick(technician, cancelled, cancelledLine, 2);
+		pick(technician, other, otherLine, 3);
+
+		// The form also carries a full return for the other order's picked line.
+		cancel(manager, cancelled, cancelledLine, 2, 2, otherLine, 3, 3);
+
+		assertThat(statusOf(cancelled)).isEqualTo("CANCELLED");
+		assertThat(stockOf(cancelledPart)).isEqualTo(10);
+		assertThat(returnedOf(cancelledLine)).isEqualTo(2);
+		assertNotCancelled(other);
+		assertThat(stockOf(otherPart)).isEqualTo(7);
+		assertThat(pickedOf(otherLine)).isEqualTo(3);
+		assertThat(returnedOf(otherLine)).isZero();
+		assertThat(reservedOf(otherLine)).isEqualTo(2);
+	}
+
 	// ---- rejections ---------------------------------------------------
 
 	@Test

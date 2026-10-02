@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-01
+updated: 2026-10-02
 
 prd_version: 1
 main_goal: speed
@@ -53,7 +53,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-06  | technician-accounts              | Kierownik zakłada i dezaktywuje konta techników                                                 | S-01          | FR-002, §Kontrola dostępu                   | done     |
 | S-07  | picking-list-and-pick            | Technik widzi listę zleceń z lokalizacjami i pobiera części, także częściowo                    | S-04, S-06    | FR-012, FR-013, §Business Logic             | done |
 | S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | done |
-| S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | proposed |
+| S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | in-progress |
 | S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | proposed |
 | S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | proposed |
 | S-12  | parts-csv-import                 | Kierownik importuje części z CSV po obejrzeniu podglądu stanów wynikowych                       | S-02, S-04    | FR-017                                      | proposed |
@@ -207,7 +207,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Oba wymagania siedzą w jednym kawałku, bo to ta sama operacja: zmiana istniejącego zlecenia plus przeliczenie alokacji — rozdzielenie ich dałoby dwa kawałki dotykające tego samego kodu. Wymagają S-07, bo blokada po podjęciu i zwrot pobranych części nie istnieją, dopóki nie ma pobrań. Najłatwiejsza wpadka: zwrot pobranych części z pominięciem ograniczenia na stan nieujemny w drugą stronę.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-10: Przyjęcie dostawy
 

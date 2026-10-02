@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartLocation;
+import pl.regavio.stockahead.parts.PartRepository;
 
 /**
  * Fills the {@code orders-detail} page model, and the {@code orders-cancel}
@@ -34,13 +35,16 @@ class OrderDetailModel {
 
 	private final OrderRepository orderRepository;
 
+	private final PartRepository partRepository;
+
 	private final TransactionTemplate readTransaction;
 
 	private final OrderMoments orderMoments;
 
-	OrderDetailModel(OrderRepository orderRepository, PlatformTransactionManager transactionManager,
-			OrderMoments orderMoments) {
+	OrderDetailModel(OrderRepository orderRepository, PartRepository partRepository,
+			PlatformTransactionManager transactionManager, OrderMoments orderMoments) {
 		this.orderRepository = orderRepository;
+		this.partRepository = partRepository;
 		this.orderMoments = orderMoments;
 		this.readTransaction = new TransactionTemplate(transactionManager);
 		this.readTransaction.setReadOnly(true);
@@ -119,8 +123,11 @@ class OrderDetailModel {
 		return readTransaction.execute(status -> {
 			Order order = orderRepository.findByIdWithDetails(orderId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-			List<CancelLineView> lines = order.getLines().stream()
-				.filter(line -> line.getPickedQuantity() > 0)
+			List<OrderLine> picked = order.getLines().stream().filter(line -> line.getPickedQuantity() > 0).toList();
+			// Order.lines and Part.locations are both bags, which Hibernate cannot fetch in one query;
+			// one extra query fills every shown part's locations instead of one lazy load per line.
+			partRepository.findWithLocationsByIdIn(picked.stream().map(line -> line.getPart().getId()).toList());
+			List<CancelLineView> lines = picked.stream()
 				.map(line -> new CancelLineView(line.getId(), line.getPart().getName(),
 						joinLocations(line.getPart()), line.getPickedQuantity(),
 						Integer.toString(line.getPickedQuantity())))

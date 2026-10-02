@@ -28,6 +28,9 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	@Query("SELECT p FROM Part p WHERE p.id IN :ids ORDER BY p.id")
 	List<Part> findByIdInForUpdate(@Param("ids") Collection<Long> ids);
 
+	@Query("SELECT DISTINCT p FROM Part p LEFT JOIN FETCH p.locations WHERE p.id IN :ids")
+	List<Part> findWithLocationsByIdIn(@Param("ids") Collection<Long> ids);
+
 	/**
 	 * Current {@code (id, quantity)} pairs for the given parts, as a plain
 	 * scalar projection rather than hydrated {@link Part} entities. Unlike
