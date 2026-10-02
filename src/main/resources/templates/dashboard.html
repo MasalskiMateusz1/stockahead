@@ -10,6 +10,7 @@
 	<p>Zalogowano jako <span th:text="${email}"></span> (<span th:text="${role}"></span>)</p>
 
 	<p><a th:href="@{/parts}">Kartoteka części</a></p>
+	<p><a th:href="@{/deliveries/new}">Przyjmij dostawę</a></p>
 	<p><a th:href="@{/projects}">Projekty</a></p>
 	<p sec:authorize="hasRole('MANAGER')"><a th:href="@{/orders}">Zlecenia</a></p>
 	<p><a th:href="@{/picking}">Lista kompletacyjna</a></p>

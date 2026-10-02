@@ -12,7 +12,11 @@
 <body>
 	<h1>Kartoteka części</h1>
 
+	<p th:if="${deliveryReceived}" th:text="${deliveryReceived}"></p>
+
 	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
+
+	<p><a th:href="@{/deliveries/new}">Przyjmij dostawę</a></p>
 
 	<div sec:authorize="hasRole('MANAGER')">
 		<a th:href="@{/parts/new}">Dodaj część</a>

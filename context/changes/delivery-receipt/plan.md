@@ -290,24 +290,24 @@ No schema change. The existing `CHECK (quantity >= 0)` and `UNIQUE (part_id, loc
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes
-- [x] 1.2 `DeliveryIntegrationTests` covers the 5-row GET for both roles, `addRows` value retention, every validation error with inputs kept, anonymous redirect, and no DB change on rejection
+- [x] 1.1 `./mvnw verify` passes — 707d6f5
+- [x] 1.2 `DeliveryIntegrationTests` covers the 5-row GET for both roles, `addRows` value retention, every validation error with inputs kept, anonymous redirect, and no DB change on rejection — 707d6f5
 
 #### Manual
 
-- [x] 1.3 `/deliveries/new` (typed URL) renders the form; "Dodaj wiersze" adds rows without losing typed values; an invalid row shows a readable Polish error
+- [x] 1.3 `/deliveries/new` (typed URL) renders the form; "Dodaj wiersze" adds rows without losing typed values; an invalid row shows a readable Polish error — 707d6f5
 
 ### Phase 2: Atomic receipt with reallocation
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 `DeliveryIntegrationTests` covers: US-01 fill, priority-ordered fill, taken top-up vs reported-taken exclusion, two successive receipts on one part, summed duplicate rows with both locations added, existing location not duplicated, inactive part accepted, overflow rejected atomically, unknown part rejected atomically, redirect + summary
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 `DeliveryIntegrationTests` covers: US-01 fill, priority-ordered fill, taken top-up vs reported-taken exclusion, two successive receipts on one part, summed duplicate rows with both locations added, existing location not duplicated, inactive part accepted, overflow rejected atomically, unknown part rejected atomically, redirect + summary
 
 #### Manual
 
-- [ ] 2.3 As a technician: receive a delivery covering an order's shortage from the dashboard link; `/parts` shows the summary and updated stock/reserved/available; as manager `/purchasing` no longer lists (or lists a smaller) shortage for that part
-- [ ] 2.4 A row with a new location shows that location on `/parts` afterwards
+- [x] 2.3 As a technician: receive a delivery covering an order's shortage from the dashboard link; `/parts` shows the summary and updated stock/reserved/available; as manager `/purchasing` no longer lists (or lists a smaller) shortage for that part
+- [x] 2.4 A row with a new location shows that location on `/parts` afterwards
 
 ### Phase 3: Concurrency guarantees
 

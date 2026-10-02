@@ -78,7 +78,7 @@ public class ReservationAllocator {
 	 * which is safe because {@code UNIQUE(order_id, part_id)} guarantees each
 	 * line of an order touches a distinct part.
 	 */
-	void reallocateForParts(Set<Long> partIds) {
+	public void reallocateForParts(Set<Long> partIds) {
 		if (partIds.isEmpty()) {
 			return;
 		}

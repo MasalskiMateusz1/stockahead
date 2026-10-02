@@ -3,6 +3,7 @@ package pl.regavio.stockahead.parts;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -11,12 +12,20 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.context.MessageSource;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import pl.regavio.stockahead.orders.LockRetry;
+import pl.regavio.stockahead.orders.ReservationAllocator;
 
 /**
  * Delivery receipt screen for both MANAGER and TECHNICIAN: a multi-row form
@@ -30,6 +39,14 @@ import org.springframework.web.bind.annotation.RequestParam;
  * the request's persistence context afterwards (see {@code PickingController}).
  * The part dropdown is therefore loaded only on GET and on re-renders
  * (add-rows and validation errors), none of which go on to write.
+ * <p>
+ * A valid receipt is merged per part and written in one transaction: the
+ * part rows are locked ({@code findByIdInForUpdate}), every id and every new
+ * stock total is checked before anything is mutated, then stock is raised,
+ * missing locations are added, the persistence context is flushed and only
+ * then {@link ReservationAllocator#reallocateForParts(Set)} runs, so the
+ * allocator seeds its pool with the delivered stock. Inactive parts are
+ * accepted as-is.
  */
 @Controller
 public class DeliveryController {
@@ -52,9 +69,20 @@ public class DeliveryController {
 
 	private final MessageSource messageSource;
 
-	DeliveryController(PartRepository partRepository, MessageSource messageSource) {
+	private final ReservationAllocator reservationAllocator;
+
+	private final LockRetry lockRetry;
+
+	private final TransactionTemplate transactionTemplate;
+
+	DeliveryController(PartRepository partRepository, MessageSource messageSource,
+			ReservationAllocator reservationAllocator, LockRetry lockRetry,
+			PlatformTransactionManager transactionManager) {
 		this.partRepository = partRepository;
 		this.messageSource = messageSource;
+		this.reservationAllocator = reservationAllocator;
+		this.lockRetry = lockRetry;
+		this.transactionTemplate = new TransactionTemplate(transactionManager);
 	}
 
 	@GetMapping("/deliveries/new")
@@ -69,7 +97,8 @@ public class DeliveryController {
 
 	@PostMapping("/deliveries")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
-	public String receive(@RequestParam Map<String, String> params, Model model, Locale locale) {
+	public String receive(@RequestParam Map<String, String> params, Model model, Locale locale,
+			RedirectAttributes redirectAttributes) {
 		int rowCount = parseRowCount(params.get("rows"));
 		List<RowInput> rows = readRows(params, rowCount);
 
@@ -86,10 +115,74 @@ public class DeliveryController {
 			return renderForm(model, rows, validation.error());
 		}
 
-		// Phase 1: the merged receipt is validated but not written yet. The
-		// atomic stock write (lock, increment, flush, reallocate) replaces this
-		// redirect in Phase 2.
-		return "redirect:/deliveries/new";
+		Map<Long, ReceiptLine> lines = validation.lines();
+		String businessError;
+		try {
+			businessError = lockRetry
+				.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
+					String error = applyReceipt(lines, locale);
+					if (error != null) {
+						status.setRollbackOnly();
+					}
+					return error;
+				}));
+		}
+		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
+			return renderForm(model, rows, messageSource.getMessage("deliveries.error.saveFailed", null, locale));
+		}
+		if (businessError != null) {
+			return renderForm(model, rows, businessError);
+		}
+
+		int totalUnits = lines.values().stream().mapToInt(ReceiptLine::quantity).sum();
+		redirectAttributes.addFlashAttribute("deliveryReceived", messageSource.getMessage("deliveries.received",
+				new Object[] { lines.size(), totalUnits }, locale));
+		return "redirect:/parts";
+	}
+
+	/**
+	 * Runs inside the receipt's transaction: locks the merged parts, checks
+	 * that every id exists and that no new stock total overflows {@code int}
+	 * (all before mutating anything), then raises stock, adds each location
+	 * the part lacks (exact, case-sensitive match, as in
+	 * {@code PartController}), flushes and reallocates. Returns a localized
+	 * business error, or {@code null} once applied.
+	 */
+	private String applyReceipt(Map<Long, ReceiptLine> lines, Locale locale) {
+		Set<Long> partIds = lines.keySet();
+		List<Part> lockedParts = partRepository.findByIdInForUpdate(partIds);
+		if (lockedParts.size() != partIds.size()) {
+			return messageSource.getMessage("deliveries.error.partNotFound", null, locale);
+		}
+
+		Map<Long, Integer> newQuantities = new HashMap<>();
+		for (Part part : lockedParts) {
+			try {
+				newQuantities.put(part.getId(), Math.addExact(part.getQuantity(), lines.get(part.getId()).quantity()));
+			}
+			catch (ArithmeticException ex) {
+				return messageSource.getMessage("deliveries.error.stockOverflow", new Object[] { part.getName() },
+						locale);
+			}
+		}
+
+		for (Part part : lockedParts) {
+			part.setQuantity(newQuantities.get(part.getId()));
+			for (String location : lines.get(part.getId()).locations()) {
+				boolean present = part.getLocations().stream()
+					.anyMatch(existing -> existing.getLocation().equals(location));
+				if (!present) {
+					PartLocation partLocation = new PartLocation();
+					partLocation.setLocation(location);
+					part.addLocation(partLocation);
+				}
+			}
+		}
+		// Flush BEFORE reallocating: the allocator reads stock with a scalar query,
+		// so unflushed increments would leave the delivered units unallocated.
+		partRepository.flush();
+		reservationAllocator.reallocateForParts(new LinkedHashSet<>(partIds));
+		return null;
 	}
 
 	/**
