@@ -5,7 +5,7 @@ Stockahead is a parts-warehouse and production-reservation web app for a small e
 ## Hard rules
 
 - A part's stock must never drop below zero, and one unit must never be reserved by two orders. Guard stock with a DB `CHECK (quantity >= 0)` constraint in the Flyway migration, and lock the part row (`@Lock(PESSIMISTIC_WRITE)` or `SELECT … FOR UPDATE`) before changing stock or reservations; form validation alone is not enough.
-- Allocate reservations by priority (high first), then earlier deadline, then older order. Never preempt parts already picked, or any reservation of an order that has been taken (first pick done). Recompute reservations and the shopping list after every event listed in PRD § Business Logic.
+- Allocate reservations by priority (high first), then earlier deadline, then older order. Never preempt parts already picked, or any reservation of an order that has been taken (first pick done) — except when stock drops below those reservations (stock correction); then taken reservations shrink in reverse allocation order, never into picked parts. Recompute reservations and the shopping list after every event listed in PRD § Business Logic.
 - Deactivate user accounts; never delete them (FR-002). The manager role is a superset of technician; permissions follow PRD § Access Control.
 - Do not implement anything listed in PRD § Non-Goals.
 - Never write under `context/archive/`. Edit `context/foundation/` docs in place (@context/foundation/README.md).

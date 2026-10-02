@@ -28,10 +28,14 @@ import pl.regavio.stockahead.parts.PartRepository;
  * falls out for free, with no special-case "steal reservation" logic. A
  * taken order (one with a first pick already done) is <em>protected</em>,
  * not excluded: its current reservation is removed from the stock pool up
- * front and can never shrink, so no later, higher-priority competitor can
- * take it over. A taken order whose completion has not been reported still
- * joins the allocation pass in its normal allocation-order position, but
- * can only <em>grow</em>: it is topped up by what the pool has left, at
+ * front and can never be taken over by another order, however high its
+ * priority. It shrinks only when the physical units are gone: if stock falls
+ * below the taken orders' total reservation on a part (e.g. a stock
+ * correction), those reservations shrink by exactly the deficit, in reverse
+ * allocation order, never touching picked units. A taken order whose
+ * completion has not been reported still joins the allocation pass in its
+ * normal allocation-order position, but can only <em>grow</em>: it is
+ * topped up by what the pool has left, at
  * most to {@code requiredQuantity - pickedQuantity}. A taken order whose
  * completion has been reported (awaiting the manager's confirm/reject) keeps
  * its reservation and receives nothing extra, since it can no longer be
@@ -68,9 +72,14 @@ public class ReservationAllocator {
 	 * already drawn it down), minus the current reservation of every taken
 	 * order's lines on those parts (reported or not) — that floor leaves the
 	 * pool before any order is processed, so no order can absorb units a
-	 * taken order already holds. Then non-taken orders and taken orders whose
-	 * completion is not reported are processed together in allocation order:
-	 * a non-taken line is rebuilt as {@code min(pool, required)}; a taken
+	 * taken order already holds. If a part's stock is below that total (the
+	 * units are physically gone), the taken lines on it are first shrunk by
+	 * the deficit, in {@code ALLOCATION_ORDER.reversed()} over their orders
+	 * (completion-reported ones included), each by at most its own
+	 * reservation; {@code pickedQuantity} is never touched. This guarantees
+	 * {@code Σ reservedQuantity ≤ quantity} per part afterwards. Then
+	 * non-taken orders and taken orders whose completion is not reported are
+	 * processed together in allocation order: a non-taken line is rebuilt as {@code min(pool, required)}; a taken
 	 * line keeps its reservation and gains
 	 * {@code min(pool, required - picked - reserved)}. Either way the pool
 	 * shrinks by what was granted. Lines of a completion-reported order are
@@ -100,6 +109,8 @@ public class ReservationAllocator {
 		List<OrderLine> allocatableLines = affectedLines.stream()
 			.filter(line -> !line.getOrder().isTaken() || !line.getOrder().isCompletionReported())
 			.toList();
+
+		shrinkTakenReservationsToStock(takenLines, remainingStockByPartId);
 
 		for (OrderLine takenLine : takenLines) {
 			remainingStockByPartId.merge(takenLine.getPart().getId(), -takenLine.getReservedQuantity(),
@@ -131,6 +142,39 @@ public class ReservationAllocator {
 					line.setReservedQuantity(granted);
 				}
 				remainingStockByPartId.put(partId, remaining - granted);
+			}
+		}
+	}
+
+	/**
+	 * For each part whose stock is below the total {@code reservedQuantity} of
+	 * its taken lines, lowers those lines' reservations by exactly the
+	 * deficit, walking them in reverse allocation order of their orders so the
+	 * lowest-placed taken order loses its units first. Only reachable when
+	 * stock was lowered under existing reservations (e.g. a stock correction):
+	 * missing physical units are not a takeover, so the protection rule does
+	 * not apply to them.
+	 */
+	private static void shrinkTakenReservationsToStock(List<OrderLine> takenLines,
+			Map<Long, Integer> stockByPartId) {
+		Map<Long, List<OrderLine>> takenLinesByPartId = takenLines.stream()
+			.collect(Collectors.groupingBy(l -> l.getPart().getId()));
+		for (Map.Entry<Long, List<OrderLine>> entry : takenLinesByPartId.entrySet()) {
+			int takenReserved = entry.getValue().stream().mapToInt(OrderLine::getReservedQuantity).sum();
+			int deficit = takenReserved - stockByPartId.getOrDefault(entry.getKey(), 0);
+			if (deficit <= 0) {
+				continue;
+			}
+			List<OrderLine> shrinkOrder = entry.getValue().stream()
+				.sorted(Comparator.comparing(OrderLine::getOrder, ALLOCATION_ORDER.reversed()))
+				.toList();
+			for (OrderLine line : shrinkOrder) {
+				if (deficit == 0) {
+					break;
+				}
+				int cut = Math.min(deficit, line.getReservedQuantity());
+				line.setReservedQuantity(line.getReservedQuantity() - cut);
+				deficit -= cut;
 			}
 		}
 	}
