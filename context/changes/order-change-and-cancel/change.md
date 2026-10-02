@@ -1,7 +1,7 @@
 ---
 change_id: order-change-and-cancel
 title: Manager changes priority/deadline of an untaken order or cancels an order (S-09)
-status: implementing
+status: implemented
 created: 2026-10-02
 updated: 2026-10-02
 ---

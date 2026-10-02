@@ -299,10 +299,10 @@ Each event locks only the order's own parts (`findByIdInForUpdate`) and realloca
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes, including `OrderCancelConcurrencyTests`
-- [x] 3.2 No pick is ever recorded on a `CANCELLED` order and stock stays ≥ 0 across the pick/cancel race
-- [x] 3.3 No taken order ends up with a changed priority or date across the pick/change race
+- [x] 3.1 `./mvnw verify` passes, including `OrderCancelConcurrencyTests` — 2a7ede8
+- [x] 3.2 No pick is ever recorded on a `CANCELLED` order and stock stays ≥ 0 across the pick/cancel race — 2a7ede8
+- [x] 3.3 No taken order ends up with a changed priority or date across the pick/change race — 2a7ede8
 
 #### Manual
 
-- [x] 3.4 With two browser sessions (manager on the cancel page, technician picking the same order), the cancel submitted after the technician's pick shows the "stan pobrań zmienił się" error and the refreshed page shows the new picked amount
+- [x] 3.4 With two browser sessions (manager on the cancel page, technician picking the same order), the cancel submitted after the technician's pick shows the "stan pobrań zmienił się" error and the refreshed page shows the new picked amount — 2a7ede8
