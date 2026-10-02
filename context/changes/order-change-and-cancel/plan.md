@@ -284,25 +284,25 @@ Each event locks only the order's own parts (`findByIdInForUpdate`) and realloca
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes, including `OrderCancelIntegrationTests` and the V9 schema tests
-- [x] 2.2 Cancelling a taken order raises part stock by exactly the entered returned quantities and hands freed units to the next open order
-- [x] 2.3 A pick-twice-then-return-all cancel restores stock exactly
-- [x] 2.4 Over-return, cancel of a reported, cancelled or completed order, and a technician request are each rejected with no DB change
+- [x] 2.1 `./mvnw verify` passes, including `OrderCancelIntegrationTests` and the V9 schema tests — 6237135
+- [x] 2.2 Cancelling a taken order raises part stock by exactly the entered returned quantities and hands freed units to the next open order — 6237135
+- [x] 2.3 A pick-twice-then-return-all cancel restores stock exactly — 6237135
+- [x] 2.4 Over-return, cancel of a reported, cancelled or completed order, and a technician request are each rejected with no DB change — 6237135
 
 #### Manual
 
-- [x] 2.5 Cancelling a partly picked order through `/orders/{id}/cancel` with one line partially returned shows the expected stock on `/parts` and the expected reservations on another order
-- [x] 2.6 The cancelled order disappears from `/orders`, `/picking` and `/purchasing`, and its detail page shows the cancel moment, the person who cancelled and the returned quantities
-- [x] 2.7 An order awaiting completion confirmation shows no cancel link
+- [x] 2.5 Cancelling a partly picked order through `/orders/{id}/cancel` with one line partially returned shows the expected stock on `/parts` and the expected reservations on another order — 6237135
+- [x] 2.6 The cancelled order disappears from `/orders`, `/picking` and `/purchasing`, and its detail page shows the cancel moment, the person who cancelled and the returned quantities — 6237135
+- [x] 2.7 An order awaiting completion confirmation shows no cancel link — 6237135
 
 ### Phase 3: Concurrency guarantees
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes, including `OrderCancelConcurrencyTests`
-- [ ] 3.2 No pick is ever recorded on a `CANCELLED` order and stock stays ≥ 0 across the pick/cancel race
-- [ ] 3.3 No taken order ends up with a changed priority or date across the pick/change race
+- [x] 3.1 `./mvnw verify` passes, including `OrderCancelConcurrencyTests`
+- [x] 3.2 No pick is ever recorded on a `CANCELLED` order and stock stays ≥ 0 across the pick/cancel race
+- [x] 3.3 No taken order ends up with a changed priority or date across the pick/change race
 
 #### Manual
 
-- [ ] 3.4 With two browser sessions (manager on the cancel page, technician picking the same order), the cancel submitted after the technician's pick shows the "stan pobrań zmienił się" error and the refreshed page shows the new picked amount
+- [x] 3.4 With two browser sessions (manager on the cancel page, technician picking the same order), the cancel submitted after the technician's pick shows the "stan pobrań zmienił się" error and the refreshed page shows the new picked amount
