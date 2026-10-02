@@ -415,12 +415,12 @@ plant's scale. The respell bulk update runs only on a case-only edit.
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes
-- [x] 3.2 Tests prove create, edit-add and delivery store an existing shelf's spelling from another part
-- [x] 3.3 A test proves a brand-new shelf typed in two spellings within one receipt is stored once, in the first-typed spelling
-- [x] 3.4 A test proves a case-only respell on edit updates the shelf on all other parts and keeps the edited row's id
+- [x] 3.1 `./mvnw verify` passes — 5126a3a
+- [x] 3.2 Tests prove create, edit-add and delivery store an existing shelf's spelling from another part — 5126a3a
+- [x] 3.3 A test proves a brand-new shelf typed in two spellings within one receipt is stored once, in the first-typed spelling — 5126a3a
+- [x] 3.4 A test proves a case-only respell on edit updates the shelf on all other parts and keeps the edited row's id — 5126a3a
 
 #### Manual
 
-- [ ] 3.5 In `./mvnw spring-boot:test-run`: give part X `A1`, receive a delivery for part Y with `a1 ` pasted from a spreadsheet. The parts list shows `A1` for both, and the delivery form's location suggestions list `A1` once
-- [ ] 3.6 Edit X to `a1`; both parts and the picking list show `a1`
+- [x] 3.5 In `./mvnw spring-boot:test-run`: give part X `A1`, receive a delivery for part Y with `a1 ` pasted from a spreadsheet. The parts list shows `A1` for both, and the delivery form's location suggestions list `A1` once — 5126a3a
+- [x] 3.6 Edit X to `a1`; both parts and the picking list show `a1` — 5126a3a
