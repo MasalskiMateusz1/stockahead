@@ -254,21 +254,21 @@ None. No schema change. Existing taken orders start receiving units on the next 
 
 #### Automated
 
-- [x] 2.1 `./mvnw -q test -Dtest='OrderCompletionIntegrationTests,OrderCompletionConcurrencyTests'` passes, including the four new tests
-- [x] 2.2 `./mvnw verify` passes
+- [x] 2.1 `./mvnw -q test -Dtest='OrderCompletionIntegrationTests,OrderCompletionConcurrencyTests'` passes, including the four new tests — af2c285
+- [x] 2.2 `./mvnw verify` passes — af2c285
 
 #### Manual
 
-- [x] 2.3 As technician: pick part of order B (short), report order A complete; as manager confirm A, and check that B's picking page offers the freed parts
-- [x] 2.4 Report B, confirm another order sharing the part, check B gets nothing; reject B's report, check B's pick forms show the units
+- [x] 2.3 As technician: pick part of order B (short), report order A complete; as manager confirm A, and check that B's picking page offers the freed parts — af2c285
+- [x] 2.4 Report B, confirm another order sharing the part, check B gets nothing; reject B's report, check B's pick forms show the units — af2c285
 
 ### Phase 3: Technician signal and docs
 
 #### Automated
 
-- [ ] 3.1 `./mvnw -q test -Dtest=PickingListAndDetailIntegrationTests` passes, including the new test
-- [ ] 3.2 `./mvnw verify` passes
+- [x] 3.1 `./mvnw -q test -Dtest=PickingListAndDetailIntegrationTests` passes, including the new test
+- [x] 3.2 `./mvnw verify` passes
 
 #### Manual
 
-- [ ] 3.3 As technician: `/picking` shows "Do pobrania" per order, and the count rises on a waiting order after a manager confirms another order sharing its part
+- [x] 3.3 As technician: `/picking` shows "Do pobrania" per order, and the count rises on a waiting order after a manager confirms another order sharing its part

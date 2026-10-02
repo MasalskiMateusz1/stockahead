@@ -61,3 +61,10 @@
 **Rule:** Before subtracting field B from field A to get "how much of A is left", check whether A is already defined as *net of* B (decremented every time B increments). If so, A alone is the answer — subtracting B again double-counts. When a field's own history matters (first pick vs. a later one), write a test that performs the mutating action *at least twice* on the same row with the *second* request large enough to expose a double-counted guard (e.g., pick more than half of a reservation, then try to pick the genuine remainder) — a test that only ever acts once per row cannot catch this class of bug, and a raw-SQL-seeded fixture that sets both fields independently can silently describe a state the real action could never produce, masking the same bug.
 
 **Applies to:** Any future code (this codebase's or elsewhere) that maintains a "remaining"/"available" counter alongside a cumulative counter fed from the same mutation, and any test suite's coverage for a repeatable mutating action on one row — S-09 (`order-change-and-cancel`) and any other future change touching `OrderLine.reservedQuantity`/`pickedQuantity` should re-check this invariant before adding new call sites.
+
+## Center cell content in every table template
+
+- **Context**: Any Thymeleaf template under `src/main/resources/templates/` that renders a `<table>`.
+- **Problem**: There is no shared stylesheet, so a new table renders left-aligned and looks different from the others. This had to be fixed by hand across 8 templates during `taken-order-top-up` (2026-10-02).
+- **Rule**: Every template with a `<table>` must include the inline `<style>td, th { text-align: center; }</style>` block in `<head>`, as in `purchasing-list.html`.
+- **Applies to**: plan, implement, impl-review

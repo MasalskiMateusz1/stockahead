@@ -57,6 +57,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | proposed |
 | S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | proposed |
 | S-12  | parts-csv-import                 | Kierownik importuje części z CSV po obejrzeniu podglądu stanów wynikowych                       | S-02, S-04    | FR-017                                      | proposed |
+| S-13  | order-partial-completion         | Technik zamyka zlecenie jako częściowo wykonane, podając liczbę zbudowanych sztuk              | S-08          | FR-014, FR-020 (rozszerzenie spoza PRD v1)  | proposed |
 
 ## Streams
 
@@ -65,7 +66,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | Stream | Theme                             | Chain                                                   | Note                                                                                                  |
 | ------ | --------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | A      | Ścieżka główna do listy zakupów   | `F-01` → `S-01` → `S-02` → `S-03` → `S-04` → `S-05`     | Realizuje Kryterium sukcesu (Primary) w całości; przy celu `speed` ma pierwszeństwo przed B i C.       |
-| B      | Kompletacja i cykl życia zlecenia | `S-06` → `S-07` → `S-08` → `S-09`                       | Dołącza do strumienia A przy `S-01` (konta) i przy `S-04` (zlecenia z rezerwacjami).                   |
+| B      | Kompletacja i cykl życia zlecenia | `S-06` → `S-07` → `S-08` → `S-09`, `S-08` → `S-13`      | Dołącza do strumienia A przy `S-01` (konta) i przy `S-04` (zlecenia z rezerwacjami).                   |
 | C      | Ruch magazynu                     | `S-10` → `S-11` → `S-12`                                | Dołącza do strumienia A przy `S-04`; trzy niezależne wyzwalacze przeliczenia, dobre do zrównoleglenia. |
 
 ## Baseline
@@ -245,6 +246,20 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** To jest odpowiedź PRD na barierę startu („ręczne wprowadzanie całego magazynu"), więc w praktyce zakład zacznie od tego ekranu — ale sekwencjonowany jest późno, bo podgląd stanów wynikowych ma sens dopiero, gdy stan i rezerwacje mają znaczenie. Zapis bez wcześniejszej akceptacji podglądu łamie FR-017 i psuje cały magazyn jednym złym plikiem.
 - **Status:** proposed
 
+### S-13: Częściowe zakończenie zlecenia z liczbą zbudowanych sztuk
+
+- **Outcome:** Technik zgłasza zlecenie, któremu brakuje części, jako częściowo wykonane i podaje, ile sztuk faktycznie zbudował; kierownik widzi tę liczbę (np. „zbudowano 7 z 10") przy potwierdzeniu, a po potwierdzeniu zlecenie zostaje zapisane jako częściowo zakończone, a nie jako zwykłe COMPLETED.
+- **Change ID:** order-partial-completion
+- **PRD refs:** FR-014, FR-020 (rozszerzenie — PRD v1 nie opisuje wyniku zlecenia zamkniętego z brakami; wymaga uzupełnienia PRD przed planowaniem)
+- **Prerequisites:** S-08
+- **Parallel with:** S-09, S-10, S-11, S-12
+- **Blockers:** —
+- **Unknowns:**
+  - Co dzieje się z niezbudowaną resztą (N − zbudowane) — przepada, czy wraca jako nowe zlecenie lub brak na liście zakupów? — Owner: user. Block: yes (przed /10x-plan).
+  - Czy liczba zbudowanych sztuk może przekroczyć to, na co pozwalają pobrane części (zamienniki), i czy kierownik może ją poprawić przy potwierdzeniu? — Owner: user. Block: no.
+- **Risk:** Źródło: rama zmiany `taken-order-top-up` (2026-10-01) — użytkownik: zlecenie z brakami „powinno być oznaczone jako częściowo zakończone i pokazywać, ile zbudowano"; liczbę podaje technik, nie wyliczamy jej z pobrań. Dziś S-08 pozwala potwierdzić zlecenie z brakami jako zwykłe COMPLETED, a brak znika z listy zakupów i widoku bez śladu. Wymaga migracji (nowy stan i kolumna liczby sztuk) oraz zmiany zgłoszenia/potwierdzenia z S-08.
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                       | Suggested issue title                                  | Ready for `/10x-plan` | Notes                                               |
@@ -262,6 +277,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-10       | delivery-receipt                | Przyjęcie dostawy z automatycznym przeliczeniem        | no                    | Czeka na S-02 i S-04                                |
 | S-11       | stock-correction                | Korekta stanu części z wymaganym powodem               | no                    | Czeka na S-02 i S-04                                |
 | S-12       | parts-csv-import                | Import części z CSV z podglądem stanów wynikowych      | no                    | Czeka na S-02 i S-04                                |
+| S-13       | order-partial-completion        | Częściowe zakończenie zlecenia z liczbą zbudowanych sztuk | no                 | Wymaga uzupełnienia PRD i decyzji o niezbudowanej reszcie |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 
@@ -270,7 +286,7 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 1. **Czy odświeżenie rezerwacji i listy zakupów w mniej niż 2 s musi docierać do pozostałych zalogowanych użytkowników, czy wystarczy odpowiedź serwera dla osoby, która wykonała akcję?** — Owner: user. Block: wpływa na S-04, S-05, S-07, S-10, S-11, S-12, ale nie blokuje ich planowania. `tech-stack.md` deklaruje `has_realtime: true` i mechanizm push, a §Wymagania niefunkcjonalne mówią tylko „bez ręcznego odświeżania" — te dwa zdania da się spełnić na dwa sposoby o bardzo różnym koszcie. Roadmapa celowo nie przesądza odpowiedzi i nie tworzy na to osobnego fundamentu.
 2. **Jaki format plików CSV obowiązuje po obu stronach — eksport listy zakupów (FR-016) i import kartoteki (FR-017)?** — Owner: user. Block: wpływa na S-05 i S-12, nie blokuje ich planowania. Jedna decyzja obsługuje oba kierunki; brak odpowiedzi oznacza, że każdy z tych kawałków zdefiniuje własny format i trzeba będzie je później uzgodnić.
 3. **Czy edycja BOM projektu, który ma otwarte zlecenia, przelicza ich rezerwacje, czy jest zablokowana do czasu zamknięcia zleceń?** — Owner: user. Block: wpływa na S-03 i S-04, nie blokuje ich planowania. PRD odnotowuje w FR-007, że kwestia była rozważana, ale nie rozstrzyga jej wprost.
-4. **Czy zlecenie podjęte, któremu brakuje części, może dostać jednostki zwolnione później (potwierdzenie zakończenia innego zlecenia, dostawa)?** — Owner: user. Block: wpływa na S-10, nie blokuje jej planowania. §Business Logic mówi tylko, że niepobranych rezerwacji zleceń podjętych nie można przejąć; obecny `ReservationAllocator` nie zapisuje linii podjętych zleceń wcale, więc zwolnione przy potwierdzeniu (S-08) jednostki trafiają wyłącznie do niepodjętych zleceń. Jeśli odpowiedź brzmi „tak", zmiana alokatora wymaga osobnego planu z testami współbieżności (zob. lessons.md o zawężaniu blokady alokatora). Źródło: przegląd implementacji `order-completion`, F6 (2026-10-01).
+4. ~~**Czy zlecenie podjęte, któremu brakuje części, może dostać jednostki zwolnione później (potwierdzenie zakończenia innego zlecenia, dostawa)?**~~ — **Rozstrzygnięte (2026-10-02): tak.** Zlecenie podjęte zachowuje swoje niepobrane rezerwacje, a jego pozostały brak jest nadal uzupełniany według kolejności przydziału, gdy tylko zwolnią się sztuki — z wyjątkiem okresu, w którym jego zgłoszenie zakończenia czeka na potwierdzenie. Reguła dopisana do PRD §Business Logic; wdrożenie: `context/changes/taken-order-top-up/`. Kontekst sprzed rozstrzygnięcia — Owner: user. Block: wpływa na S-10, nie blokuje jej planowania. §Business Logic mówi tylko, że niepobranych rezerwacji zleceń podjętych nie można przejąć; obecny `ReservationAllocator` nie zapisuje linii podjętych zleceń wcale, więc zwolnione przy potwierdzeniu (S-08) jednostki trafiają wyłącznie do niepodjętych zleceń. Jeśli odpowiedź brzmi „tak", zmiana alokatora wymaga osobnego planu z testami współbieżności (zob. lessons.md o zawężaniu blokady alokatora). Źródło: przegląd implementacji `order-completion`, F6 (2026-10-01).
 
 ## Parked
 

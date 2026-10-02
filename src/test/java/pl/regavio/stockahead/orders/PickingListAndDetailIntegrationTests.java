@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 
 /**
  * Covers {@code PickingController}'s Phase 4 routes: {@code GET /picking}
@@ -220,6 +221,69 @@ class PickingListAndDetailIntegrationTests {
 		mockMvc.perform(get("/picking").session(session))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString("Sensor Board")));
+	}
+
+	// ---- "Do pobrania" column ----------------------------------------------
+
+	/**
+	 * Pins the list's per-order "Do pobrania" count: the sum of the order's
+	 * live {@code reservedQuantity} (already net of picks). Every state is
+	 * reached through the real pick, report and confirm routes. Order B is a
+	 * taken, short order (needs 8, holds 4); after A is confirmed the
+	 * allocator tops B up, and its cell must rise from 3 to 7, then drop to 5
+	 * after a second real pick on the same line. Each assertion targets the
+	 * row's own {@code to-pick-<orderId>} cell, so another order's count can't
+	 * satisfy it.
+	 */
+	@Test
+	void pickingListShowsUnitsToPickPerOrderIncludingToppedUpTakenOrder() throws Exception {
+		Long partId = seedPart("To-Pick Resistor", 10);
+		Long orderA = seedOrder(seedProject("To-Pick First Board", true), 1, "HIGH", LocalDate.now().plusDays(3));
+		seedOrderLine(orderA, partId, 6, 6, 0);
+		Long lineA = lineIdOf(orderA);
+		Long orderB = seedOrder(seedProject("To-Pick Short Board", true), 1, "NORMAL",
+				LocalDate.now().plusDays(7));
+		seedOrderLine(orderB, partId, 8, 4, 0);
+		Long lineB = lineIdOf(orderB);
+		MockHttpSession manager = managerSession();
+		MockHttpSession technician = technicianSession();
+
+		pick(technician, orderA, lineA, 1);
+		pick(technician, orderB, lineB, 1);
+
+		mockMvc.perform(get("/picking").session(technician))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("<th>Do pobrania</th>")))
+			.andExpect(content().string(containsString(toPickCell(orderA, 5))))
+			.andExpect(content().string(containsString(toPickCell(orderB, 3))));
+
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderA).session(technician).with(csrf()))
+			.andExpect(status().is3xxRedirection());
+		mockMvc.perform(post("/orders/{id}/confirm-completion", orderA).session(manager).with(csrf()))
+			.andExpect(status().is3xxRedirection());
+
+		// Pool after confirm: stock 8 - B's protected 3 = 5; B is short by 8 - 1 - 3 = 4.
+		mockMvc.perform(get("/picking").session(technician))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("id=\"to-pick-" + orderA + "\""))))
+			.andExpect(content().string(containsString(toPickCell(orderB, 7))));
+
+		pick(technician, orderB, lineB, 2);
+
+		mockMvc.perform(get("/picking").session(technician))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(toPickCell(orderB, 5))));
+	}
+
+	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
+		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
+			.with(csrf())
+			.param("quantity", Integer.toString(quantity)))
+			.andExpect(status().is3xxRedirection());
+	}
+
+	private static String toPickCell(Long orderId, int count) {
+		return "<td id=\"to-pick-" + orderId + "\">" + count + "</td>";
 	}
 
 	// ---- both roles allowed -----------------------------------------------

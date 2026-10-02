@@ -1,8 +1,10 @@
 package pl.regavio.stockahead.orders;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.context.MessageSource;
@@ -92,6 +94,11 @@ public class PickingController {
 		model.addAttribute("orders", orderRepository.findByStatusWithProject(OrderStatus.OPEN).stream()
 			.sorted(ReservationAllocator.ALLOCATION_ORDER)
 			.toList());
+		Map<Long, Long> toPickByOrderId = new HashMap<>();
+		for (Object[] row : orderLineRepository.reservedQuantitiesByOpenOrder()) {
+			toPickByOrderId.put((Long) row[0], (Long) row[1]);
+		}
+		model.addAttribute("toPickByOrderId", toPickByOrderId);
 		return "picking-list";
 	}
 

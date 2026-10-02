@@ -14,6 +14,14 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Long> {
 	List<Object[]> reservedQuantitiesByPart();
 
 	/**
+	 * Units still waiting to be picked per OPEN order: {@code reservedQuantity}
+	 * is live (each pick moves units out of it), so its sum alone is what is
+	 * left to pick. Rows are {@code [orderId (Long), sum (Long)]}.
+	 */
+	@Query("SELECT ol.order.id, SUM(ol.reservedQuantity) FROM OrderLine ol WHERE ol.order.status = pl.regavio.stockahead.orders.OrderStatus.OPEN GROUP BY ol.order.id")
+	List<Object[]> reservedQuantitiesByOpenOrder();
+
+	/**
 	 * Resolves the part id for a line without hydrating the {@link Order}/
 	 * {@link OrderLine} entities into the persistence context — unlike
 	 * {@code Order.getLines()}, a scalar projection isn't cached in

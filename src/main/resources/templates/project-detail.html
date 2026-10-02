@@ -3,6 +3,11 @@
 <head>
 	<meta charset="UTF-8">
 	<title th:text="${project.name} + ' — Stockahead'">Projekt — Stockahead</title>
+	<style>
+		td, th {
+			text-align: center;
+		}
+	</style>
 </head>
 <body>
 	<p th:if="${error}" th:text="${error}"></p>
