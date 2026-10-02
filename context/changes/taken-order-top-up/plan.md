@@ -266,9 +266,9 @@ None. No schema change. Existing taken orders start receiving units on the next 
 
 #### Automated
 
-- [x] 3.1 `./mvnw -q test -Dtest=PickingListAndDetailIntegrationTests` passes, including the new test
-- [x] 3.2 `./mvnw verify` passes
+- [x] 3.1 `./mvnw -q test -Dtest=PickingListAndDetailIntegrationTests` passes, including the new test — a0feb4d
+- [x] 3.2 `./mvnw verify` passes — a0feb4d
 
 #### Manual
 
-- [x] 3.3 As technician: `/picking` shows "Do pobrania" per order, and the count rises on a waiting order after a manager confirms another order sharing its part
+- [x] 3.3 As technician: `/picking` shows "Do pobrania" per order, and the count rises on a waiting order after a manager confirms another order sharing its part — a0feb4d
