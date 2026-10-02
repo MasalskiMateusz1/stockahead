@@ -377,5 +377,5 @@ V11 only adds a table, so existing data is untouched. No backfill: there were no
 
 #### Automated
 
-- [x] 4.1 Concurrency tests pass reliably over several runs: `./mvnw test -Dtest=StockCorrectionConcurrencyTests`
-- [x] 4.2 Full suite passes: `./mvnw verify`
+- [x] 4.1 Concurrency tests pass reliably over several runs: `./mvnw test -Dtest=StockCorrectionConcurrencyTests` — 7936415
+- [x] 4.2 Full suite passes: `./mvnw verify` — 7936415
