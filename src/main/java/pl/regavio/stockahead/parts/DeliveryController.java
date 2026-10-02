@@ -144,8 +144,8 @@ public class DeliveryController {
 	 * Runs inside the receipt's transaction: locks the merged parts, checks
 	 * that every id exists and that no new stock total overflows {@code int}
 	 * (all before mutating anything), then raises stock, adds each location
-	 * the part lacks (exact, case-sensitive match, as in
-	 * {@code PartController}), flushes and reallocates. Returns a localized
+	 * the part lacks (case-insensitive, via {@link PartLocation#sameLocation}),
+	 * flushes and reallocates. Returns a localized
 	 * business error, or {@code null} once applied.
 	 */
 	private String applyReceipt(Map<Long, ReceiptLine> lines, Locale locale) {
@@ -170,7 +170,7 @@ public class DeliveryController {
 			part.setQuantity(newQuantities.get(part.getId()));
 			for (String location : lines.get(part.getId()).locations()) {
 				boolean present = part.getLocations().stream()
-					.anyMatch(existing -> existing.getLocation().equals(location));
+					.anyMatch(existing -> PartLocation.sameLocation(existing.getLocation(), location));
 				if (!present) {
 					PartLocation partLocation = new PartLocation();
 					partLocation.setLocation(location);
@@ -187,8 +187,9 @@ public class DeliveryController {
 
 	/**
 	 * Validates the raw rows in order, stopping at the first error, and merges
-	 * the valid rows per part: quantities are summed and the non-blank trimmed
-	 * locations collected into an insertion-ordered set.
+	 * the valid rows per part: quantities are summed and the non-blank
+	 * normalized locations ({@link PartLocation#normalize}) collected into an
+	 * insertion-ordered set.
 	 */
 	ReceiptValidation validate(List<RowInput> rows, Locale locale) {
 		Map<Long, ReceiptLine> merged = new LinkedHashMap<>();
@@ -225,7 +226,7 @@ public class DeliveryController {
 						new Object[] { rowNumber, MAX_QUANTITY }, locale));
 			}
 
-			String location = row.location().trim();
+			String location = PartLocation.normalize(row.location());
 			if (location.length() > MAX_LOCATION_LENGTH) {
 				return ReceiptValidation.error(messageSource.getMessage("deliveries.error.locationTooLong",
 						new Object[] { rowNumber, MAX_LOCATION_LENGTH }, locale));
@@ -298,7 +299,8 @@ public class DeliveryController {
 
 	/**
 	 * A part's merged receipt: the summed quantity of every row naming it and
-	 * the distinct non-blank locations given on those rows. At most
+	 * the distinct non-blank locations given on those rows (case-insensitive;
+	 * the first spelling typed wins). At most
 	 * {@link #MAX_ROWS} × {@link #MAX_QUANTITY} = 10^8, so the sum fits an int.
 	 */
 	static final class ReceiptLine {
@@ -309,7 +311,8 @@ public class DeliveryController {
 
 		void add(int rowQuantity, String location) {
 			quantity += rowQuantity;
-			if (!location.isEmpty()) {
+			if (!location.isEmpty()
+					&& locations.stream().noneMatch(known -> PartLocation.sameLocation(known, location))) {
 				locations.add(location);
 			}
 		}

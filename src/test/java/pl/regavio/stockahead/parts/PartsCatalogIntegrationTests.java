@@ -539,6 +539,83 @@ class PartsCatalogIntegrationTests {
 	}
 
 	@Test
+	void createWithLocationLinesDifferingOnlyByCaseFailsValidation() throws Exception {
+		seedManager();
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		mockMvc.perform(post("/parts").session(session).with(csrf())
+				.param("name", "Transistor BC557")
+				.param("quantity", "10")
+				.param("locations", "Regał A1\nregał a1"))
+			.andExpect(status().isOk());
+
+		assertThat(partRepository.findByName("Transistor BC557")).isEmpty();
+	}
+
+	@Test
+	void editChangingOnlyLocationCaseRespellsTheExistingRow() throws Exception {
+		seedManager();
+		Long partId = seedPart("Case Widget", 3, true, "regał a1", "B2");
+		Long idA = locationIdOf(partId, "regał a1");
+		Long idB = locationIdOf(partId, "B2");
+
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		mockMvc.perform(post("/parts/" + partId).session(session).with(csrf())
+				.param("name", "Case Widget")
+				.param("locations", "Regał A1\nb2"))
+			.andExpect(status().is3xxRedirection());
+
+		assertThat(locationValuesOf(partId)).containsExactlyInAnyOrder("Regał A1", "b2");
+		assertThat(locationIdOf(partId, "Regał A1")).isEqualTo(idA);
+		assertThat(locationIdOf(partId, "b2")).isEqualTo(idB);
+	}
+
+	@Test
+	void nonBreakingSpacesInLocationsAreNormalizedOnCreate() throws Exception {
+		seedManager();
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		mockMvc.perform(post("/parts").session(session).with(csrf())
+				.param("name", "Pasted Widget")
+				.param("quantity", "4")
+				.param("locations", "Regał\u00A0A1\u00A0\nB2\u202F"))
+			.andExpect(status().is3xxRedirection());
+
+		Long partId = partRepository.findByName("Pasted Widget").orElseThrow().getId();
+		assertThat(locationValuesOf(partId)).containsExactlyInAnyOrder("Regał A1", "B2");
+	}
+
+	@Test
+	void createWithLocationLinesDifferingOnlyByNonBreakingSpaceFailsValidation() throws Exception {
+		seedManager();
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		mockMvc.perform(post("/parts").session(session).with(csrf())
+				.param("name", "Pasted Duplicate")
+				.param("locations", "A1\nA1\u00A0")
+				.param("quantity", "4"))
+			.andExpect(status().isOk());
+
+		assertThat(partRepository.findByName("Pasted Duplicate")).isEmpty();
+	}
+
+	@Test
+	void editKeepsTheExactSpellingWhenLegacyRowsDifferOnlyByCase() throws Exception {
+		seedManager();
+		Long partId = seedPart("Legacy Widget", 3, true, "a1", "A1");
+		Long idUpper = locationIdOf(partId, "A1");
+
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		mockMvc.perform(post("/parts/" + partId).session(session).with(csrf())
+				.param("name", "Legacy Widget")
+				.param("locations", "A1"))
+			.andExpect(status().is3xxRedirection());
+
+		assertThat(locationValuesOf(partId)).containsExactly("A1");
+		assertThat(locationIdOf(partId, "A1")).isEqualTo(idUpper);
+	}
+
+	@Test
 	void editFromAbToBcRetainsBDeletesAAndCreatesCOnce() throws Exception {
 		seedManager();
 		Long partId = seedPart("Reshuffled Widget", 3, true, "A", "B");

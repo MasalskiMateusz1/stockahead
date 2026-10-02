@@ -281,19 +281,20 @@ public class PartController {
 	}
 
 	/**
-	 * Splits a locations textarea's raw text on newlines, trims each line,
-	 * drops blank lines, and rejects the submission if any two trimmed lines
-	 * are (case-sensitively) identical.
+	 * Splits a locations textarea's raw text on newlines, normalizes each line
+	 * ({@link PartLocation#normalize}), drops blank lines, and rejects the
+	 * submission if any two lines name the same location
+	 * ({@link PartLocation#sameLocation}).
 	 */
 	private List<String> parseLocations(String rawLocations, Locale locale) {
 		String text = rawLocations == null ? "" : rawLocations;
 		List<String> parsed = new ArrayList<>();
 		for (String rawLine : text.split("\r?\n")) {
-			String trimmed = rawLine.trim();
+			String trimmed = PartLocation.normalize(rawLine);
 			if (trimmed.isEmpty()) {
 				continue;
 			}
-			if (parsed.contains(trimmed)) {
+			if (parsed.stream().anyMatch(known -> PartLocation.sameLocation(known, trimmed))) {
 				throw new IllegalArgumentException(
 						messageSource.getMessage("parts.error.locationDuplicate", new Object[] { trimmed }, locale));
 			}
@@ -306,19 +307,43 @@ public class PartController {
 	 * Reconciles a managed part's location collection in place against a
 	 * normalized target set: retains matching rows, removes rows with no
 	 * match in the target set (orphanRemoval deletes them), and adds new
-	 * rows for target strings with no matching existing row.
+	 * rows for target strings with no matching existing row. Matching is
+	 * case-insensitive ({@link PartLocation#sameLocation}): a row matched
+	 * only by case is kept and re-spelled to the target, never deleted and
+	 * re-inserted. Exact matches are claimed first, so a legacy pair such as
+	 * "a1"/"A1" resolves without updating one row onto the other's spelling,
+	 * which would violate {@code UNIQUE (part_id, location)} before the
+	 * other row's delete is flushed.
 	 */
 	private void reconcileLocations(Part part, List<String> targetLocations) {
 		List<PartLocation> existingLocations = new ArrayList<>(part.getLocations());
+		Map<String, PartLocation> matched = new HashMap<>();
+		for (String targetLocation : targetLocations) {
+			existingLocations.stream()
+				.filter(existing -> existing.getLocation().equals(targetLocation))
+				.findFirst()
+				.ifPresent(existing -> matched.put(targetLocation, existing));
+		}
+		for (String targetLocation : targetLocations) {
+			if (matched.containsKey(targetLocation)) {
+				continue;
+			}
+			existingLocations.stream()
+				.filter(existing -> !matched.containsValue(existing)
+						&& PartLocation.sameLocation(existing.getLocation(), targetLocation))
+				.findFirst()
+				.ifPresent(existing -> {
+					existing.setLocation(targetLocation);
+					matched.put(targetLocation, existing);
+				});
+		}
 		for (PartLocation existingLocation : existingLocations) {
-			if (!targetLocations.contains(existingLocation.getLocation())) {
+			if (!matched.containsValue(existingLocation)) {
 				part.removeLocation(existingLocation);
 			}
 		}
 		for (String targetLocation : targetLocations) {
-			boolean alreadyPresent = part.getLocations().stream()
-				.anyMatch(existingLocation -> existingLocation.getLocation().equals(targetLocation));
-			if (!alreadyPresent) {
+			if (!matched.containsKey(targetLocation)) {
 				PartLocation newLocation = new PartLocation();
 				newLocation.setLocation(targetLocation);
 				part.addLocation(newLocation);

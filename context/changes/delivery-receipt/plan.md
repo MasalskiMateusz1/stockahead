@@ -47,6 +47,7 @@ A technician or manager records a delivery. A receipt has several lines, and eac
 - No supplier, price or purchase-order link. A receipt doesn't "close" shopping-list rows; the list is simply recomputed from live shortages (FR-004 Socrates resolution).
 - No negative or corrective quantities. Downward changes belong to S-11 stock-correction.
 - No narrowing of the allocator's lock scope.
+- No fix for the pre-existing lost-update race between a receipt and `PartController` edit/deactivate/reactivate. Those handlers write `Part` without a row lock or `@Version`, so they can overwrite delivered stock. This is queued as a separate change in `follow-ups/review-fixes.md` F1 (found by impl-review).
 
 ## Implementation Approach
 
@@ -92,10 +93,11 @@ Add the receipt screen and its validation. The screen supports adding rows, keep
   - A row with any field filled must have both a part and a quantity. If not, the error is `deliveries.error.rowIncomplete` with the 1-based row number.
   - `partId` must parse as a `Long`.
   - Quantity must be an integer from 1 to 1 000 000. The errors are `deliveries.error.quantityNotInteger`, `quantityNotPositive` and `quantityTooLarge`, each with the row number.
-  - The location is trimmed and at most 255 characters (`deliveries.error.locationTooLong`).
+  - The location is normalized with `PartLocation.normalize` and must be at most 255 characters (`deliveries.error.locationTooLong`). Normalizing turns non-breaking spaces (U+00A0/U+2007/U+202F) into plain spaces and then strips the ends. `trim()`/`strip()` alone would keep a trailing non-breaking space pasted from a spreadsheet, so "A1" would become a second shelf. *Addendum (plan-review F3):* `PartController.parseLocations` uses the same normalizer. `sameLocation` compares normalized values, so legacy rows that hold such spaces also match. Covered by `DeliveryIntegrationTests.locationsPastedWithNonBreakingSpacesMatchTypedOnes` and two `PartsCatalogIntegrationTests` cases.
   - At least one non-blank row is required (`deliveries.error.empty`).
 - Valid rows are merged per `partId` into a summed quantity and a set of locations, ready for Phase 2's write.
 - The dropdown source is every part ordered by name (`partRepository.search("", true)`). It is loaded only on GET and on error/addRows re-renders.
+- *Addendum (impl-review F3):* the implementation also adds location autocomplete. `PartRepository.findAllLocationNames()` is a scalar query that loads no `Part`, and it feeds a `<datalist id="known-locations">`. It is loaded at the same points as the dropdown. A partId that does not parse uses the key `deliveries.error.partInvalid`.
 
 #### 2. Receipt template
 
@@ -169,10 +171,11 @@ Wire up the valid-receipt path. Under the part locks it raises stock, adds missi
   - If an id is missing, return `deliveries.error.partNotFound`.
   - Compute the new quantity with `Math.addExact`. On overflow, return `deliveries.error.stockOverflow` with the part name.
   - Set the quantity on each locked part.
-  - For each location in the row set, add a `PartLocation` if the part doesn't already have one with an exactly equal string (case-sensitive, matching `PartController.parseLocations`).
+  - For each location in the row set, add a `PartLocation` if the part doesn't already have one that matches under `PartLocation.sameLocation`. The match ignores case, and `PartController.parseLocations` uses the same rule.
+  - *Addendum (impl-review F6):* the plan originally called for exact, case-sensitive matching. The implementation switched both controllers to the case-insensitive `PartLocation.sameLocation`. Rows of one part that differ only in case are merged, and the first spelling wins. The DB `UNIQUE (part_id, location)` stays case-sensitive as a backstop, so a race against a part edit that uses a different case is not caught by `saveFailed`. Covered by `DeliveryIntegrationTests.locationsAreMatchedIgnoringCase`.
   - Flush, then call `reservationAllocator.reallocateForParts(partIds)`.
 - Inactive parts are accepted with no active check.
-- If the transaction throws `DataIntegrityViolationException` or `PessimisticLockingFailureException`, re-render with `deliveries.error.saveFailed`. This covers, for example, a concurrent manager edit that adds the same location.
+- If the transaction throws `DataIntegrityViolationException` or `PessimisticLockingFailureException`, re-render with `deliveries.error.saveFailed`. This covers, for example, a concurrent manager edit that inserts the exact same location string first. It does not protect stock from a concurrent part edit (see What We're NOT Doing).
 - On success, redirect to `/parts` with a flash attribute `deliveryReceived`, rendered as "Przyjęto dostawę: {n} poz., {m} szt." via the message key `deliveries.received`.
 
 #### 3. Entry points and flash display

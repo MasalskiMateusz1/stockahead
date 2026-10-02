@@ -48,8 +48,8 @@
 		<datalist id="known-locations">
 			<option th:each="knownLocation : ${knownLocations}" th:value="${knownLocation}"></option>
 		</datalist>
-		<button type="submit" name="action" value="addRows">Dodaj wiersze</button>
 		<button type="submit">Przyjmij dostawę</button>
+		<button type="submit" name="action" value="addRows">Dodaj wiersze</button>
 	</form>
 
 	<p><a th:href="@{/}">Powrót do pulpitu</a></p>

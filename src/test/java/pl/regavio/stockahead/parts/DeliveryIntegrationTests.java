@@ -105,6 +105,8 @@ class DeliveryIntegrationTests {
 	}
 
 	private void cleanUp() {
+		jdbcTemplate.execute("DROP TRIGGER IF EXISTS test_delivery_location_conflict_trigger ON part_locations");
+		jdbcTemplate.execute("DROP FUNCTION IF EXISTS test_delivery_location_conflict()");
 		jdbcTemplate.update("DELETE FROM order_lines");
 		jdbcTemplate.update("DELETE FROM orders");
 		jdbcTemplate.update("DELETE FROM project_links");
@@ -634,6 +636,38 @@ class DeliveryIntegrationTests {
 	}
 
 	@Test
+	void locationsAreMatchedIgnoringCase() throws Exception {
+		MockHttpSession session = technicianSession();
+
+		receive(session,
+				"rows", "5",
+				"partId0", resistorId.toString(), "quantity0", "5", "location0", "regał a1",
+				"partId1", capacitorId.toString(), "quantity1", "1", "location1", "Regał C1",
+				"partId2", capacitorId.toString(), "quantity2", "1", "location2", "REGAŁ c1");
+
+		assertThat(stockOf(resistorId)).isEqualTo(45);
+		assertThat(stockOf(capacitorId)).isEqualTo(9);
+		assertThat(locationsOf(resistorId)).containsExactly("Regał A1");
+		assertThat(locationsOf(capacitorId)).containsExactly("Regał B2", "Regał C1");
+	}
+
+	@Test
+	void locationsPastedWithNonBreakingSpacesMatchTypedOnes() throws Exception {
+		MockHttpSession session = technicianSession();
+
+		receive(session,
+				"rows", "5",
+				"partId0", resistorId.toString(), "quantity0", "5", "location0", "Regał\u00A0A1\u00A0",
+				"partId1", capacitorId.toString(), "quantity1", "1", "location1", "Regał C1\u00A0",
+				"partId2", capacitorId.toString(), "quantity2", "1", "location2", "Regał\u202FC1");
+
+		assertThat(stockOf(resistorId)).isEqualTo(45);
+		assertThat(stockOf(capacitorId)).isEqualTo(9);
+		assertThat(locationsOf(resistorId)).containsExactly("Regał A1");
+		assertThat(locationsOf(capacitorId)).containsExactly("Regał B2", "Regał C1");
+	}
+
+	@Test
 	void technicianCanReceiveIntoAnInactivePart() throws Exception {
 		MockHttpSession session = technicianSession();
 
@@ -672,6 +706,34 @@ class DeliveryIntegrationTests {
 
 		assertThat(html).contains(inputValue("quantity0", "10"));
 		assertThat(html).contains(inputValue("location0", "Regał N1"));
+		assertThat(stockOf(resistorId)).isEqualTo(40);
+	}
+
+	/**
+	 * Stands in for a concurrent manager edit adding the same location: a
+	 * throwaway trigger makes the receipt's location insert fail with a
+	 * unique violation at flush, which must roll back the stock increments
+	 * too and re-render the form instead of surfacing a 500.
+	 */
+	@Test
+	void constraintViolationDuringWriteReRendersWithSaveFailedAndWritesNothing() throws Exception {
+		jdbcTemplate.execute("""
+				CREATE FUNCTION test_delivery_location_conflict() RETURNS trigger LANGUAGE plpgsql AS $$
+				BEGIN
+					RAISE unique_violation USING MESSAGE = 'simulated concurrent location insert';
+				END
+				$$""");
+		jdbcTemplate.execute("CREATE TRIGGER test_delivery_location_conflict_trigger BEFORE INSERT ON part_locations "
+				+ "FOR EACH ROW EXECUTE FUNCTION test_delivery_location_conflict()");
+		MockHttpSession session = technicianSession();
+
+		String html = assertRejected(session, "Nie udało się zapisać dostawy. Spróbuj ponownie.",
+				"rows", "5",
+				"partId0", capacitorId.toString(), "quantity0", "3",
+				"partId1", resistorId.toString(), "quantity1", "10", "location1", "Regał N2");
+
+		assertThat(html).contains(inputValue("location1", "Regał N2"));
+		assertThat(stockOf(capacitorId)).isEqualTo(7);
 		assertThat(stockOf(resistorId)).isEqualTo(40);
 	}
 
