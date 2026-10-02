@@ -313,6 +313,6 @@ No schema change. The existing `CHECK (quantity >= 0)` and `UNIQUE (part_id, loc
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes
-- [x] 3.2 `DeliveryConcurrencyTests` proves no lost update across two concurrent receipts on one part
-- [x] 3.3 `DeliveryConcurrencyTests` proves receipt-vs-pick and receipt-vs-order-creation keep stock ≥ 0 and reserved ≤ stock per part
+- [x] 3.1 `./mvnw verify` passes — f5944a4
+- [x] 3.2 `DeliveryConcurrencyTests` proves no lost update across two concurrent receipts on one part — f5944a4
+- [x] 3.3 `DeliveryConcurrencyTests` proves receipt-vs-pick and receipt-vs-order-creation keep stock ≥ 0 and reserved ≤ stock per part — f5944a4
