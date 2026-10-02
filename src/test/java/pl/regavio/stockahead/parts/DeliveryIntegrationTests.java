@@ -652,6 +652,47 @@ class DeliveryIntegrationTests {
 	}
 
 	@Test
+	void deliveryAddingAShelfTakesAnotherPartsSpelling() throws Exception {
+		MockHttpSession session = technicianSession();
+
+		receive(session,
+				"rows", "5",
+				"partId0", capacitorId.toString(), "quantity0", "1", "location0", "regał a1 ");
+
+		assertThat(locationsOf(capacitorId)).containsExactly("Regał A1", "Regał B2");
+		assertThat(locationsOf(resistorId)).containsExactly("Regał A1");
+	}
+
+	@Test
+	void newShelfTypedInTwoSpellingsInOneReceiptIsStoredInTheFirstTyped() throws Exception {
+		MockHttpSession session = technicianSession();
+
+		receive(session,
+				"rows", "5",
+				"partId0", capacitorId.toString(), "quantity0", "1", "location0", "n9",
+				"partId1", resistorId.toString(), "quantity1", "1", "location1", "N9");
+
+		assertThat(locationsOf(capacitorId)).containsExactlyInAnyOrder("Regał B2", "n9");
+		assertThat(locationsOf(resistorId)).containsExactlyInAnyOrder("Regał A1", "n9");
+	}
+
+	@Test
+	void datalistListsAShelfHeldByTwoPartsOnce() throws Exception {
+		MockHttpSession session = technicianSession();
+		receive(session,
+				"rows", "5",
+				"partId0", capacitorId.toString(), "quantity0", "1", "location0", "REGAŁ A1");
+
+		String html = mockMvc.perform(get("/deliveries/new").session(session))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+
+		assertThat(locationsOf(capacitorId)).containsExactly("Regał A1", "Regał B2");
+		assertThat(html).contains("<option value=\"Regał A1\"");
+		assertThat(html.toLowerCase(java.util.Locale.ROOT)).containsOnlyOnce("<option value=\"regał a1\"");
+	}
+
+	@Test
 	void locationsPastedWithNonBreakingSpacesMatchTypedOnes() throws Exception {
 		MockHttpSession session = technicianSession();
 

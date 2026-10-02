@@ -572,6 +572,79 @@ class PartsCatalogIntegrationTests {
 		assertThat(locationIdOf(partId, "b2")).isEqualTo(idB);
 	}
 
+	// ---- one spelling per shelf across parts ------------------------------
+
+	@Test
+	void createTakesAnotherPartsSpellingOfTheShelf() throws Exception {
+		seedManager();
+		seedPart("Part X", 1, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		mockMvc.perform(post("/parts").session(session).with(csrf())
+				.param("name", "Part Y")
+				.param("quantity", "2")
+				.param("locations", "a1\nB7"))
+			.andExpect(status().is3xxRedirection());
+
+		Long partY = partRepository.findByName("Part Y").orElseThrow().getId();
+		assertThat(locationValuesOf(partY)).containsExactlyInAnyOrder("A1", "B7");
+	}
+
+	@Test
+	void editAddingAShelfTakesAnotherPartsSpelling() throws Exception {
+		seedManager();
+		seedPart("Part X", 1, true, "A1");
+		Long partY = seedPart("Part Y", 2, true, "B7");
+
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		mockMvc.perform(post("/parts/" + partY).session(session).with(csrf())
+				.param("name", "Part Y")
+				.param("locations", "B7\na1"))
+			.andExpect(status().is3xxRedirection());
+
+		assertThat(locationValuesOf(partY)).containsExactlyInAnyOrder("A1", "B7");
+	}
+
+	@Test
+	void editRespellingAShelfRenamesItOnEveryPartAndKeepsTheRowId() throws Exception {
+		seedManager();
+		Long partX = seedPart("Part X", 1, true, "A1", "B7");
+		Long partY = seedPart("Part Y", 2, true, "A1");
+		Long partZ = seedPart("Part Z", 3, true, "A1", "C3");
+		Long idXA = locationIdOf(partX, "A1");
+		Long idYA = locationIdOf(partY, "A1");
+
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		mockMvc.perform(post("/parts/" + partX).session(session).with(csrf())
+				.param("name", "Part X")
+				.param("locations", "a1\nB7"))
+			.andExpect(status().is3xxRedirection());
+
+		assertThat(locationValuesOf(partX)).containsExactlyInAnyOrder("a1", "B7");
+		assertThat(locationValuesOf(partY)).containsExactly("a1");
+		assertThat(locationValuesOf(partZ)).containsExactlyInAnyOrder("a1", "C3");
+		assertThat(locationIdOf(partX, "a1")).isEqualTo(idXA);
+		assertThat(locationIdOf(partY, "a1")).isEqualTo(idYA);
+	}
+
+	@Test
+	void editKeepingAShelfsExactSpellingLeavesOtherPartsAlone() throws Exception {
+		seedManager();
+		Long partX = seedPart("Part X", 1, true, "A1");
+		Long partY = seedPart("Part Y", 2, true, "B7");
+		// Legacy split spelling on another part must not be touched by a no-op edit.
+		jdbcTemplate.update("UPDATE part_locations SET location = 'b7' WHERE part_id = ?", partY);
+
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		mockMvc.perform(post("/parts/" + partX).session(session).with(csrf())
+				.param("name", "Part X")
+				.param("locations", "A1"))
+			.andExpect(status().is3xxRedirection());
+
+		assertThat(locationValuesOf(partX)).containsExactly("A1");
+		assertThat(locationValuesOf(partY)).containsExactly("b7");
+	}
+
 	@Test
 	void nonBreakingSpacesInLocationsAreNormalizedOnCreate() throws Exception {
 		seedManager();

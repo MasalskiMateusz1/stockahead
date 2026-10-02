@@ -164,9 +164,10 @@ public class PartController {
 				part.setQuantity(parsedQuantity);
 				part.setActive(true);
 				part.setCreatedAt(Instant.now());
+				LocationSpellings spellings = new LocationSpellings(partRepository);
 				for (String location : parsedLocations) {
 					PartLocation partLocation = new PartLocation();
-					partLocation.setLocation(location);
+					partLocation.setLocation(spellings.resolve(location));
 					part.addLocation(partLocation);
 				}
 				partRepository.saveAndFlush(part);
@@ -247,8 +248,13 @@ public class PartController {
 				Part part = partRepository.findById(id)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				part.setName(trimmedName);
-				reconcileLocations(part, parsedLocations);
+				List<String> respelled = reconcileLocations(part, parsedLocations);
+				// Flush this part's own rows first: the bulk update below bypasses
+				// the persistence context and must never touch them.
 				partRepository.saveAndFlush(part);
+				for (String spelling : respelled) {
+					partRepository.respellOnOtherParts(spelling, part.getId());
+				}
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
@@ -316,18 +322,34 @@ public class PartController {
 	 * re-inserted. The {@code (part_id, lower(location))} index means a part
 	 * holds at most one row per shelf, so each target matches at most one
 	 * existing row.
+	 * <p>
+	 * New rows take the shelf's existing spelling from any other part
+	 * ({@link LocationSpellings}), resolved before the collection is touched.
+	 * Returns the typed spellings of rows that changed only by case; the
+	 * caller re-spells those shelves on every other part after flushing.
 	 */
-	private void reconcileLocations(Part part, List<String> targetLocations) {
+	private List<String> reconcileLocations(Part part, List<String> targetLocations) {
 		List<PartLocation> existingLocations = new ArrayList<>(part.getLocations());
 		Map<String, PartLocation> matched = new HashMap<>();
+		List<String> respelled = new ArrayList<>();
 		for (String targetLocation : targetLocations) {
 			existingLocations.stream()
 				.filter(existing -> PartLocation.sameLocation(existing.getLocation(), targetLocation))
 				.findFirst()
 				.ifPresent(existing -> {
-					existing.setLocation(targetLocation);
+					if (!existing.getLocation().equals(targetLocation)) {
+						existing.setLocation(targetLocation);
+						respelled.add(targetLocation);
+					}
 					matched.put(targetLocation, existing);
 				});
+		}
+		LocationSpellings spellings = new LocationSpellings(partRepository);
+		Map<String, String> addedSpellings = new HashMap<>();
+		for (String targetLocation : targetLocations) {
+			if (!matched.containsKey(targetLocation)) {
+				addedSpellings.put(targetLocation, spellings.resolve(targetLocation));
+			}
 		}
 		for (PartLocation existingLocation : existingLocations) {
 			if (!matched.containsValue(existingLocation)) {
@@ -337,10 +359,11 @@ public class PartController {
 		for (String targetLocation : targetLocations) {
 			if (!matched.containsKey(targetLocation)) {
 				PartLocation newLocation = new PartLocation();
-				newLocation.setLocation(targetLocation);
+				newLocation.setLocation(addedSpellings.get(targetLocation));
 				part.addLocation(newLocation);
 			}
 		}
+		return respelled;
 	}
 
 	/**

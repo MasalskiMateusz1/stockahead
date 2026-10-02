@@ -144,7 +144,8 @@ public class DeliveryController {
 	 * Runs inside the receipt's transaction: locks the merged parts, checks
 	 * that every id exists and that no new stock total overflows {@code int}
 	 * (all before mutating anything), then raises stock, adds each location
-	 * the part lacks (case-insensitive, via {@link PartLocation#sameLocation}),
+	 * the part lacks (case-insensitive, via {@link PartLocation#sameLocation})
+	 * in the shelf's existing spelling ({@link LocationSpellings}),
 	 * flushes and reallocates. Returns a localized
 	 * business error, or {@code null} once applied.
 	 */
@@ -166,6 +167,17 @@ public class DeliveryController {
 			}
 		}
 
+		// Resolve every location to its shelf's spelling in receipt order, before
+		// mutating anything: the first spelling typed for a shelf new to the
+		// database wins across parts, not the first by part id.
+		LocationSpellings spellings = new LocationSpellings(partRepository);
+		Map<String, String> resolvedSpellings = new HashMap<>();
+		for (ReceiptLine line : lines.values()) {
+			for (String location : line.locations()) {
+				resolvedSpellings.computeIfAbsent(location, spellings::resolve);
+			}
+		}
+
 		for (Part part : lockedParts) {
 			part.setQuantity(newQuantities.get(part.getId()));
 			for (String location : lines.get(part.getId()).locations()) {
@@ -173,7 +185,7 @@ public class DeliveryController {
 					.anyMatch(existing -> PartLocation.sameLocation(existing.getLocation(), location));
 				if (!present) {
 					PartLocation partLocation = new PartLocation();
-					partLocation.setLocation(location);
+					partLocation.setLocation(resolvedSpellings.get(location));
 					part.addLocation(partLocation);
 				}
 			}

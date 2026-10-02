@@ -402,23 +402,23 @@ plant's scale. The respell bulk update runs only on a case-only edit.
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 `V10MigrationTests` covers cross-part unification, per-part dedupe keeping the lowest id, and index rejection of a case duplicate
-- [x] 2.3 A delivery or part-create test proves `A1​` / `﻿A1` match an existing `A1`
-- [x] 2.4 A trigger-simulated location-index violation on part edit re-renders with `parts.error.locationConflict`
+- [x] 2.1 `./mvnw verify` passes — 7c456ef
+- [x] 2.2 `V10MigrationTests` covers cross-part unification, per-part dedupe keeping the lowest id, and index rejection of a case duplicate — 7c456ef
+- [x] 2.3 A delivery or part-create test proves `A1​` / `﻿A1` match an existing `A1` — 7c456ef
+- [x] 2.4 A trigger-simulated location-index violation on part edit re-renders with `parts.error.locationConflict` — 7c456ef
 
 #### Manual
 
-- [x] 2.5 In `./mvnw spring-boot:test-run`, editing a part that has `A1` and pasting `a1` from a spreadsheet cell (trailing space/NBSP) in its place leaves exactly one location row for that part
+- [x] 2.5 In `./mvnw spring-boot:test-run`, editing a part that has `A1` and pasting `a1` from a spreadsheet cell (trailing space/NBSP) in its place leaves exactly one location row for that part — 7c456ef
 
 ### Phase 3: One spelling per shelf across parts
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes
-- [ ] 3.2 Tests prove create, edit-add and delivery store an existing shelf's spelling from another part
-- [ ] 3.3 A test proves a brand-new shelf typed in two spellings within one receipt is stored once, in the first-typed spelling
-- [ ] 3.4 A test proves a case-only respell on edit updates the shelf on all other parts and keeps the edited row's id
+- [x] 3.1 `./mvnw verify` passes
+- [x] 3.2 Tests prove create, edit-add and delivery store an existing shelf's spelling from another part
+- [x] 3.3 A test proves a brand-new shelf typed in two spellings within one receipt is stored once, in the first-typed spelling
+- [x] 3.4 A test proves a case-only respell on edit updates the shelf on all other parts and keeps the edited row's id
 
 #### Manual
 

@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -31,6 +32,27 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	/** Every distinct location in use across all parts, as plain strings (no {@link Part} hydrated). */
 	@Query("SELECT DISTINCT l.location FROM PartLocation l ORDER BY l.location")
 	List<String> findAllLocationNames();
+
+	/**
+	 * Every stored spelling of the shelf {@code location} names, matched
+	 * case-insensitively, oldest row first. The first element is the shelf's
+	 * canonical spelling; see {@link LocationSpellings}.
+	 */
+	@Query("SELECT l.location FROM PartLocation l WHERE LOWER(l.location) = LOWER(:location) ORDER BY l.id")
+	List<String> findSpellingsOf(@Param("location") String location);
+
+	/**
+	 * Re-spells the shelf {@code spelling} names (matched case-insensitively)
+	 * on every part except {@code partId}. A bulk update that bypasses the
+	 * persistence context: flush the edited part's own row first and never
+	 * include it here, or its managed entity would go stale.
+	 */
+	@Modifying
+	@Query("""
+		UPDATE PartLocation l SET l.location = :spelling
+		WHERE LOWER(l.location) = LOWER(:spelling) AND l.location <> :spelling AND l.part.id <> :partId
+		""")
+	int respellOnOtherParts(@Param("spelling") String spelling, @Param("partId") Long partId);
 
 	@Query("SELECT DISTINCT p FROM Part p LEFT JOIN FETCH p.locations WHERE p.id IN :ids")
 	List<Part> findWithLocationsByIdIn(@Param("ids") Collection<Long> ids);
