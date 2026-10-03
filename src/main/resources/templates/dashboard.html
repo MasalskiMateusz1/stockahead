@@ -1,29 +1,53 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head>
+<head th:replace="~{fragments :: head('Pulpit')}">
 	<meta charset="UTF-8">
 	<title>Pulpit — Stockahead</title>
 </head>
 <body>
-	<h1>Pulpit</h1>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<p>Zalogowano jako <span th:text="${email}"></span> (<span th:text="${role}"></span>)</p>
+	<main class="container">
+		<h1>Pulpit</h1>
 
-	<p><a th:href="@{/parts}">Kartoteka części</a></p>
-	<p sec:authorize="hasRole('MANAGER')"><a th:href="@{/parts/import}">Importuj części z CSV</a></p>
-	<p><a th:href="@{/deliveries/new}">Przyjmij dostawę</a></p>
-	<p><a th:href="@{/projects}">Projekty</a></p>
-	<p sec:authorize="hasRole('MANAGER')"><a th:href="@{/orders}">Zlecenia</a></p>
-	<p><a th:href="@{/picking}">Lista kompletacyjna</a></p>
-	<p sec:authorize="hasRole('MANAGER')"><a th:href="@{/purchasing}">Lista zakupów</a></p>
-
-	<div sec:authorize="hasRole('MANAGER')">
-		<a th:href="@{/manager/ping}">Sprawdź dostęp kierownika</a>
-		<a th:href="@{/manager/technicians}">Konta techników</a>
-	</div>
-
-	<form th:action="@{/logout}" method="post">
-		<button type="submit">Wyloguj</button>
-	</form>
+		<div class="tiles">
+			<a th:href="@{/parts}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('parts')}"></svg></span>
+				<span>Kartoteka części</span>
+			</a>
+			<a sec:authorize="hasRole('MANAGER')" th:href="@{/parts/import}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('import')}"></svg></span>
+				<span>Importuj części z CSV</span>
+			</a>
+			<a th:href="@{/deliveries/new}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('deliveries')}"></svg></span>
+				<span>Przyjmij dostawę</span>
+			</a>
+			<a th:href="@{/projects}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('projects')}"></svg></span>
+				<span>Projekty</span>
+			</a>
+			<a sec:authorize="hasRole('MANAGER')" th:href="@{/orders}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('orders')}"></svg></span>
+				<span>Zlecenia</span>
+			</a>
+			<a th:href="@{/picking}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('picking')}"></svg></span>
+				<span>Lista kompletacyjna</span>
+			</a>
+			<a sec:authorize="hasRole('MANAGER')" th:href="@{/purchasing}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('purchasing')}"></svg></span>
+				<span>Lista zakupów</span>
+			</a>
+			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/technicians}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('technicians')}"></svg></span>
+				<span>Konta techników</span>
+			</a>
+			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/ping}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('access')}"></svg></span>
+				<span>Sprawdź dostęp kierownika</span>
+			</a>
+		</div>
+	</main>
 </body>
 </html>

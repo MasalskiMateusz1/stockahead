@@ -1,0 +1,617 @@
+/*
+ * Stockahead design system: the single stylesheet for every template.
+ *
+ * Base tokens come from the shadcn/ui default theme (base colour "Neutral", oklch),
+ * https://ui.shadcn.com/docs/theming, fetched 2026-10-03. --popover*, --chart-* and
+ * --sidebar-* are skipped because nothing in the app uses them.
+ *
+ * Own tokens (status colours, --destructive-foreground) use hues near Tailwind
+ * red/green/amber/blue. Contrast ratios in the comments are WCAG 2.x, computed from
+ * the oklch values converted to sRGB. Every text/background pair is >= 4.5:1.
+ *
+ * Theme selection:
+ *   :root                                              light (default)
+ *   @media (prefers-color-scheme: dark) :root:not([data-theme="light"])   dark, follows OS
+ *   :root[data-theme="dark"]                           dark, forced by the toggle
+ * Colours are used only through var(--…).
+ */
+
+:root {
+	color-scheme: light;
+	--radius: 0.625rem;
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.145 0 0);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.145 0 0);
+	--primary: oklch(0.205 0 0);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.97 0 0);
+	--secondary-foreground: oklch(0.205 0 0);
+	--muted: oklch(0.97 0 0);
+	--muted-foreground: oklch(0.556 0 0); /* 4.73:1 on --background */
+	--accent: oklch(0.97 0 0);
+	--accent-foreground: oklch(0.205 0 0);
+	--destructive: oklch(0.577 0.245 27.325); /* 4.76:1 as text on --background */
+	--destructive-foreground: oklch(0.985 0 0); /* 4.56:1 on --destructive */
+	--success: oklch(0.527 0.154 150.069); /* Tailwind green-700 */
+	--success-foreground: oklch(0.985 0 0); /* 4.73:1 on --success */
+	--warning: oklch(0.769 0.188 70.08); /* Tailwind amber-500 */
+	--warning-foreground: oklch(0.205 0 0); /* 8.35:1 on --warning */
+	--info: oklch(0.488 0.243 264.376); /* Tailwind blue-700; 6.82:1 as text on --background */
+	--border: oklch(0.922 0 0);
+	--input: oklch(0.922 0 0);
+	--ring: oklch(0.708 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+		--radius: 0.625rem;
+		--background: oklch(0.145 0 0);
+		--foreground: oklch(0.985 0 0);
+		--card: oklch(0.205 0 0);
+		--card-foreground: oklch(0.985 0 0);
+		--primary: oklch(0.922 0 0);
+		--primary-foreground: oklch(0.205 0 0);
+		--secondary: oklch(0.269 0 0);
+		--secondary-foreground: oklch(0.985 0 0);
+		--muted: oklch(0.269 0 0);
+		--muted-foreground: oklch(0.708 0 0); /* 7.63:1 on --background */
+		--accent: oklch(0.269 0 0);
+		--accent-foreground: oklch(0.985 0 0);
+		--destructive: oklch(0.704 0.191 22.216); /* 6.84:1 as text on --background */
+		--destructive-foreground: oklch(0.145 0 0); /* 6.84:1 on --destructive */
+		--success: oklch(0.792 0.209 151.711); /* Tailwind green-400 */
+		--success-foreground: oklch(0.145 0 0); /* 11.15:1 on --success */
+		--warning: oklch(0.828 0.189 84.429); /* Tailwind amber-400 */
+		--warning-foreground: oklch(0.145 0 0); /* 11.53:1 on --warning */
+		--info: oklch(0.707 0.165 254.624); /* Tailwind blue-400; 7.51:1 on --background, 6.79:1 on --card */
+		--border: oklch(1 0 0 / 10%);
+		--input: oklch(1 0 0 / 15%);
+		--ring: oklch(0.556 0 0);
+	}
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--radius: 0.625rem;
+	--background: oklch(0.145 0 0);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.205 0 0);
+	--card-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.922 0 0);
+	--primary-foreground: oklch(0.205 0 0);
+	--secondary: oklch(0.269 0 0);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.269 0 0);
+	--muted-foreground: oklch(0.708 0 0); /* 7.63:1 on --background */
+	--accent: oklch(0.269 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.704 0.191 22.216); /* 6.84:1 as text on --background */
+	--destructive-foreground: oklch(0.145 0 0); /* 6.84:1 on --destructive */
+	--success: oklch(0.792 0.209 151.711); /* Tailwind green-400 */
+	--success-foreground: oklch(0.145 0 0); /* 11.15:1 on --success */
+	--warning: oklch(0.828 0.189 84.429); /* Tailwind amber-400 */
+	--warning-foreground: oklch(0.145 0 0); /* 11.53:1 on --warning */
+	--info: oklch(0.707 0.165 254.624); /* Tailwind blue-400; 7.51:1 on --background, 6.79:1 on --card */
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.556 0 0);
+}
+
+/* ---------- Base elements ---------- */
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+/* Keep [hidden] effective even on elements whose class sets a display value (e.g. buttons). */
+[hidden] {
+	display: none !important;
+}
+
+body {
+	margin: 0;
+	background: var(--background);
+	color: var(--foreground);
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	font-size: 1rem;
+	line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+	line-height: 1.25;
+	margin: 1.5rem 0 0.75rem;
+}
+
+h1 {
+	font-size: 1.75rem;
+	font-weight: 700;
+	margin-top: 0;
+}
+
+h2 {
+	font-size: 1.3rem;
+	font-weight: 600;
+}
+
+h3 {
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+p {
+	margin: 0 0 0.75rem;
+}
+
+a {
+	color: var(--foreground);
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
+	text-decoration-color: var(--muted-foreground);
+}
+
+a:hover {
+	text-decoration-color: var(--foreground);
+}
+
+small,
+.hint {
+	color: var(--muted-foreground);
+	font-size: 0.875rem;
+}
+
+/* Visible focus ring on everything focusable. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.btn:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+/* ---------- Tables ---------- */
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 0 0 1rem;
+	background: var(--card);
+	color: var(--card-foreground);
+}
+
+/* Restates the old per-template rule: table cell content is centered. */
+td,
+th {
+	text-align: center;
+}
+
+th,
+td {
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--border);
+	vertical-align: middle;
+}
+
+th {
+	background: var(--muted);
+	color: var(--foreground);
+	font-weight: 600;
+	font-size: 0.875rem;
+}
+
+tbody tr:hover {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+
+.table-wrap {
+	width: 100%;
+	overflow-x: auto;
+	margin: 0 0 1rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+}
+
+.table-wrap > table {
+	margin: 0;
+}
+
+.table-wrap > table tr:last-child > td {
+	border-bottom: 0;
+}
+
+/* Inline row actions: forms and buttons on one line inside a cell. */
+.actions {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 0.375rem;
+	align-items: center;
+	justify-content: center;
+}
+
+.actions form {
+	display: inline;
+	margin: 0;
+}
+
+/* ---------- Forms ---------- */
+
+form {
+	margin: 0 0 1rem;
+}
+
+label {
+	font-weight: 500;
+	font-size: 0.9rem;
+}
+
+input,
+select,
+textarea {
+	font: inherit;
+	color: var(--foreground);
+	background: var(--background);
+	border: 1px solid var(--input);
+	border-radius: calc(var(--radius) - 2px);
+	padding: 0.45rem 0.65rem;
+	max-width: 100%;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+	padding: 0;
+	accent-color: var(--primary);
+}
+
+input[type="file"] {
+	padding: 0.35rem;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+	border-color: var(--ring);
+}
+
+.form-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	margin: 0 0 1rem;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+	width: 100%;
+}
+
+/* ---------- Buttons ---------- */
+
+button,
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.375rem;
+	font: inherit;
+	font-size: 0.9rem;
+	font-weight: 500;
+	line-height: 1.25;
+	padding: 0.5rem 0.9rem;
+	border: 1px solid var(--primary);
+	border-radius: calc(var(--radius) - 2px);
+	background: var(--primary);
+	color: var(--primary-foreground);
+	text-decoration: none;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+button:hover,
+.btn:hover {
+	background: color-mix(in oklch, var(--primary) 88%, var(--background));
+	color: var(--primary-foreground);
+}
+
+.btn-secondary {
+	background: var(--secondary);
+	color: var(--secondary-foreground);
+	border-color: var(--border);
+}
+
+.btn-secondary:hover {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+
+.btn-danger {
+	background: var(--destructive);
+	color: var(--destructive-foreground);
+	border-color: var(--destructive);
+}
+
+.btn-danger:hover {
+	background: color-mix(in oklch, var(--destructive) 88%, var(--foreground));
+	color: var(--destructive-foreground);
+}
+
+/* ---------- Layout ---------- */
+
+.topbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 1.25rem;
+	padding: 0.65rem 1rem;
+	background: var(--card);
+	color: var(--card-foreground);
+	border-bottom: 1px solid var(--border);
+}
+
+.topbar .brand {
+	font-weight: 700;
+	font-size: 1.1rem;
+	text-decoration: none;
+}
+
+.topbar nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 1rem;
+	flex: 1 1 auto;
+}
+
+.topbar nav a {
+	text-decoration: none;
+	color: var(--muted-foreground);
+	font-size: 0.9rem;
+	padding: 0.2rem 0;
+}
+
+.topbar nav a:hover {
+	color: var(--foreground);
+}
+
+.topbar .session {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	font-size: 0.875rem;
+	color: var(--muted-foreground);
+}
+
+.topbar .session form {
+	margin: 0;
+}
+
+/* Square icon-only button: fixed size so switching icons never reflows the bar. */
+.btn-icon {
+	width: 2.25rem;
+	height: 2.25rem;
+	padding: 0;
+	justify-content: center;
+}
+
+/* Outline icons (dashboard section icons and the theme toggle) draw in the current text colour. */
+.icon,
+.btn-icon svg {
+	width: 1.15rem;
+	height: 1.15rem;
+	flex: none;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+/* Theme toggle shows only the icon for the current mode. */
+[data-theme-toggle] svg {
+	display: none;
+}
+
+[data-theme-toggle][data-mode="auto"] .icon-auto,
+[data-theme-toggle][data-mode="light"] .icon-light,
+[data-theme-toggle][data-mode="dark"] .icon-dark {
+	display: block;
+}
+
+.container {
+	max-width: 72rem;
+	margin: 0 auto;
+	padding: 1.5rem 1rem 3rem;
+}
+
+.card {
+	background: var(--card);
+	color: var(--card-foreground);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	padding: 1.5rem;
+}
+
+.auth-page {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+}
+
+.auth-page .card {
+	width: 100%;
+	max-width: 26rem;
+}
+
+.auth-page .card button {
+	width: 100%;
+}
+
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+	gap: 0.75rem;
+	margin: 0 0 1.5rem;
+}
+
+.tiles a {
+	display: flex;
+	align-items: center;
+	gap: 0.85rem;
+	padding: 1rem 1.1rem;
+	background: var(--card);
+	color: var(--card-foreground);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	text-decoration: none;
+	font-weight: 500;
+}
+
+.tiles a:hover {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+
+/* Icon chip at the start of each dashboard tile. */
+.tile-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: calc(var(--radius) - 2px);
+	background: var(--muted);
+	color: var(--foreground);
+}
+
+.tiles a:hover .tile-icon {
+	background: var(--background);
+}
+
+.tile-icon .icon {
+	width: 1.35rem;
+	height: 1.35rem;
+}
+
+/* ---------- Messages ---------- */
+
+/* shadcn-style alert: card surface, thin border; status shown by text and border colour only. */
+.alert {
+	padding: 0.75rem 1rem;
+	margin: 0 0 1rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--card);
+	color: var(--card-foreground);
+	font-size: 0.875rem;
+	line-height: 1.45;
+}
+
+.alert-error {
+	color: var(--destructive); /* on --card: 4.76:1 light, 6.19:1 dark */
+	border-color: color-mix(in oklch, var(--destructive) 40%, var(--border));
+}
+
+.alert-success {
+	color: var(--success); /* on --card: 4.94:1 light, 10.09:1 dark */
+	border-color: color-mix(in oklch, var(--success) 40%, var(--border));
+}
+
+/* Neutral notice: muted surface, regular text (18.15:1 light, 14.48:1 dark). */
+.alert-info {
+	background: var(--muted);
+	color: var(--foreground);
+}
+
+/* ---------- Data display ---------- */
+
+.badge {
+	display: inline-block;
+	padding: 0.1rem 0.55rem;
+	border-radius: 999px;
+	border: 1px solid transparent;
+	font-size: 0.78rem;
+	font-weight: 600;
+	line-height: 1.5;
+	white-space: nowrap;
+	background: var(--secondary);
+	color: var(--secondary-foreground);
+}
+
+.badge-high {
+	background: var(--destructive);
+	color: var(--destructive-foreground);
+}
+
+.badge-normal {
+	background: var(--warning);
+	color: var(--warning-foreground);
+}
+
+/* --foreground on --muted: 18.15:1 light, 14.48:1 dark (--muted-foreground would be 4.34:1 in light). */
+.badge-low,
+.badge-muted {
+	background: var(--muted);
+	color: var(--foreground);
+	border-color: var(--border);
+}
+
+.stats {
+	display: grid;
+	grid-template-columns: max-content auto;
+	gap: 0.35rem 1.25rem;
+	margin: 0 0 1rem;
+}
+
+.stats dt {
+	color: var(--muted-foreground);
+	font-size: 0.9rem;
+}
+
+.stats dd {
+	margin: 0;
+	font-weight: 600;
+}
+
+.empty {
+	padding: 1.25rem;
+	margin: 0 0 1rem;
+	text-align: center;
+	color: var(--muted-foreground);
+	border: 1px dashed var(--border);
+	border-radius: var(--radius);
+}
+
+/* ---------- Narrow screens (tablet ~768px and below) ---------- */
+
+@media (max-width: 48rem) {
+	.container {
+		padding: 1rem 0.75rem 2rem;
+	}
+
+	h1 {
+		font-size: 1.5rem;
+	}
+
+	.topbar {
+		padding: 0.6rem 0.75rem;
+	}
+
+	.card {
+		padding: 1.1rem;
+	}
+}

@@ -1,27 +1,31 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Logowanie')}">
 	<meta charset="UTF-8">
 	<title>Logowanie — Stockahead</title>
 </head>
 <body>
-	<h1>Zaloguj się</h1>
+	<main class="auth-page">
+		<div class="card">
+			<h1>Zaloguj się</h1>
 
-	<p th:if="${param.error}" th:text="#{login.error.badCredentials}"></p>
-	<p th:if="${param.logout}" th:text="#{login.status.loggedOut}"></p>
-	<p th:if="${param.setup}" th:text="#{login.status.managerCreated}"></p>
-	<p th:if="${param.deactivated}" th:text="#{login.status.deactivated}"></p>
+			<p th:if="${param.error}" class="alert alert-error" role="alert" th:text="#{login.error.badCredentials}"></p>
+			<p th:if="${param.logout}" class="alert alert-info" role="status" th:text="#{login.status.loggedOut}"></p>
+			<p th:if="${param.setup}" class="alert alert-success" role="status" th:text="#{login.status.managerCreated}"></p>
+			<p th:if="${param.deactivated}" class="alert alert-error" role="alert" th:text="#{login.status.deactivated}"></p>
 
-	<form th:action="@{/login}" method="post">
-		<div>
-			<label for="username">E-mail</label>
-			<input type="email" id="username" name="username" required>
+			<form th:action="@{/login}" method="post">
+				<div class="form-field">
+					<label for="username">E-mail</label>
+					<input type="email" id="username" name="username" required>
+				</div>
+				<div class="form-field">
+					<label for="password">Hasło</label>
+					<input type="password" id="password" name="password" required>
+				</div>
+				<button type="submit" class="btn">Zaloguj</button>
+			</form>
 		</div>
-		<div>
-			<label for="password">Hasło</label>
-			<input type="password" id="password" name="password" required>
-		</div>
-		<button type="submit">Zaloguj</button>
-	</form>
+	</main>
 </body>
 </html>
