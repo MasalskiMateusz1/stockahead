@@ -40,7 +40,7 @@
 	--info: oklch(0.488 0.243 264.376); /* Tailwind blue-700; 6.82:1 as text on --background */
 	--border: oklch(0.922 0 0);
 	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
+	--ring: oklch(0.556 0 0); /* 4.73:1 on --background (WCAG 1.4.11 needs >= 3:1); darker than shadcn's 0.708 */
 }
 
 @media (prefers-color-scheme: dark) {

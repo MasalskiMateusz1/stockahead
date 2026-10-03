@@ -162,7 +162,7 @@ class TechnicianAccountIntegrationTests {
 
 		mockMvc.perform(get("/manager/technicians").session(managerSession))
 			.andExpect(status().isOk())
-			.andExpect(content().string(containsString(TECHNICIAN_EMAIL)))
+			.andExpect(content().string(containsString("<td>" + TECHNICIAN_EMAIL + "</td>")))
 			.andExpect(content().string(containsString("inactive@technician-phase2.example")))
 			.andExpect(content().string(containsString("Dezaktywuj")))
 			.andExpect(content().string(containsString("Reaktywuj")))

@@ -10,9 +10,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.HomeController;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -48,11 +53,18 @@ class StaticResourceAccessTests {
 	}
 
 	@Test
-	void loginPageReferencesStylesheetAndThemeScript() throws Exception {
-		mockMvc.perform(get("/login"))
+	void loginPageReferencesContentHashedStylesheetAndThemeScript() throws Exception {
+		String html = mockMvc.perform(get("/login"))
 			.andExpect(status().isOk())
-			.andExpect(content().string(containsString("/css/app")))
-			.andExpect(content().string(containsString("/js/theme")));
+			.andReturn().getResponse().getContentAsString();
+
+		Matcher stylesheet = Pattern.compile("/css/app-[0-9a-f]{32}\\.css").matcher(html);
+		assertThat(stylesheet.find()).as("hashed stylesheet URL on login page").isTrue();
+		assertThat(html).containsPattern("/js/theme-[0-9a-f]{32}\\.js");
+
+		mockMvc.perform(get(stylesheet.group()))
+			.andExpect(status().isOk())
+			.andExpect(header().string("Cache-Control", containsString("max-age=31536000")));
 	}
 
 }

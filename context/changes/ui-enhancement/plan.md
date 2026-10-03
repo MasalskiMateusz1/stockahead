@@ -339,6 +339,16 @@ No data or schema changes. Rollback is a plain revert of the change's commits.
 - Security chain: `src/main/java/pl/regavio/stockahead/security/SecurityConfig.java:24-33`
 - Rule being replaced: `context/foundation/lessons.md` § "Center cell content in every table template"
 
+## Addendum: implementation deviations (recorded at impl-review, 2026-10-03)
+
+These choices diverge from the contracts above. They are accepted as built (see `reviews/impl-review.md` F3/F7):
+
+- **Theme toggle is icon-only.** Three SVGs are switched by `data-mode`. The "Motyw: Auto/Jasny/Ciemny" text lives in `aria-label` and `title`, not in the button text, so the topbar width stays stable.
+- **Role label is localized in the topbar.** It shows hard-coded "Kierownik"/"Technik" via `sec:authorize` instead of the raw `MANAGER`/`TECHNICIAN` value. The "Zalogowano jako" prefix was dropped, and `HomeController` no longer puts `email`/`role` into the model.
+- **`icon(name)` fragment** (Lucide outlines) was added to `fragments.html` for the dashboard tiles.
+- **`.summary` instead of `.stats`** on `parts-correction` and `parts-import-preview`. Tests match the inline `Stan: <strong>…</strong>` / `Nowe części: <strong>…</strong>` markup, so per "Test-matched markup" it stays inline.
+- **Existing test edits.** Four `contains("td, th")` assertions tested the removed inline `<style>` and were deleted. `TechnicianAccountIntegrationTests` scopes its manager-email checks to `<td>…</td>`, because the topbar now shows the signed-in email.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
