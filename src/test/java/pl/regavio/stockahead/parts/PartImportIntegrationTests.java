@@ -5,8 +5,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,6 +25,8 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -29,6 +34,7 @@ import pl.regavio.stockahead.TestcontainersConfiguration;
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.Role;
+import pl.regavio.stockahead.orders.Priority;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -39,6 +45,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
@@ -52,9 +59,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * after, missing locations, new and inactive parts, case- and
  * whitespace-insensitive name matching done in Java, the catalog-dependent
  * errors (ambiguous name, new part without a location), the pending import
- * kept in the session and the manager-only cancel. Nothing in this phase
- * writes, so the catalog is asserted unchanged. Against a real Postgres via
- * Testcontainers, deliberately not {@code @Transactional}.
+ * kept in the session and the manager-only cancel; the preview writes
+ * nothing, so the catalog is asserted unchanged. Then accepting: stock and
+ * missing locations written in the shelf's spelling, new parts created,
+ * inactive parts left inactive, reservations recomputed (visible on
+ * {@code /purchasing} and {@code /parts}), the refreshed preview when stock
+ * or the catalog changed since the preview, the expired-preview handling of
+ * a missing, wrong or reused token, the manager-only confirm and the
+ * manager-only links. Against a real Postgres via Testcontainers,
+ * deliberately not {@code @Transactional}.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -173,6 +186,59 @@ class PartImportIntegrationTests {
 			}
 			return id;
 		});
+	}
+
+	private List<String> locationsOf(Long partId) {
+		return jdbcTemplate.queryForList("SELECT location FROM part_locations WHERE part_id = ? ORDER BY id",
+				String.class, partId);
+	}
+
+	private Long partIdByName(String name) {
+		return jdbcTemplate.queryForObject("SELECT id FROM parts WHERE name = ?", Long.class, name);
+	}
+
+	private Long seedProject(String name) {
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, name));
+	}
+
+	private Long seedOrder(Long projectId, Priority priority, LocalDate requiredDate, Instant createdAt) {
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
+				Long.class, projectId, priority.name(), requiredDate, Timestamp.from(createdAt)));
+	}
+
+	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, ?) RETURNING id",
+				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
+	}
+
+	private int reservedOf(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT reserved_quantity FROM order_lines WHERE id = ?", Integer.class,
+				lineId);
+	}
+
+	private ResultActions confirm(MockHttpSession session, String token) throws Exception {
+		return mockMvc.perform(post("/parts/import/confirm").session(session)
+			.with(csrf())
+			.param("token", token));
+	}
+
+	/** Confirms the session's pending import and expects the redirect to {@code /parts}. */
+	private MvcResult confirmPending(MockHttpSession session) throws Exception {
+		return confirm(session, pendingOf(session).token()).andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/parts"))
+			.andReturn();
+	}
+
+	/** Confirms the session's pending import and expects a refreshed preview instead of a write. */
+	private String confirmExpectingPreview(MockHttpSession session) throws Exception {
+		return confirm(session, pendingOf(session).token()).andExpect(status().isOk())
+			.andExpect(view().name("parts-import-preview"))
+			.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
 	}
 
 	private static PendingImport pendingOf(MockHttpSession session) {
@@ -562,6 +628,270 @@ class PartImportIntegrationTests {
 
 		mockMvc.perform(post("/parts/import/cancel").session(session).with(csrf()))
 			.andExpect(status().isForbidden());
+	}
+
+	// ---- confirm --------------------------------------------------------
+
+	@Test
+	void acceptingRaisesStockAndAddsTheMissingLocationInTheShelfsSpelling() throws Exception {
+		Long resistorId = seedPart("Rezystor 10k", 6, true, "B2");
+		seedPart("Kondensator", 1, true, "Regał A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "rezystor 10K;10;regał a1\r\n"));
+		String summary = "Zaimportowano: 0 nowych części, 1 zaktualizowanych, 10 szt.";
+
+		MvcResult result = confirm(session, pendingOf(session).token()).andExpect(status().is3xxRedirection())
+			.andExpect(redirectedUrl("/parts"))
+			.andExpect(flash().attribute("partsImported", summary))
+			.andReturn();
+
+		assertThat(stockOf(resistorId)).isEqualTo(16);
+		assertThat(locationsOf(resistorId)).containsExactly("B2", "Regał A1");
+		assertThat(pendingOf(session)).isNull();
+		mockMvc.perform(get("/parts").session(session).flashAttrs(result.getFlashMap()))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(summary)));
+	}
+
+	@Test
+	void acceptingCreatesTheNewPartWithItsLocations() throws Exception {
+		seedPart("Kondensator", 1, true, "Regał B2");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		int partsBefore = partCount();
+		preview(session, csv(HEADER
+				+ "Dioda;5;A1\r\n"
+				+ "dioda;3;regał b2\r\n"));
+
+		confirm(session, pendingOf(session).token()).andExpect(status().is3xxRedirection())
+			.andExpect(flash().attribute("partsImported", "Zaimportowano: 1 nowych części, 0 zaktualizowanych, 8 szt."));
+
+		assertThat(partCount()).isEqualTo(partsBefore + 1);
+		Long diodeId = partIdByName("Dioda");
+		assertThat(stockOf(diodeId)).isEqualTo(8);
+		assertThat(locationsOf(diodeId)).containsExactly("A1", "Regał B2");
+		assertThat(jdbcTemplate.queryForObject("SELECT active FROM parts WHERE id = ?", Boolean.class, diodeId))
+			.isTrue();
+		assertThat(jdbcTemplate.queryForObject("SELECT created_at FROM parts WHERE id = ?", Timestamp.class,
+				diodeId)).isNotNull();
+	}
+
+	@Test
+	void inactivePartStaysInactiveWithItsStockRaised() throws Exception {
+		Long oldId = seedPart("Stary układ", 3, false, "Z9");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Stary układ;2;\r\n"));
+
+		confirmPending(session);
+
+		assertThat(stockOf(oldId)).isEqualTo(5);
+		assertThat(locationsOf(oldId)).containsExactly("Z9");
+		assertThat(jdbcTemplate.queryForObject("SELECT active FROM parts WHERE id = ?", Boolean.class, oldId))
+			.isFalse();
+	}
+
+	@Test
+	void quantityZeroRowOnlyAddsALocation() throws Exception {
+		Long resistorId = seedPart("Rezystor 10k", 6, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Rezystor 10k;0;B2\r\n"));
+
+		confirmPending(session);
+
+		assertThat(stockOf(resistorId)).isEqualTo(6);
+		assertThat(locationsOf(resistorId)).containsExactly("A1", "B2");
+	}
+
+	/**
+	 * US-01: stock 6, an order needs 10. Importing 4 fully reserves the order
+	 * and the part leaves the shopping list.
+	 */
+	@Test
+	void importCoveringAShortageFullyReservesTheOrderAndClearsPurchasing() throws Exception {
+		Long partId = seedPart("Mikrokontroler", 6, true, "Regał M1");
+		Long orderId = seedOrder(seedProject("Sterownik"), Priority.NORMAL, LocalDate.now().plusDays(7),
+				Instant.now());
+		Long lineId = seedOrderLine(orderId, partId, 10, 6);
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		mockMvc.perform(get("/purchasing").session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Mikrokontroler")));
+		preview(session, csv(HEADER + "Mikrokontroler;4;\r\n"));
+
+		confirmPending(session);
+
+		assertThat(stockOf(partId)).isEqualTo(10);
+		assertThat(reservedOf(lineId)).isEqualTo(10);
+		mockMvc.perform(get("/purchasing").session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("Mikrokontroler"))));
+	}
+
+	@Test
+	void importedSurplusBeyondTheShortageRaisesAvailable() throws Exception {
+		Long partId = seedPart("Mikrokontroler", 6, true, "Regał M1");
+		Long orderId = seedOrder(seedProject("Sterownik"), Priority.NORMAL, LocalDate.now().plusDays(7),
+				Instant.now());
+		Long lineId = seedOrderLine(orderId, partId, 10, 6);
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Mikrokontroler;10;\r\n"));
+
+		confirmPending(session);
+
+		assertThat(stockOf(partId)).isEqualTo(16);
+		assertThat(reservedOf(lineId)).isEqualTo(10);
+		String parts = mockMvc.perform(get("/parts").session(session))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+		assertThat(rowOf(parts, "Mikrokontroler")).startsWith("Mikrokontroler 16 10 6 Regał M1");
+	}
+
+	@Test
+	void stockChangedSincePreviewWritesNothingAndShowsARefreshedPreview() throws Exception {
+		Long resistorId = seedPart("Rezystor 10k", 6, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER
+				+ "Rezystor 10k;10;B2\r\n"
+				+ "Dioda;1;C3\r\n"));
+		String token = pendingOf(session).token();
+		int partsBefore = partCount();
+		jdbcTemplate.update("UPDATE parts SET quantity = 8 WHERE id = ?", resistorId);
+
+		String html = confirmExpectingPreview(session);
+
+		assertThat(html).contains("Stany zmieniły się od podglądu — sprawdź i zatwierdź ponownie.");
+		assertThat(rowOf(html, "Rezystor 10k")).isEqualTo("Rezystor 10k 8 10 18 B2");
+		assertThat(stockOf(resistorId)).isEqualTo(8);
+		assertThat(locationsOf(resistorId)).containsExactly("A1");
+		assertThat(partCount()).isEqualTo(partsBefore);
+		assertThat(pendingOf(session).token()).isEqualTo(token);
+		assertThat(pendingOf(session).snapshots().get(0)).isEqualTo(new PendingImport.Snapshot(resistorId, 8));
+
+		confirmPending(session);
+
+		assertThat(stockOf(resistorId)).isEqualTo(18);
+		assertThat(locationsOf(resistorId)).containsExactly("A1", "B2");
+		assertThat(partCount()).isEqualTo(partsBefore + 1);
+	}
+
+	@Test
+	void caseVariantPartCreatedSincePreviewIsShownAsExisting() throws Exception {
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Dioda;5;A1\r\n"));
+		Long diodeId = seedPart("dioda", 2, true, "C3");
+
+		String html = confirmExpectingPreview(session);
+
+		assertThat(html).contains("Stany zmieniły się od podglądu — sprawdź i zatwierdź ponownie.");
+		assertThat(rowOf(html, "dioda")).isEqualTo("dioda 2 5 7 A1");
+		assertThat(html).doesNotContain("NOWA");
+		assertThat(partCount()).isEqualTo(1);
+		assertThat(stockOf(diodeId)).isEqualTo(2);
+
+		confirmPending(session);
+
+		assertThat(partCount()).isEqualTo(1);
+		assertThat(stockOf(diodeId)).isEqualTo(7);
+		assertThat(locationsOf(diodeId)).containsExactly("C3", "A1");
+	}
+
+	@Test
+	void nameBecomingAmbiguousSincePreviewRejectsTheFile() throws Exception {
+		Long firstId = seedPart("Kondensator", 1, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "KONDENSATOR;5;A1\r\n"));
+		seedPart("kondensator", 2, true, "B2");
+
+		String html = confirm(session, pendingOf(session).token()).andExpect(status().isOk())
+			.andExpect(view().name("parts-import"))
+			.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+		assertThat(html).contains("Wiersz 2: nazwa „KONDENSATOR” pasuje do kilku części w katalogu "
+				+ "(Kondensator, kondensator).");
+		assertThat(stockOf(firstId)).isEqualTo(1);
+		assertThat(pendingOf(session)).isNull();
+	}
+
+	@Test
+	void missingOrWrongTokenShowsThePreviewExpiredAndWritesNothing() throws Exception {
+		Long resistorId = seedPart("Rezystor 10k", 6, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Rezystor 10k;10;A1\r\n"));
+		PendingImport pending = pendingOf(session);
+
+		mockMvc.perform(post("/parts/import/confirm").session(session).with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(view().name("parts-import"))
+			.andExpect(content().string(containsString("Podgląd wygasł — wgraj plik ponownie.")));
+		confirm(session, "not-the-token").andExpect(status().isOk())
+			.andExpect(view().name("parts-import"))
+			.andExpect(content().string(containsString("Podgląd wygasł — wgraj plik ponownie.")));
+
+		assertThat(stockOf(resistorId)).isEqualTo(6);
+		assertThat(pendingOf(session)).isEqualTo(pending);
+	}
+
+	@Test
+	void confirmWithoutAPendingImportShowsThePreviewExpired() throws Exception {
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		int partsBefore = partCount();
+
+		confirm(session, "any-token").andExpect(status().isOk())
+			.andExpect(view().name("parts-import"))
+			.andExpect(content().string(containsString("Podgląd wygasł — wgraj plik ponownie.")));
+
+		assertThat(partCount()).isEqualTo(partsBefore);
+	}
+
+	@Test
+	void secondConfirmAfterSuccessShowsThePreviewExpiredAndDoesNotDoubleTheStock() throws Exception {
+		Long resistorId = seedPart("Rezystor 10k", 6, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Rezystor 10k;10;A1\r\nDioda;1;B2\r\n"));
+		String token = pendingOf(session).token();
+
+		confirmPending(session);
+		int partsAfterFirst = partCount();
+		confirm(session, token).andExpect(status().isOk())
+			.andExpect(view().name("parts-import"))
+			.andExpect(content().string(containsString("Podgląd wygasł — wgraj plik ponownie.")));
+
+		assertThat(stockOf(resistorId)).isEqualTo(16);
+		assertThat(partCount()).isEqualTo(partsAfterFirst);
+	}
+
+	@Test
+	void technicianCannotConfirm() throws Exception {
+		MockHttpSession session = loginAs(TECHNICIAN_EMAIL);
+
+		confirm(session, "any-token").andExpect(status().isForbidden());
+	}
+
+	// ---- links ----------------------------------------------------------
+
+	@Test
+	void managerSeesTheImportLinkOnDashboardAndParts() throws Exception {
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		mockMvc.perform(get("/").session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("href=\"/parts/import\"")))
+			.andExpect(content().string(containsString("Importuj części z CSV")));
+		mockMvc.perform(get("/parts").session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("href=\"/parts/import\"")))
+			.andExpect(content().string(containsString("Importuj części z CSV")));
+	}
+
+	@Test
+	void technicianDoesNotSeeTheImportLink() throws Exception {
+		MockHttpSession session = loginAs(TECHNICIAN_EMAIL);
+
+		mockMvc.perform(get("/").session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("/parts/import"))));
+		mockMvc.perform(get("/parts").session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("/parts/import"))));
 	}
 
 	@Test

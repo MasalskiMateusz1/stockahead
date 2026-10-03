@@ -160,6 +160,10 @@ public class PartController {
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
 				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, parsedLocations);
+				// The name lock comes after the shelf locks (the import's order), so a
+				// concurrent import can't read the catalog and then insert a case
+				// variant of this name before this part commits.
+				LocationSpellings.lockPartNames(partRepository, List.of(trimmedName));
 				Part part = new Part();
 				part.setName(trimmedName);
 				part.setQuantity(parsedQuantity);

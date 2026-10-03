@@ -14,6 +14,8 @@
 
 	<p><a th:href="@{/parts}">Powrót do katalogu części</a></p>
 
+	<p th:if="${notice}" th:text="${notice}"></p>
+
 	<h2>Format pliku</h2>
 	<ul>
 		<li>Pierwszy wiersz to nagłówek z kolumnami <strong th:text="#{partsImport.column.name}">Nazwa</strong>, <strong th:text="#{partsImport.column.quantity}">Ilość</strong> i <strong th:text="#{partsImport.column.location}">Lokalizacja</strong>. Nazwy kolumn mogą być też po angielsku: <strong>Name</strong>, <strong>Quantity</strong> i <strong>Location</strong>. Kolejność kolumn i wielkość liter nie mają znaczenia, a pozostałe kolumny są pomijane.</li>

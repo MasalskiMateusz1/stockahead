@@ -357,24 +357,24 @@ No schema change. Existing case-variant duplicate part names (if any were create
 
 #### Automated
 
-- [x] 2.1 PartImportIntegrationTests passes (preview values, markers, name matching, catalog errors, session state, cancel)
-- [x] 2.2 Preview request writes nothing
-- [x] 2.3 ./mvnw verify passes
+- [x] 2.1 PartImportIntegrationTests passes (preview values, markers, name matching, catalog errors, session state, cancel) — b0bc2ae
+- [x] 2.2 Preview request writes nothing — b0bc2ae
+- [x] 2.3 ./mvnw verify passes — b0bc2ae
 
 #### Manual
 
-- [x] 2.4 Preview of a ~100-row file is readable and totals match
+- [x] 2.4 Preview of a ~100-row file is readable and totals match — b0bc2ae
 
 ### Phase 3: Accept — atomic write with reallocation
 
 #### Automated
 
-- [ ] 3.1 PartImportIntegrationTests passes (write semantics, reallocation, staleness re-preview, tokens, links)
-- [ ] 3.2 ./mvnw verify passes
+- [x] 3.1 PartImportIntegrationTests passes (write semantics, reallocation, staleness re-preview, tokens, links)
+- [x] 3.2 ./mvnw verify passes
 
 #### Manual
 
-- [ ] 3.3 End-to-end import covers a shortage and /purchasing shrinks
+- [x] 3.3 End-to-end import covers a shortage and /purchasing shrinks
 - [ ] 3.4 Accepting from two tabs writes once
 
 ### Phase 4: Concurrency guarantees

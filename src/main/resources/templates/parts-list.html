@@ -16,6 +16,8 @@
 
 	<p th:if="${stockCorrected}" th:text="${stockCorrected}"></p>
 
+	<p th:if="${partsImported}" th:text="${partsImported}"></p>
+
 	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
 
 	<p><a th:href="@{/deliveries/new}">Przyjmij dostawę</a></p>
@@ -23,6 +25,8 @@
 	<div sec:authorize="hasRole('MANAGER')">
 		<a th:href="@{/parts/new}">Dodaj część</a>
 	</div>
+
+	<p sec:authorize="hasRole('MANAGER')"><a th:href="@{/parts/import}">Importuj części z CSV</a></p>
 
 	<form th:action="@{/parts}" method="get">
 		<div>

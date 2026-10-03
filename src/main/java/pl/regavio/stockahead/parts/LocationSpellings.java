@@ -17,6 +17,12 @@ final class LocationSpellings {
 	/** First key of every shelf's {@code pg_advisory_xact_lock(int, int)}. */
 	private static final int SHELF_LOCK_NAMESPACE = 0x5348454C;
 
+	/**
+	 * First key of every part name's {@code pg_advisory_xact_lock(int, int)};
+	 * see {@link #lockPartNames}.
+	 */
+	private static final int PART_NAME_LOCK_NAMESPACE = 0x50415254;
+
 	private final PartRepository partRepository;
 
 	private final List<String> resolved = new ArrayList<>();
@@ -43,6 +49,26 @@ final class LocationSpellings {
 			.sorted()
 			.forEach(key -> partRepository.lockShelf(SHELF_LOCK_NAMESPACE, key));
 		return new LocationSpellings(partRepository);
+	}
+
+	/**
+	 * Takes a transaction-scoped lock on every part name the write may create,
+	 * keyed by {@link PartsImportFile#nameKey} so case variants
+	 * ({@code Rezystor 10k} and {@code rezystor 10K}) share a lock. The
+	 * {@code parts.name} constraint is case-sensitive, so this is what keeps
+	 * two writers from creating case variants of one part: the second waits
+	 * until the first commits and then sees its part.
+	 * <p>
+	 * Lock order is shelves ({@link #lockShelves}) first, then part names,
+	 * then part rows; within each step keys are sorted. Keys are hashes, so a
+	 * collision only over-serializes two names.
+	 */
+	static void lockPartNames(PartRepository partRepository, Collection<String> names) {
+		names.stream()
+			.map(name -> PartsImportFile.nameKey(name).hashCode())
+			.distinct()
+			.sorted()
+			.forEach(key -> partRepository.lockShelf(PART_NAME_LOCK_NAMESPACE, key));
 	}
 
 	/**

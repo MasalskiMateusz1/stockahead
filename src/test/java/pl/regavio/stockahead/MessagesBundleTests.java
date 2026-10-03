@@ -454,4 +454,34 @@ class MessagesBundleTests {
 			.isEqualTo("Wiersz 1234: stan części „Rezystor 10k” po imporcie przekroczyłby 2147483647.");
 	}
 
+	@Test
+	void partsImportErrorPreviewExpired() {
+		assertThat(messageSource.getMessage("partsImport.error.previewExpired", null, PL))
+			.isEqualTo("Podgląd wygasł — wgraj plik ponownie.");
+	}
+
+	@Test
+	void partsImportNoticeStale() {
+		assertThat(messageSource.getMessage("partsImport.notice.stale", null, PL))
+			.isEqualTo("Stany zmieniły się od podglądu — sprawdź i zatwierdź ponownie.");
+	}
+
+	@Test
+	void partsImportNoticeCatalogChanged() {
+		assertThat(messageSource.getMessage("partsImport.notice.catalogChanged", null, PL))
+			.isEqualTo("Katalog części zmienił się w trakcie importu — sprawdź i zatwierdź ponownie.");
+	}
+
+	@Test
+	void partsImportNoticeSaveFailed() {
+		assertThat(messageSource.getMessage("partsImport.notice.saveFailed", null, PL))
+			.isEqualTo("Nie udało się zapisać importu. Spróbuj ponownie.");
+	}
+
+	@Test
+	void partsImportImported() {
+		assertThat(messageSource.getMessage("partsImport.imported", new Object[] { 2, 1234, 10_000L }, PL))
+			.isEqualTo("Zaimportowano: 2 nowych części, 1234 zaktualizowanych, 10000 szt.");
+	}
+
 }
