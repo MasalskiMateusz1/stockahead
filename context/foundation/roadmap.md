@@ -56,7 +56,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | done |
 | S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | done |
 | S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | done |
-| S-12  | parts-csv-import                 | Kierownik importuje części z CSV po obejrzeniu podglądu stanów wynikowych                       | S-02, S-04    | FR-017                                      | proposed |
+| S-12  | parts-csv-import                 | Kierownik importuje części z CSV po obejrzeniu podglądu stanów wynikowych                       | S-02, S-04    | FR-017                                      | done |
 | S-13  | order-partial-completion         | Technik zamyka zlecenie jako częściowo wykonane, podając liczbę zbudowanych sztuk              | S-08          | FR-014, FR-020 (rozszerzenie spoza PRD v1)  | proposed |
 
 ## Streams
@@ -244,7 +244,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Jaki układ kolumn ma plik, z którego zakład dziś korzysta — czy jest próbka, czy definiujemy własny format i go dokumentujemy? — Owner: user. Block: no.
 - **Risk:** To jest odpowiedź PRD na barierę startu („ręczne wprowadzanie całego magazynu"), więc w praktyce zakład zacznie od tego ekranu — ale sekwencjonowany jest późno, bo podgląd stanów wynikowych ma sens dopiero, gdy stan i rezerwacje mają znaczenie. Zapis bez wcześniejszej akceptacji podglądu łamie FR-017 i psuje cały magazyn jednym złym plikiem.
-- **Status:** proposed
+- **Status:** done
 
 ### S-13: Częściowe zakończenie zlecenia z liczbą zbudowanych sztuk
 
@@ -317,3 +317,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-09: Kierownik zmienia priorytet i wymagany termin zlecenia, dopóki nie zostało podjęte, albo anuluje zlecenie — w obu przypadkach rezerwacje są przeliczane, a przy anulowaniu części już pobrane wracają na stan.** — Archived 2026-10-02 → `context/archive/2026-10-02-order-change-and-cancel/`. Lesson: —.
 - **S-10: Technik przyjmuje dostawę części, zwiększając jej stan, a rezerwacje i lista zakupów przeliczają się automatycznie — nowe sztuki uzupełniają braki zgodnie z kolejnością przydziału.** — Archived 2026-10-02 → `context/archive/2026-10-02-delivery-receipt/`. Lesson: —.
 - **S-11: Kierownik koryguje stan części po inwentaryzacji, podając powód korekty; rezerwacje i lista zakupów przeliczają się po zapisie.** — Archived 2026-10-03 → `context/archive/2026-10-02-stock-correction/`. Lesson: —.
+- **S-12: Kierownik importuje części z pliku CSV i przed zapisem widzi stany, jakie będą po zaakceptowaniu pliku; dla istniejących części import dopisuje ilość i dodaje lokalizację, jeśli jej brak, a nowe części są tworzone.** — Archived 2026-10-03 → `context/archive/2026-10-03-parts-csv-import/`. Lesson: —.
