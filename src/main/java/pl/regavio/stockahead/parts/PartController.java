@@ -157,13 +157,20 @@ public class PartController {
 					name, quantity, locations);
 		}
 
+		boolean created;
 		try {
-			transactionTemplate.executeWithoutResult(status -> {
+			created = transactionTemplate.execute(status -> {
 				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, parsedLocations);
 				// The name lock comes after the shelf locks (the import's order), so a
 				// concurrent import can't read the catalog and then insert a case
 				// variant of this name before this part commits.
 				LocationSpellings.lockPartNames(partRepository, List.of(trimmedName));
+				// Under the name lock, a case variant committed meanwhile (e.g. by an
+				// import) is visible; the case-sensitive UNIQUE constraint alone
+				// would let it through as a second part.
+				if (!CatalogNameIndex.of(partRepository.findAllIdsAndNames()).matches(trimmedName).isEmpty()) {
+					return false;
+				}
 				Part part = new Part();
 				part.setName(trimmedName);
 				part.setQuantity(parsedQuantity);
@@ -175,10 +182,15 @@ public class PartController {
 					part.addLocation(partLocation);
 				}
 				partRepository.saveAndFlush(part);
+				return true;
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
 			return renderNewPartError(model, messageSource.getMessage(constraintErrorKey(ex), null, locale),
+					name, quantity, locations);
+		}
+		if (!created) {
+			return renderNewPartError(model, messageSource.getMessage("parts.error.duplicateName", null, locale),
 					name, quantity, locations);
 		}
 

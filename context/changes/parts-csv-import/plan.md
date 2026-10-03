@@ -369,21 +369,21 @@ No schema change. Existing case-variant duplicate part names (if any were create
 
 #### Automated
 
-- [x] 3.1 PartImportIntegrationTests passes (write semantics, reallocation, staleness re-preview, tokens, links)
-- [x] 3.2 ./mvnw verify passes
+- [x] 3.1 PartImportIntegrationTests passes (write semantics, reallocation, staleness re-preview, tokens, links) — 1873f06
+- [x] 3.2 ./mvnw verify passes — 1873f06
 
 #### Manual
 
-- [x] 3.3 End-to-end import covers a shortage and /purchasing shrinks
-- [ ] 3.4 Accepting from two tabs writes once
+- [x] 3.3 End-to-end import covers a shortage and /purchasing shrinks — 1873f06
+- [x] 3.4 Accepting from two tabs writes once
 
 ### Phase 4: Concurrency guarantees
 
 #### Automated
 
-- [ ] 4.1 PartImportConcurrencyTests passes 5 consecutive runs
-- [ ] 4.2 Full ./mvnw verify passes
+- [x] 4.1 PartImportConcurrencyTests passes 5 consecutive runs
+- [x] 4.2 Full ./mvnw verify passes
 
 #### Manual
 
-- [ ] 4.3 Each concurrency scenario demonstrably overlaps
+- [x] 4.3 Each concurrency scenario demonstrably overlaps
