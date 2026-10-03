@@ -388,11 +388,11 @@ No data or schema changes. Rollback is a plain revert of the change's commits.
 
 #### Automated
 
-- [x] 4.1 `./mvnw test -Dtest=TemplateConventionTests` passes
-- [x] 4.2 `./mvnw verify` passes
+- [x] 4.1 `./mvnw test -Dtest=TemplateConventionTests` passes — 060777e
+- [x] 4.2 `./mvnw verify` passes — 060777e
 
 #### Manual
 
-- [x] 4.3 Full walkthrough of all 22 views as manager and as technician in light, dark and Auto at desktop and ~768px width; no unreadable contrast, no horizontally scrolling page body
-- [x] 4.4 Keyboard-only pass: focus ring visible on nav links, buttons and inputs
-- [x] 4.5 `lessons.md` reads correctly and no longer instructs copying a `<style>` block
+- [x] 4.3 Full walkthrough of all 22 views as manager and as technician in light, dark and Auto at desktop and ~768px width; no unreadable contrast, no horizontally scrolling page body — 060777e
+- [x] 4.4 Keyboard-only pass: focus ring visible on nav links, buttons and inputs — 060777e
+- [x] 4.5 `lessons.md` reads correctly and no longer instructs copying a `<style>` block — 060777e
