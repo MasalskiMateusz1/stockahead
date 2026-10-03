@@ -259,12 +259,26 @@ public class PartController {
 					name, currentQuantity, locations);
 		}
 
+		boolean renamed;
 		try {
-			transactionTemplate.executeWithoutResult(status -> {
+			renamed = transactionTemplate.execute(status -> {
 				// Lock every target shelf (new and re-spelled ones included) before
 				// anything is read or written, so a concurrent writer of the same
 				// shelf commits entirely before or after this edit.
 				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, parsedLocations);
+				// The name lock comes after the shelf locks (the import's and
+				// create's order), so a concurrent import or create can't read the
+				// catalog and then insert a case variant of this name meanwhile.
+				LocationSpellings.lockPartNames(partRepository, List.of(trimmedName));
+				// Under the name lock, another part holding a case variant is
+				// visible; the case-sensitive UNIQUE constraint alone would let it
+				// through. The part's own name may change case.
+				if (CatalogNameIndex.of(partRepository.findAllIdsAndNames())
+					.matches(trimmedName)
+					.stream()
+					.anyMatch(other -> !other.id().equals(id))) {
+					return false;
+				}
 				Part part = partRepository.findById(id)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				part.setName(trimmedName);
@@ -275,10 +289,15 @@ public class PartController {
 				for (String spelling : respelled) {
 					partRepository.respellOnOtherParts(spelling, part.getId());
 				}
+				return true;
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
 			return renderEditPartError(model, id, messageSource.getMessage(constraintErrorKey(ex), null, locale),
+					name, currentQuantity, locations);
+		}
+		if (!renamed) {
+			return renderEditPartError(model, id, messageSource.getMessage("parts.error.duplicateName", null, locale),
 					name, currentQuantity, locations);
 		}
 

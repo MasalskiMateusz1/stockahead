@@ -333,6 +333,14 @@ No schema change. Existing case-variant duplicate part names (if any were create
 - Concurrency test technique: `src/test/java/pl/regavio/stockahead/parts/DeliveryConcurrencyTests.java`
 - Prior plan: `context/archive/2026-10-02-delivery-receipt/plan.md`
 
+## Addendum (implementation review, 2026-10-03)
+
+Behaviour that landed beyond the plan's wording, recorded here so later reviews treat it as intended:
+
+- **Part names are unique ignoring case for manual create and edit too.** `PartController.create` and `PartController.edit` take the part-name lock after their shelf locks. Under it they reject a name that matches another part via `CatalogNameIndex` (same fold as the import) with `parts.error.duplicateName`. Before this change, the manual forms allowed case variants such as `kondensator` next to `Kondensator`. An edit may change the case of its own part's name. Edit was added during review (impl-review F1). Tests: `PartsCatalogIntegrationTests.createWithACaseVariantOfAnExistingNameIsRejected`, `editRenamingToACaseVariantOfAnotherPartIsRejected`, `editChangingOnlyTheCaseOfItsOwnNameSucceeds`, and `PartImportConcurrencyTests.importAndRenameToACaseVariantNeverLeaveTwoCaseVariantParts`.
+- **English column headers are accepted too.** `Name`, `Quantity` and `Location` work alongside `Nazwa`, `Ilość`/`Ilosc` and `Lokalizacja`, and the two languages can be mixed. Header cells are matched after `PartLocation.normalize` and NFC, ignoring case, so an NBSP or a decomposed `ś` in a header still matches. The upload page and the `missingColumns` message both document the English headers.
+- **A re-preview whose rebuilt preview has catalog errors drops the pending import.** On `DataIntegrityViolationException` or `PessimisticLockingFailureException` the pending import is kept, as planned, **unless** rebuilding the preview reports a catalog-dependent error. In that case the session attribute is removed and the error list is shown on the upload page, the same as an invalid upload, because nothing in that file could be accepted any more.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

@@ -248,6 +248,12 @@ public class PartImportController {
 				: partRepository.findByIdInForUpdate(matchedIds)
 					.stream()
 					.collect(Collectors.toMap(Part::getId, Function.identity()));
+		if (!matchedIds.isEmpty()) {
+			// Initializes the locked parts' locations in one query, so adding
+			// missing locations below doesn't run one lazy load per part while
+			// every lock is held. The managed instances stay the locked ones.
+			partRepository.findWithLocationsByIdIn(matchedIds);
+		}
 		for (int i = 0; i < lines.size(); i++) {
 			Long matchedId = matchedIdPerLine[i];
 			if (matchedId == null) {

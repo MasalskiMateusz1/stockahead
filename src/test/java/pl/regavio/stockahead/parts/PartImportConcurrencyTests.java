@@ -58,7 +58,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * offsets, and throwaway {@code pg_sleep} triggers that widen the windows.
  *
  * <p>
- * The triggers slow every stock-changing {@code UPDATE} of {@code parts},
+ * The triggers slow every stock-changing or renaming {@code UPDATE} of {@code parts},
  * every {@code INSERT} into {@code parts}, {@code part_locations} and
  * {@code orders}, so each writer stays inside its lock-to-commit window well
  * past the moment the competing request reads the same part, name or shelf.
@@ -138,8 +138,8 @@ class PartImportConcurrencyTests {
 	}
 
 	/**
-	 * A stock change on {@code parts}, a new part, a new location and a new
-	 * order each sleep before landing, so the writing transaction (holding its
+	 * A stock change or a rename on {@code parts}, a new part, a new location
+	 * and a new order each sleep before landing, so the writing transaction (holding its
 	 * shelf, name and part-row locks) stays open well past the moment a
 	 * competing request tries to read the same state.
 	 */
@@ -154,6 +154,9 @@ class PartImportConcurrencyTests {
 		jdbcTemplate.execute("CREATE TRIGGER test_import_slow_stock_trigger BEFORE UPDATE ON parts "
 				+ "FOR EACH ROW WHEN (NEW.quantity IS DISTINCT FROM OLD.quantity) "
 				+ "EXECUTE FUNCTION test_import_slow_write()");
+		jdbcTemplate.execute("CREATE TRIGGER test_import_slow_rename_trigger BEFORE UPDATE ON parts "
+				+ "FOR EACH ROW WHEN (NEW.name IS DISTINCT FROM OLD.name) "
+				+ "EXECUTE FUNCTION test_import_slow_write()");
 		jdbcTemplate.execute("CREATE TRIGGER test_import_slow_part_trigger BEFORE INSERT ON parts "
 				+ "FOR EACH ROW EXECUTE FUNCTION test_import_slow_write()");
 		jdbcTemplate.execute("CREATE TRIGGER test_import_slow_location_trigger BEFORE INSERT ON part_locations "
@@ -164,6 +167,7 @@ class PartImportConcurrencyTests {
 
 	private void dropSlowdowns() {
 		jdbcTemplate.execute("DROP TRIGGER IF EXISTS test_import_slow_stock_trigger ON parts");
+		jdbcTemplate.execute("DROP TRIGGER IF EXISTS test_import_slow_rename_trigger ON parts");
 		jdbcTemplate.execute("DROP TRIGGER IF EXISTS test_import_slow_part_trigger ON parts");
 		jdbcTemplate.execute("DROP TRIGGER IF EXISTS test_import_slow_location_trigger ON part_locations");
 		jdbcTemplate.execute("DROP TRIGGER IF EXISTS test_import_slow_order_trigger ON orders");
@@ -645,6 +649,62 @@ class PartImportConcurrencyTests {
 				assertThat(onlyPartName()).as("iteration %d: name", iteration).isEqualTo("Nowa część");
 				assertThat(onlyPartStock()).as("iteration %d: stock", iteration).isEqualTo(5);
 				assertThat(onlyPartLocations()).as("iteration %d: locations", iteration).containsExactly("A1");
+			}
+			deleteParts();
+		}
+	}
+
+	/**
+	 * The manager previews an import creating "Nowa część" (5 on A1) and, in a
+	 * second login, renames another part ("Stara nazwa", 2 on B2) to the case
+	 * variant "nowa CZĘŚĆ". Both take the part-name lock for the case-folded
+	 * name, so no two parts ever share it. If the rename commits first, the
+	 * import sees the renamed part under the lock, writes nothing and
+	 * re-previews the line as that part (2 → 7, adding A1); accepting it
+	 * raises that part. If the import commits first, the rename is rejected
+	 * with the friendly duplicate-name error on its form.
+	 */
+	@Test
+	void importAndRenameToACaseVariantNeverLeaveTwoCaseVariantParts() throws Exception {
+		MockHttpSession importing = login(MANAGER_EMAIL);
+		MockHttpSession renaming = login(MANAGER_EMAIL);
+
+		for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+			Long renamedId = seedPart("Stara nazwa", 2, "B2");
+			previewImport(importing, "Nowa część;5;A1\r\n");
+
+			Timed[] results = race(firstDelay(iteration), () -> confirmImport(importing), secondDelay(iteration),
+					() -> mockMvc.perform(post("/parts/{id}", renamedId).session(renaming)
+						.with(csrf())
+						.param("name", "nowa CZĘŚĆ")
+						.param("locations", "B2")).andReturn());
+
+			assertOverlapped(results, iteration);
+			MvcResult importResult = results[0].result();
+			MvcResult renameResult = results[1].result();
+			if (applied(renameResult)) {
+				assertRedirectedTo(renameResult, "/parts", "rename", iteration);
+				String html = assertRePreviewed(importResult, iteration);
+				assertThat(rowOf(html, "nowa CZĘŚĆ")).as("iteration %d: refreshed row", iteration)
+					.isEqualTo("nowa CZĘŚĆ 2 5 7 A1");
+				assertRedirectedTo(confirmImport(importing), "/parts", "second confirm", iteration);
+				assertThat(partCount()).as("iteration %d: parts", iteration).isEqualTo(1);
+				assertThat(onlyPartName()).as("iteration %d: name", iteration).isEqualTo("nowa CZĘŚĆ");
+				assertThat(onlyPartStock()).as("iteration %d: stock", iteration).isEqualTo(7);
+				assertThat(onlyPartLocations()).as("iteration %d: locations", iteration).containsExactly("A1", "B2");
+			}
+			else {
+				assertRedirectedTo(importResult, "/parts", "import", iteration);
+				assertThat(renameResult.getResponse().getStatus()).as("iteration %d: rename status", iteration)
+					.isEqualTo(200);
+				assertThat(renameResult.getModelAndView().getViewName()).as("iteration %d: rename view", iteration)
+					.isEqualTo("parts-edit");
+				assertThat(renameResult.getResponse().getContentAsString(StandardCharsets.UTF_8))
+					.as("iteration %d: rename error", iteration)
+					.contains("Część o tej nazwie już istnieje.");
+				assertThat(jdbcTemplate.queryForList("SELECT name FROM parts ORDER BY name", String.class))
+					.as("iteration %d: names", iteration)
+					.containsExactly("Nowa część", "Stara nazwa");
 			}
 			deleteParts();
 		}

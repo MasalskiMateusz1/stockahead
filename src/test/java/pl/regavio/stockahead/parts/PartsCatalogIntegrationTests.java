@@ -43,6 +43,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 /**
  * Covers the Phase 4 contract: the DB-level quantity guard, the
@@ -538,6 +539,54 @@ class PartsCatalogIntegrationTests {
 		assertThat(locationIdsOf(partId)).hasSize(2);
 		assertThat(locationIdOf(partId, "A1")).isEqualTo(idA);
 		assertThat(locationIdOf(partId, "B2")).isEqualTo(idB);
+	}
+
+	@Test
+	void createWithACaseVariantOfAnExistingNameIsRejected() throws Exception {
+		seedManager();
+		seedPart("Kondensator", 4, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		mockMvc.perform(post("/parts").session(session).with(csrf())
+				.param("name", "kondensator")
+				.param("quantity", "3")
+				.param("locations", "B2"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("parts-new"))
+			.andExpect(content().string(containsString("Część o tej nazwie już istnieje.")));
+
+		assertThat(partRepository.findByName("kondensator")).isEmpty();
+	}
+
+	@Test
+	void editRenamingToACaseVariantOfAnotherPartIsRejected() throws Exception {
+		seedManager();
+		seedPart("Rezystor 10k", 4, true, "A1");
+		Long partId = seedPart("Old Resistor", 2, true, "B2");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		mockMvc.perform(post("/parts/" + partId).session(session).with(csrf())
+				.param("name", "rezystor 10K")
+				.param("locations", "B2"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("parts-edit"))
+			.andExpect(content().string(containsString("Część o tej nazwie już istnieje.")));
+
+		assertThat(partRepository.findById(partId).orElseThrow().getName()).isEqualTo("Old Resistor");
+	}
+
+	@Test
+	void editChangingOnlyTheCaseOfItsOwnNameSucceeds() throws Exception {
+		seedManager();
+		Long partId = seedPart("rezystor 10k", 2, true, "B2");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		mockMvc.perform(post("/parts/" + partId).session(session).with(csrf())
+				.param("name", "Rezystor 10K")
+				.param("locations", "B2"))
+			.andExpect(status().is3xxRedirection());
+
+		assertThat(partRepository.findById(partId).orElseThrow().getName()).isEqualTo("Rezystor 10K");
 	}
 
 	@Test

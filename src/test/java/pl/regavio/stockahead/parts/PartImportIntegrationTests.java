@@ -20,10 +20,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -39,6 +42,7 @@ import pl.regavio.stockahead.orders.Priority;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -64,7 +68,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * missing locations written in the shelf's spelling, new parts created,
  * inactive parts left inactive, reservations recomputed (visible on
  * {@code /purchasing} and {@code /parts}), the refreshed preview when stock
- * or the catalog changed since the preview, the expired-preview handling of
+ * or the catalog changed since the preview (a matched part renamed away
+ * included), the catalog-changed and save-failed notices when the write hits
+ * a constraint violation or a lock failure, the expired-preview handling of
  * a missing, wrong or reused token, the manager-only confirm and the
  * manager-only links. Against a real Postgres via Testcontainers,
  * deliberately not {@code @Transactional}.
@@ -96,6 +102,10 @@ class PartImportIntegrationTests {
 
 	@Autowired
 	private PlatformTransactionManager transactionManager;
+
+	/** Delegates to the real repository; individual tests make {@code flush()} throw to drive the failure mappings. */
+	@MockitoSpyBean
+	private PartRepository partRepository;
 
 	private TransactionTemplate transactionTemplate;
 
@@ -792,6 +802,55 @@ class PartImportIntegrationTests {
 		assertThat(partCount()).isEqualTo(1);
 		assertThat(stockOf(diodeId)).isEqualTo(7);
 		assertThat(locationsOf(diodeId)).containsExactly("C3", "A1");
+	}
+
+	@Test
+	void matchedPartRenamedSincePreviewWritesNothingAndShowsItAsNew() throws Exception {
+		Long resistorId = seedPart("Rezystor 10k", 6, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Rezystor 10k;10;B2\r\n"));
+		jdbcTemplate.update("UPDATE parts SET name = 'Opornik' WHERE id = ?", resistorId);
+
+		String html = confirmExpectingPreview(session);
+
+		assertThat(html).contains("Stany zmieniły się od podglądu — sprawdź i zatwierdź ponownie.");
+		assertThat(html).contains("NOWA");
+		assertThat(pendingOf(session).snapshots().get(0)).isEqualTo(new PendingImport.Snapshot(null, 0));
+		assertThat(partCount()).isEqualTo(1);
+		assertThat(stockOf(resistorId)).isEqualTo(6);
+		assertThat(locationsOf(resistorId)).containsExactly("A1");
+	}
+
+	@Test
+	void constraintViolationOnConfirmShowsTheCatalogChangedNoticeAndKeepsThePendingImport() throws Exception {
+		Long resistorId = seedPart("Rezystor 10k", 6, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Rezystor 10k;10;B2\r\n"));
+		PendingImport pending = pendingOf(session);
+		doThrow(new DataIntegrityViolationException("forced")).when(partRepository).flush();
+
+		String html = confirmExpectingPreview(session);
+
+		assertThat(html).contains("Katalog części zmienił się w trakcie importu — sprawdź i zatwierdź ponownie.");
+		assertThat(pendingOf(session).token()).isEqualTo(pending.token());
+		assertThat(stockOf(resistorId)).isEqualTo(6);
+		assertThat(locationsOf(resistorId)).containsExactly("A1");
+	}
+
+	@Test
+	void lockFailureOnConfirmShowsTheSaveFailedNoticeAndKeepsThePendingImport() throws Exception {
+		Long resistorId = seedPart("Rezystor 10k", 6, true, "A1");
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+		preview(session, csv(HEADER + "Rezystor 10k;10;B2\r\n"));
+		PendingImport pending = pendingOf(session);
+		doThrow(new PessimisticLockingFailureException("forced")).when(partRepository).flush();
+
+		String html = confirmExpectingPreview(session);
+
+		assertThat(html).contains("Nie udało się zapisać importu. Spróbuj ponownie.");
+		assertThat(pendingOf(session).token()).isEqualTo(pending.token());
+		assertThat(stockOf(resistorId)).isEqualTo(6);
+		assertThat(locationsOf(resistorId)).containsExactly("A1");
 	}
 
 	@Test
