@@ -203,6 +203,46 @@ class PickingListAndDetailIntegrationTests {
 			.andExpect(content().string(containsString("/lines/" + lineId + "/pick")));
 	}
 
+	/**
+	 * The report form carries a built-count input pre-filled with the order's
+	 * unit count and bounded by it; once reported (through the real pick and
+	 * report routes) the page shows the reported count against that total.
+	 */
+	@Test
+	void detailPrefillsBuiltCountAndShowsReportedCount() throws Exception {
+		Long projectId = seedProject("Built Count Board", true);
+		Long partId = seedPart("Built Count Capacitor", 8);
+		Long orderId = seedOrder(projectId, 4, "NORMAL", LocalDate.now().plusDays(7));
+		seedOrderLine(orderId, partId, 8, 8, 0);
+		Long lineId = lineIdOf(orderId);
+		MockHttpSession technician = technicianSession();
+
+		mockMvc.perform(post("/picking/" + orderId + "/lines/" + lineId + "/pick").session(technician)
+			.with(csrf())
+			.param("quantity", "8"))
+			.andExpect(status().is3xxRedirection());
+
+		mockMvc.perform(get("/picking/" + orderId).session(technician))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Zbudowano sztuk")))
+			.andExpect(content().string(
+					containsString("name=\"builtUnits\" min=\"0\" max=\"4\" required")))
+			.andExpect(content().string(containsString("value=\"4\"")))
+			// novalidate: the browser's native popup must not pre-empt the server's localized error
+			.andExpect(content().string(containsString("/report-completion\" method=\"post\" novalidate>")))
+			.andExpect(content().string(not(containsString("zbudowano"))));
+
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technician)
+			.with(csrf())
+			.param("builtUnits", "3"))
+			.andExpect(status().is3xxRedirection());
+
+		mockMvc.perform(get("/picking/" + orderId).session(technician))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Zgłoszone do potwierdzenia — zbudowano 3 z 4")))
+			.andExpect(content().string(not(containsString("name=\"builtUnits\""))));
+	}
+
 	private Long lineIdOf(Long orderId) {
 		return jdbcTemplate.queryForObject("SELECT id FROM order_lines WHERE order_id = ?", Long.class, orderId);
 	}
@@ -257,7 +297,7 @@ class PickingListAndDetailIntegrationTests {
 			.andExpect(content().string(containsString(toPickCell(orderA, 5))))
 			.andExpect(content().string(containsString(toPickCell(orderB, 3))));
 
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderA).session(technician).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderA).session(technician).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection());
 		mockMvc.perform(post("/orders/{id}/confirm-completion", orderA).session(manager).with(csrf()))
 			.andExpect(status().is3xxRedirection());

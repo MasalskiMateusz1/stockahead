@@ -264,23 +264,23 @@ V12 adds a nullable column with CHECKs and no backfill, so it is safe on the dep
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes, including new `OrderCompletionSchemaTests` cases for range and report-required CHECKs
-- [x] 1.2 Flyway applies V12 on a fresh database (covered by the Testcontainers run)
+- [x] 1.1 `./mvnw verify` passes, including new `OrderCompletionSchemaTests` cases for range and report-required CHECKs — c89246f
+- [x] 1.2 Flyway applies V12 on a fresh database (covered by the Testcontainers run) — c89246f
 
 #### Manual
 
-- [x] 1.3 PRD FR-014/FR-020 and roadmap S-13 read consistently with the decisions in `plan-brief.md`
+- [x] 1.3 PRD FR-014/FR-020 and roadmap S-13 read consistently with the decisions in `plan-brief.md` — c89246f
 
 ### Phase 2: Technician report with built count
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes with new report tests for 0, N, partial, missing, non-integer, negative and N+1 counts
-- [ ] 2.2 Existing completion and concurrency tests pass with `builtUnits` sent
+- [x] 2.1 `./mvnw verify` passes with new report tests for 0, N, partial, missing, non-integer, negative and N+1 counts
+- [x] 2.2 Existing completion and concurrency tests pass with `builtUnits` sent
 
 #### Manual
 
-- [ ] 2.3 As a technician on a taken order, the report form is pre-filled with N, entering N+1 shows the error, and entering 7 of 10 shows "zbudowano 7 z 10" after reporting
+- [x] 2.3 As a technician on a taken order, the report form is pre-filled with N, entering N+1 shows the error, and entering 7 of 10 shows "zbudowano 7 z 10" after reporting
 
 ### Phase 3: Manager review, confirm/reject & display
 

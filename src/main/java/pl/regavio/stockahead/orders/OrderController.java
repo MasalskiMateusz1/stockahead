@@ -167,6 +167,7 @@ public class OrderController {
 		return transitionReportedOrder(id, model, locale, (order, partIds) -> {
 			order.setCompletionReportedAt(null);
 			order.setCompletionReportedBy(null);
+			order.setBuiltUnits(null);
 			orderRepository.saveAndFlush(order);
 			reservationAllocator.reallocateForParts(partIds);
 		});

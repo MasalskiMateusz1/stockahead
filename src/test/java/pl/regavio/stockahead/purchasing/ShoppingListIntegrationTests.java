@@ -268,7 +268,7 @@ class ShoppingListIntegrationTests {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", completedOrderId, completedLineId)
 			.session(session).with(csrf()).param("quantity", "1"))
 			.andExpect(status().is3xxRedirection());
-		mockMvc.perform(post("/picking/{orderId}/report-completion", completedOrderId).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", completedOrderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection());
 		mockMvc.perform(post("/orders/{id}/confirm-completion", completedOrderId).session(session).with(csrf()))
 			.andExpect(status().is3xxRedirection());

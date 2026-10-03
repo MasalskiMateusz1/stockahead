@@ -172,7 +172,7 @@ class PickingIntegrationTests {
 	}
 
 	private void reportCompletion(MockHttpSession session, Long orderId) throws Exception {
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection());
 	}
 

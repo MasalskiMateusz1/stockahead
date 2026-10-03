@@ -180,7 +180,7 @@ class ReservationAllocatorTests {
 	/** Reports a taken order's completion through the real picking endpoint. */
 	private void reportCompletion(Long orderId) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technicianSession())
-			.with(csrf()))
+			.with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection());
 		assertThat(jdbcTemplate.queryForObject(
 				"SELECT completion_reported_at IS NOT NULL FROM orders WHERE id = ?", Boolean.class, orderId))

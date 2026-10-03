@@ -18,8 +18,12 @@
 	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
 	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
 	<p th:if="${order.taken}">Zlecenie podjęte</p>
-	<p th:if="${order.completionReported}">Zgłoszone do potwierdzenia</p>
-	<form th:if="${order.canReportCompletion}" th:action="@{/picking/{orderId}/report-completion(orderId=${orderId})}" method="post">
+	<p th:if="${order.completionReported}"
+		th:text="'Zgłoszone do potwierdzenia' + (${order.builtUnits != null} ? ' — zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} : '')">Zgłoszone do potwierdzenia</p>
+	<form th:if="${order.canReportCompletion}" th:action="@{/picking/{orderId}/report-completion(orderId=${orderId})}" method="post" novalidate>
+		<label for="builtUnits">Zbudowano sztuk</label>
+		<input type="number" id="builtUnits" name="builtUnits" min="0" th:max="${order.quantityUnits}" required
+			th:value="${builtUnits != null} ? ${builtUnits} : ${order.quantityUnits}">
 		<button type="submit">Zgłoś zakończenie</button>
 	</form>
 

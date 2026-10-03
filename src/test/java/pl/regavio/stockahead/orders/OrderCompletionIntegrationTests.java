@@ -39,7 +39,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Covers {@code PickingController}'s completion-report action: a taken,
  * OPEN order reported by either role (stamping
  * {@code completion_reported_at}/{@code completion_reported_by} with the
- * reporting account), rejection of a report on an untaken order, a repeated
+ * reporting account) with the built count it sends ({@code built_units}:
+ * 0, full or partial; a missing, non-integer, negative or too-large count is
+ * rejected and leaves the order unreported), rejection of a report on an
+ * untaken order, a repeated
  * report, and a report on a non-OPEN order (all leaving the report columns
  * untouched), 404 for an unknown order, the login redirect for an
  * unauthenticated request, and the picking views reflecting the report
@@ -84,6 +87,12 @@ class OrderCompletionIntegrationTests {
 	private static final String ALREADY_REPORTED_ERROR = "Zlecenie zostało już zgłoszone jako zakończone.";
 
 	private static final String NOT_REPORTED_ERROR = "Zlecenie nie oczekuje na potwierdzenie zakończenia.";
+
+	private static final String BUILT_UNITS_NOT_INTEGER_ERROR =
+			"Podaj liczbę zbudowanych sztuk (liczba całkowita, co najmniej 0).";
+
+	private static final String BUILT_UNITS_TOO_MANY_ERROR =
+			"Liczba zbudowanych sztuk nie może przekroczyć liczby sztuk w zleceniu (5).";
 
 	private static final String CONFIRM_BUTTON = "Potwierdź zakończenie";
 
@@ -192,6 +201,14 @@ class OrderCompletionIntegrationTests {
 				Long.class, orderProjectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now())));
 	}
 
+	/** An OPEN order for {@code quantityUnits} units of the default project. */
+	private Long seedOrderWithUnits(int quantityUnits) {
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, 'NORMAL', ?, ?) RETURNING id",
+				Long.class, projectId, quantityUnits, LocalDate.now().plusDays(7), Timestamp.from(Instant.now())));
+	}
+
 	/**
 	 * An OPEN order with an explicit priority and {@code created_at}, so tests
 	 * that depend on allocation order never tie on a shared {@code now()}.
@@ -218,7 +235,7 @@ class OrderCompletionIntegrationTests {
 	}
 
 	private void report(MockHttpSession session, Long orderId) throws Exception {
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + orderId));
 	}
@@ -276,6 +293,10 @@ class OrderCompletionIntegrationTests {
 				orderId);
 	}
 
+	private Integer builtUnitsOf(Long orderId) {
+		return jdbcTemplate.queryForObject("SELECT built_units FROM orders WHERE id = ?", Integer.class, orderId);
+	}
+
 	// ---- happy path -----------------------------------------------------
 
 	@Test
@@ -293,7 +314,7 @@ class OrderCompletionIntegrationTests {
 			.andExpect(content().string(not(containsString(PENDING_NOTICE))));
 
 		Instant before = Instant.now();
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + orderId));
 
@@ -301,6 +322,7 @@ class OrderCompletionIntegrationTests {
 		assertThat(reportedAt).isNotNull();
 		assertThat(reportedAt.toInstant()).isAfterOrEqualTo(before.minusSeconds(1));
 		assertThat(completionReportedByOf(orderId)).isEqualTo(accountIdOf(TECHNICIAN_EMAIL));
+		assertThat(builtUnitsOf(orderId)).isEqualTo(1);
 
 		mockMvc.perform(get("/picking/{id}", orderId).session(session))
 			.andExpect(status().isOk())
@@ -318,12 +340,82 @@ class OrderCompletionIntegrationTests {
 
 		pick(session, orderId, lineId, 5);
 
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + orderId));
 
 		assertThat(completionReportedAtOf(orderId)).isNotNull();
 		assertThat(completionReportedByOf(orderId)).isEqualTo(accountIdOf(MANAGER_EMAIL));
+		assertThat(builtUnitsOf(orderId)).isEqualTo(1);
+	}
+
+	// ---- built count --------------------------------------------------------
+
+	@Test
+	void technicianReportPersistsZeroFullAndPartialBuiltCounts() throws Exception {
+		MockHttpSession technician = technicianSession();
+		for (int builtUnits : new int[] { 0, 5, 3 }) {
+			Long partId = seedPart("Built Count Resistor " + builtUnits, 10);
+			Long orderId = seedOrderWithUnits(5);
+			Long lineId = seedOrderLine(orderId, partId, 5, 5);
+			pick(technician, orderId, lineId, 1);
+
+			mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technician)
+				.with(csrf())
+				.param("builtUnits", Integer.toString(builtUnits)))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(header().string("Location", "/picking/" + orderId));
+
+			assertThat(completionReportedAtOf(orderId)).isNotNull();
+			assertThat(completionReportedByOf(orderId)).isEqualTo(accountIdOf(TECHNICIAN_EMAIL));
+			assertThat(builtUnitsOf(orderId)).isEqualTo(builtUnits);
+
+			mockMvc.perform(get("/picking/{id}", orderId).session(technician))
+				.andExpect(status().isOk())
+				.andExpect(content().string(containsString("zbudowano " + builtUnits + " z 5")));
+		}
+	}
+
+	@Test
+	void invalidBuiltCountIsRejectedAndLeavesOrderUnreported() throws Exception {
+		Long partId = seedPart("Invalid Count Resistor", 10);
+		Long orderId = seedOrderWithUnits(5);
+		Long lineId = seedOrderLine(orderId, partId, 5, 5);
+		MockHttpSession technician = technicianSession();
+		pick(technician, orderId, lineId, 1);
+
+		String[][] cases = {
+				{ null, BUILT_UNITS_NOT_INTEGER_ERROR },
+				{ "", BUILT_UNITS_NOT_INTEGER_ERROR },
+				{ "abc", BUILT_UNITS_NOT_INTEGER_ERROR },
+				{ "2.5", BUILT_UNITS_NOT_INTEGER_ERROR },
+				{ "-1", BUILT_UNITS_NOT_INTEGER_ERROR },
+				{ "99999999999", BUILT_UNITS_NOT_INTEGER_ERROR },
+				{ "6", BUILT_UNITS_TOO_MANY_ERROR },
+		};
+		for (String[] testCase : cases) {
+			// Each value twice: a rejected report must leave nothing behind for a retry to trip on.
+			for (int attempt = 0; attempt < 2; attempt++) {
+				var request = post("/picking/{orderId}/report-completion", orderId).session(technician).with(csrf());
+				if (testCase[0] != null) {
+					request.param("builtUnits", testCase[0]);
+				}
+				mockMvc.perform(request)
+					.andExpect(status().isOk())
+					.andExpect(content().string(containsString(testCase[1])));
+
+				assertThat(completionReportedAtOf(orderId)).isNull();
+				assertThat(completionReportedByOf(orderId)).isNull();
+				assertThat(builtUnitsOf(orderId)).isNull();
+			}
+		}
+
+		// The order is still reportable with a valid count afterwards.
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technician)
+			.with(csrf())
+			.param("builtUnits", "4"))
+			.andExpect(status().is3xxRedirection());
+		assertThat(builtUnitsOf(orderId)).isEqualTo(4);
 	}
 
 	// ---- rejections -------------------------------------------------------
@@ -340,7 +432,7 @@ class OrderCompletionIntegrationTests {
 			.andExpect(content().string(not(containsString(REPORT_BUTTON))))
 			.andExpect(content().string(containsString(PICK_BUTTON)));
 
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(NOT_TAKEN_ERROR)));
 
@@ -358,7 +450,7 @@ class OrderCompletionIntegrationTests {
 		MockHttpSession manager = loginAs(MANAGER_EMAIL);
 
 		pick(technician, orderId, lineId, 1);
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technician).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technician).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection());
 		Timestamp firstReportedAt = completionReportedAtOf(orderId);
 		Long technicianId = accountIdOf(TECHNICIAN_EMAIL);
@@ -366,7 +458,7 @@ class OrderCompletionIntegrationTests {
 		// Rejected every time and for either role, never overwriting the first report.
 		for (MockHttpSession session : new MockHttpSession[] { technician, manager }) {
 			for (int attempt = 0; attempt < 2; attempt++) {
-				mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+				mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
 					.andExpect(status().isOk())
 					.andExpect(content().string(containsString(ALREADY_REPORTED_ERROR)));
 
@@ -393,7 +485,7 @@ class OrderCompletionIntegrationTests {
 			.andExpect(status().is3xxRedirection());
 		assertThat(statusOf(cancelledOrder)).isEqualTo("CANCELLED");
 
-		mockMvc.perform(post("/picking/{orderId}/report-completion", cancelledOrder).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", cancelledOrder).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(ORDER_NOT_OPEN_ERROR)));
 		assertThat(completionReportedAtOf(cancelledOrder)).isNull();
@@ -408,7 +500,7 @@ class OrderCompletionIntegrationTests {
 		assertThat(statusOf(completedOrder)).isEqualTo("COMPLETED");
 		Timestamp completedReportedAt = completionReportedAtOf(completedOrder);
 
-		mockMvc.perform(post("/picking/{orderId}/report-completion", completedOrder).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", completedOrder).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(ORDER_NOT_OPEN_ERROR)));
 		assertThat(completionReportedAtOf(completedOrder)).isEqualTo(completedReportedAt);
@@ -418,7 +510,7 @@ class OrderCompletionIntegrationTests {
 	void reportOnUnknownOrderIs404() throws Exception {
 		MockHttpSession session = technicianSession();
 
-		mockMvc.perform(post("/picking/{orderId}/report-completion", 999_999_999L).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", 999_999_999L).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().isNotFound());
 	}
 
@@ -429,7 +521,7 @@ class OrderCompletionIntegrationTests {
 		Long lineId = seedOrderLine(orderId, partId, 5, 5);
 		pick(technicianSession(), orderId, lineId, 1);
 
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", containsString("/login")));
 
@@ -450,7 +542,7 @@ class OrderCompletionIntegrationTests {
 			.andExpect(content().string(not(containsString("Zgłoszone"))));
 
 		pick(session, orderId, lineId, 1);
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection());
 
 		mockMvc.perform(get("/picking").session(session))

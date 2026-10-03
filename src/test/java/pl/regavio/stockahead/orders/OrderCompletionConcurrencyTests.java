@@ -261,7 +261,7 @@ class OrderCompletionConcurrencyTests {
 				bothReady.await(5, TimeUnit.SECONDS);
 				Thread.sleep(reportDelayMillis);
 				return mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session)
-					.with(csrf())).andReturn();
+					.with(csrf()).param("builtUnits", "1")).andReturn();
 			};
 
 			MvcResult pickResult;
@@ -282,6 +282,9 @@ class OrderCompletionConcurrencyTests {
 			assertThat(jdbcTemplate.queryForObject(
 					"SELECT completion_reported_at FROM orders WHERE id = ?", Timestamp.class, orderId))
 				.isNotNull();
+			assertThat(jdbcTemplate.queryForObject("SELECT built_units FROM orders WHERE id = ?", Integer.class,
+					orderId))
+				.isEqualTo(1);
 
 			// Never a pick written once the report was already committed.
 			assertThat(jdbcTemplate.queryForObject(
@@ -334,7 +337,7 @@ class OrderCompletionConcurrencyTests {
 				.session(technician).with(csrf()).param("quantity", "2"))
 				.andExpect(status().is3xxRedirection());
 			mockMvc.perform(post("/picking/{orderId}/report-completion", confirmedOrderId)
-				.session(technician).with(csrf()))
+				.session(technician).with(csrf()).param("builtUnits", "1"))
 				.andExpect(status().is3xxRedirection());
 			assertThat(stockOf(partId)).isEqualTo(4);
 
@@ -431,7 +434,7 @@ class OrderCompletionConcurrencyTests {
 				.session(technician).with(csrf()).param("quantity", "1"))
 				.andExpect(status().is3xxRedirection());
 			mockMvc.perform(post("/picking/{orderId}/report-completion", confirmedOrderId)
-				.session(technician).with(csrf()))
+				.session(technician).with(csrf()).param("builtUnits", "1"))
 				.andExpect(status().is3xxRedirection());
 			assertThat(stockOf(partId)).isEqualTo(8);
 			assertThat(reservedQuantityOf(shortLineId)).isEqualTo(3);

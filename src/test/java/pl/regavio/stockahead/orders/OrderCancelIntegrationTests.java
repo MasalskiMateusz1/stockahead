@@ -208,7 +208,7 @@ class OrderCancelIntegrationTests {
 	}
 
 	private void report(MockHttpSession session, Long orderId) throws Exception {
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + orderId));
 	}
@@ -605,7 +605,7 @@ class OrderCancelIntegrationTests {
 			.param("quantity", "1"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(ORDER_NOT_OPEN_ERROR)));
-		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technician).with(csrf()))
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technician).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(ORDER_NOT_OPEN_ERROR)));
 

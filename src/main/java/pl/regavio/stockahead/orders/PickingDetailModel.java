@@ -75,7 +75,7 @@ class PickingDetailModel {
 			.toList();
 		OrderView orderView = new OrderView(order.getProject().getName(), order.getQuantityUnits(),
 				order.getPriority(), order.getRequiredDate(), order.getStatus(), order.isTaken(),
-				order.canReportCompletion(), order.isCompletionReported());
+				order.canReportCompletion(), order.isCompletionReported(), order.getBuiltUnits());
 		return new DetailData(orderView, lines);
 	}
 
@@ -84,7 +84,8 @@ class PickingDetailModel {
 	}
 
 	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate,
-			OrderStatus status, boolean taken, boolean canReportCompletion, boolean completionReported) {
+			OrderStatus status, boolean taken, boolean canReportCompletion, boolean completionReported,
+			Integer builtUnits) {
 	}
 
 	/**

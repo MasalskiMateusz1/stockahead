@@ -184,14 +184,24 @@ public class PickingController {
 	 * entity is only loaded after the locks are held. An empty part-id list
 	 * (unknown order, or an order without lines — which can't be taken, and
 	 * so can't race a pick) skips the lock; an unknown order is then 404 from
-	 * the in-transaction {@code findById}.
+	 * the in-transaction {@code findById}. The reported built count
+	 * ({@code builtUnits}) must parse to an integer of at least 0 before any
+	 * lock is taken; its upper bound ({@code quantityUnits}) is checked under
+	 * the lock, after the state checks.
 	 */
 	@PostMapping("/picking/{orderId}/report-completion")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
-	public String reportCompletion(@PathVariable Long orderId, Authentication authentication, Model model,
+	public String reportCompletion(@PathVariable Long orderId,
+			@RequestParam(required = false) String builtUnits, Authentication authentication, Model model,
 			Locale locale) {
 		Set<Long> partIds = transactionTemplate
 			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId)));
+
+		Integer parsedBuiltUnits = parseBuiltUnits(builtUnits);
+		if (parsedBuiltUnits == null) {
+			return renderReportError(model, orderId,
+					messageSource.getMessage("picking.error.builtUnitsNotInteger", null, locale), builtUnits);
+		}
 
 		String businessError;
 		try {
@@ -211,22 +221,27 @@ public class PickingController {
 				if (order.isCompletionReported()) {
 					return messageSource.getMessage("picking.error.alreadyReported", null, locale);
 				}
+				if (parsedBuiltUnits > order.getQuantityUnits()) {
+					return messageSource.getMessage("picking.error.builtUnitsTooMany",
+							new Object[] { order.getQuantityUnits() }, locale);
+				}
 
 				Account reporter = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
 				order.setCompletionReportedAt(Instant.now());
 				order.setCompletionReportedBy(reporter);
+				order.setBuiltUnits(parsedBuiltUnits);
 				orderRepository.saveAndFlush(order);
 				return null;
 			}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
 			return renderReportError(model, orderId,
-					messageSource.getMessage("picking.error.reportFailed", null, locale));
+					messageSource.getMessage("picking.error.reportFailed", null, locale), builtUnits);
 		}
 
 		if (businessError != null) {
-			return renderReportError(model, orderId, businessError);
+			return renderReportError(model, orderId, businessError, builtUnits);
 		}
 
 		return "redirect:/picking/" + orderId;
@@ -264,14 +279,35 @@ public class PickingController {
 		return null;
 	}
 
+	/**
+	 * Parses a raw built-units value, or returns {@code null} when it is
+	 * missing, not an integer (including values beyond the {@code int}
+	 * range), or negative.
+	 */
+	private static Integer parseBuiltUnits(String rawBuiltUnits) {
+		if (rawBuiltUnits == null) {
+			return null;
+		}
+		int parsed;
+		try {
+			parsed = Integer.parseInt(rawBuiltUnits.trim());
+		}
+		catch (NumberFormatException ex) {
+			return null;
+		}
+		return parsed < 0 ? null : parsed;
+	}
+
 	private String renderPickError(Model model, Long orderId, Long lineId, String error, String rawQuantity) {
 		pickingDetailModel.render(model, orderId, error, lineId);
 		model.addAttribute("quantity", rawQuantity);
 		return PickingDetailModel.VIEW;
 	}
 
-	private String renderReportError(Model model, Long orderId, String error) {
-		return pickingDetailModel.render(model, orderId, error, null);
+	private String renderReportError(Model model, Long orderId, String error, String rawBuiltUnits) {
+		pickingDetailModel.render(model, orderId, error, null);
+		model.addAttribute("builtUnits", rawBuiltUnits);
+		return PickingDetailModel.VIEW;
 	}
 
 }
