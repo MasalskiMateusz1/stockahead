@@ -1,101 +1,115 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head(${order.projectName})}">
 	<meta charset="UTF-8">
-	<title th:text="${order.projectName} + ' — Stockahead'">Zlecenie — Stockahead</title>
-	<style>
-		td, th {
-			text-align: center;
-		}
-	</style>
+	<title>Zlecenie — Stockahead</title>
 </head>
 <body>
-	<p th:if="${error}" th:text="${error}"></p>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<h1 th:text="${order.projectName}"></h1>
+	<main class="container">
+		<h1 th:text="${order.projectName}"></h1>
 
-	<p>Liczba sztuk: <span th:text="${order.quantityUnits}"></span></p>
-	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
-	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
-	<p th:if="${order.status.name() == 'COMPLETED'}"
-		th:text="${order.builtUnits == null}
-			? 'Zakończone ' + ${order.completedAt} + ' — liczba zbudowanych sztuk nie została zapisana'
-			: (${order.partiallyCompleted()}
-				? 'Zakończone częściowo: zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} + ', ' + ${order.completedAt}
-				: 'Zakończone ' + ${order.completedAt})">Zakończone</p>
-	<p th:if="${order.status.name() == 'CANCELLED'}">Anulowane <span th:text="${order.cancelledAt}"></span>, <span th:text="${order.cancelledByEmail}"></span></p>
-	<p th:if="${order.canCancel()}"><a th:href="@{/orders/{id}/cancel(id=${orderId})}">Anuluj zlecenie</a></p>
+		<div th:replace="~{fragments :: alerts}"></div>
 
-	<section id="order-change" th:if="${order.changeable()}">
-		<h2>Zmiana priorytetu i terminu</h2>
-		<form th:action="@{/orders/{id}/change(id=${orderId})}" method="post">
-			<div>
-				<label for="priority">Priorytet</label>
-				<select id="priority" name="priority" required>
-					<option value="LOW" th:selected="${changePriority == 'LOW'}" th:text="#{orders.priority.low}"></option>
-					<option value="NORMAL" th:selected="${changePriority == 'NORMAL'}" th:text="#{orders.priority.normal}"></option>
-					<option value="HIGH" th:selected="${changePriority == 'HIGH'}" th:text="#{orders.priority.high}"></option>
-				</select>
-			</div>
-			<div>
-				<label for="requiredDate">Wymagany termin</label>
-				<input type="date" id="requiredDate" name="requiredDate" th:min="${changeMinDate}" th:value="${changeRequiredDate}" required>
-			</div>
-			<button type="submit">Zapisz zmiany</button>
-		</form>
-	</section>
-
-	<section id="completion-report" th:if="${order.completionReported and order.status.name() == 'OPEN'}">
-		<h2>Zgłoszenie zakończenia</h2>
-		<p>Zgłosił(a): <span th:text="${order.reportedByEmail}"></span>, <span th:text="${order.reportedAt}"></span></p>
-		<p th:text="${order.builtUnits != null}
-			? 'Zbudowano: ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits}
-			: 'Zbudowano: — (liczba zbudowanych sztuk nie została zapisana)'">Zbudowano</p>
-		<p th:if="${order.partiallyCompleted()}">Pozostałe sztuki nie zostaną zbudowane — po potwierdzeniu ich braki znikną z listy zakupów.</p>
-
-		<div th:unless="${#lists.isEmpty(unmetLines)}">
-			<p>Uwaga: nie wszystkie pozycje zostały w pełni pobrane:</p>
-			<ul>
-				<li th:each="line : ${unmetLines}"
-					th:text="${line.partName} + ': pobrano ' + ${line.pickedQuantity} + ' z ' + ${line.requiredQuantity}"></li>
-			</ul>
+		<dl class="stats">
+			<dt>Liczba sztuk:</dt>
+			<dd th:text="${order.quantityUnits}"></dd>
+			<dt>Priorytet:</dt>
+			<dd><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></dd>
+			<dt>Wymagany termin:</dt>
+			<dd th:text="${order.requiredDate}"></dd>
+		</dl>
+		<p th:if="${order.status.name() == 'COMPLETED'}"
+			th:text="${order.builtUnits == null}
+				? 'Zakończone ' + ${order.completedAt} + ' — liczba zbudowanych sztuk nie została zapisana'
+				: (${order.partiallyCompleted()}
+					? 'Zakończone częściowo: zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} + ', ' + ${order.completedAt}
+					: 'Zakończone ' + ${order.completedAt})">Zakończone</p>
+		<p th:if="${order.status.name() == 'CANCELLED'}">Anulowane <span th:text="${order.cancelledAt}"></span>, <span th:text="${order.cancelledByEmail}"></span></p>
+		<div class="page-actions" th:if="${order.canCancel()}">
+			<a class="btn btn-danger" th:href="@{/orders/{id}/cancel(id=${orderId})}">Anuluj zlecenie</a>
 		</div>
 
-		<form th:action="@{/orders/{id}/confirm-completion(id=${orderId})}" method="post" style="display:inline">
-			<button type="submit">Potwierdź zakończenie</button>
-		</form>
-		<form th:action="@{/orders/{id}/reject-completion(id=${orderId})}" method="post" style="display:inline">
-			<button type="submit">Odrzuć zgłoszenie</button>
-		</form>
-	</section>
+		<section id="order-change" th:if="${order.changeable()}">
+			<h2>Zmiana priorytetu i terminu</h2>
+			<form class="card" th:action="@{/orders/{id}/change(id=${orderId})}" method="post">
+				<div class="form-field">
+					<label for="priority">Priorytet</label>
+					<select id="priority" name="priority" required>
+						<option value="LOW" th:selected="${changePriority == 'LOW'}" th:text="#{orders.priority.low}"></option>
+						<option value="NORMAL" th:selected="${changePriority == 'NORMAL'}" th:text="#{orders.priority.normal}"></option>
+						<option value="HIGH" th:selected="${changePriority == 'HIGH'}" th:text="#{orders.priority.high}"></option>
+					</select>
+				</div>
+				<div class="form-field">
+					<label for="requiredDate">Wymagany termin</label>
+					<input type="date" id="requiredDate" name="requiredDate" th:min="${changeMinDate}" th:value="${changeRequiredDate}" required>
+				</div>
+				<button type="submit" class="btn">Zapisz zmiany</button>
+			</form>
+		</section>
 
-	<h2>Pozycje</h2>
+		<section id="completion-report" th:if="${order.completionReported and order.status.name() == 'OPEN'}">
+			<h2>Zgłoszenie zakończenia</h2>
+			<div class="card">
+				<p>Zgłosił(a): <span th:text="${order.reportedByEmail}"></span>, <span th:text="${order.reportedAt}"></span></p>
+				<p th:text="${order.builtUnits != null}
+					? 'Zbudowano: ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits}
+					: 'Zbudowano: — (liczba zbudowanych sztuk nie została zapisana)'">Zbudowano</p>
+				<p th:if="${order.partiallyCompleted()}" class="hint">Pozostałe sztuki nie zostaną zbudowane — po potwierdzeniu ich braki znikną z listy zakupów.</p>
 
-	<p th:if="${#lists.isEmpty(lines)}">Brak pozycji.</p>
+				<div class="alert alert-info" th:unless="${#lists.isEmpty(unmetLines)}">
+					<p>Uwaga: nie wszystkie pozycje zostały w pełni pobrane:</p>
+					<ul>
+						<li th:each="line : ${unmetLines}"
+							th:text="${line.partName} + ': pobrano ' + ${line.pickedQuantity} + ' z ' + ${line.requiredQuantity}"></li>
+					</ul>
+				</div>
 
-	<table th:unless="${#lists.isEmpty(lines)}">
-		<thead>
-			<tr>
-				<th>Część</th>
-				<th>Wymagana ilość</th>
-				<th>Zarezerwowana ilość</th>
-				<th>Pobrana ilość</th>
-				<th th:if="${order.status.name() == 'OPEN'}">Brakująca ilość</th>
-				<th th:if="${order.status.name() == 'CANCELLED'}">Zwrócona ilość</th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr th:each="line : ${lines}">
-				<td th:text="${line.partName}"></td>
-				<td th:text="${line.requiredQuantity}"></td>
-				<td th:text="${line.reservedQuantity}"></td>
-				<td th:text="${line.pickedQuantity}"></td>
-				<td th:if="${order.status.name() == 'OPEN'}" th:text="${line.missingQuantity}"></td>
-				<td th:if="${order.status.name() == 'CANCELLED'}" th:text="${line.returnedQuantity}"></td>
-			</tr>
-		</tbody>
-	</table>
+				<div class="actions">
+					<form th:action="@{/orders/{id}/confirm-completion(id=${orderId})}" method="post">
+						<button type="submit" class="btn">Potwierdź zakończenie</button>
+					</form>
+					<form th:action="@{/orders/{id}/reject-completion(id=${orderId})}" method="post">
+						<button type="submit" class="btn btn-danger">Odrzuć zgłoszenie</button>
+					</form>
+				</div>
+			</div>
+		</section>
 
-	<p><a th:href="@{/orders}">Powrót do listy zleceń</a></p>
+		<h2>Pozycje</h2>
+
+		<p th:if="${#lists.isEmpty(lines)}" class="empty">Brak pozycji.</p>
+
+		<div class="table-wrap" th:unless="${#lists.isEmpty(lines)}">
+			<table>
+				<thead>
+					<tr>
+						<th>Część</th>
+						<th>Wymagana ilość</th>
+						<th>Zarezerwowana ilość</th>
+						<th>Pobrana ilość</th>
+						<th th:if="${order.status.name() == 'OPEN'}">Brakująca ilość</th>
+						<th th:if="${order.status.name() == 'CANCELLED'}">Zwrócona ilość</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="line : ${lines}">
+						<td th:text="${line.partName}"></td>
+						<td th:text="${line.requiredQuantity}"></td>
+						<td th:text="${line.reservedQuantity}"></td>
+						<td th:text="${line.pickedQuantity}"></td>
+						<td th:if="${order.status.name() == 'OPEN'}" th:text="${line.missingQuantity}"></td>
+						<td th:if="${order.status.name() == 'CANCELLED'}" th:text="${line.returnedQuantity}"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="page-actions">
+			<a class="btn btn-secondary" th:href="@{/orders}">Powrót do listy zleceń</a>
+		</div>
+	</main>
 </body>
 </html>

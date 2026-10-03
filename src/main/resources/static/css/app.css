@@ -231,6 +231,15 @@ tbody tr:hover {
 	border-bottom: 0;
 }
 
+/* Row awaiting a manager decision (completion reported): amber tint plus a leading bar. */
+tr.row-pending > td {
+	background: color-mix(in oklch, var(--warning) 14%, var(--card));
+}
+
+tr.row-pending > td:first-child {
+	box-shadow: inset 3px 0 0 var(--warning);
+}
+
 /* Inline row actions: forms and buttons on one line inside a cell. */
 .actions {
 	display: inline-flex;
@@ -609,6 +618,13 @@ button:hover,
 	background: var(--muted);
 	color: var(--foreground);
 	border-color: var(--border);
+}
+
+/* Workflow state (e.g. "Zgłoszone"), kept apart from the priority colours. --info as text: 6.82:1 light, 7.51:1 dark. */
+.badge-info {
+	background: var(--background);
+	color: var(--info);
+	border-color: var(--info);
 }
 
 .stats {

@@ -1,27 +1,36 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Nowe konto technika')}">
 	<meta charset="UTF-8">
 	<title>Nowe konto technika — Stockahead</title>
 </head>
 <body>
-	<h1>Nowe konto technika</h1>
-	<p th:if="${error}" th:text="${error}"></p>
-	<form th:action="@{/manager/technicians}" method="post">
-		<div>
-			<label for="email">E-mail</label>
-			<input type="email" id="email" name="email" th:value="${email}" maxlength="255" required>
+	<header th:replace="~{fragments :: topbar}"></header>
+
+	<main class="container">
+		<h1>Nowe konto technika</h1>
+
+		<div th:replace="~{fragments :: alerts}"></div>
+
+		<form class="card" th:action="@{/manager/technicians}" method="post">
+			<div class="form-field">
+				<label for="email">E-mail</label>
+				<input type="email" id="email" name="email" th:value="${email}" maxlength="255" required>
+			</div>
+			<div class="form-field">
+				<label for="password">Hasło</label>
+				<input type="password" id="password" name="password" minlength="12" required>
+			</div>
+			<div class="form-field">
+				<label for="confirmPassword">Potwierdź hasło</label>
+				<input type="password" id="confirmPassword" name="confirmPassword" minlength="12" required>
+			</div>
+			<button type="submit" class="btn">Załóż konto</button>
+		</form>
+
+		<div class="page-actions">
+			<a class="btn btn-secondary" th:href="@{/manager/technicians}">Powrót do listy</a>
 		</div>
-		<div>
-			<label for="password">Hasło</label>
-			<input type="password" id="password" name="password" minlength="12" required>
-		</div>
-		<div>
-			<label for="confirmPassword">Potwierdź hasło</label>
-			<input type="password" id="confirmPassword" name="confirmPassword" minlength="12" required>
-		</div>
-		<button type="submit">Załóż konto</button>
-	</form>
-	<p><a th:href="@{/manager/technicians}">Powrót do listy</a></p>
+	</main>
 </body>
 </html>

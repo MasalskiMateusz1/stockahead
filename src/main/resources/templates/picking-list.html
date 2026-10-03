@@ -1,44 +1,43 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Lista kompletacyjna')}">
 	<meta charset="UTF-8">
 	<title>Lista kompletacyjna — Stockahead</title>
-	<style>
-		td, th {
-			text-align: center;
-		}
-	</style>
 </head>
 <body>
-	<h1>Lista kompletacyjna</h1>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
+	<main class="container">
+		<h1>Lista kompletacyjna</h1>
 
-	<p th:if="${#lists.isEmpty(orders)}">Brak zleceń.</p>
+		<p th:if="${#lists.isEmpty(orders)}" class="empty">Brak zleceń.</p>
 
-	<table th:unless="${#lists.isEmpty(orders)}">
-		<thead>
-			<tr>
-				<th>Projekt</th>
-				<th>Liczba sztuk</th>
-				<th>Priorytet</th>
-				<th>Wymagany termin</th>
-				<th>Do pobrania</th>
-				<th>Status</th>
-				<th></th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr th:each="order : ${orders}">
-				<td th:text="${order.project.name}"></td>
-				<td th:text="${order.quantityUnits}"></td>
-				<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
-				<td th:text="${order.requiredDate}"></td>
-				<td th:id="|to-pick-${order.id}|" th:text="${toPickByOrderId.getOrDefault(order.id, 0L)}"></td>
-				<td><span th:if="${order.completionReported}">Zgłoszone</span></td>
-				<td><a th:href="@{/picking/{id}(id=${order.id})}">Szczegóły</a></td>
-			</tr>
-		</tbody>
-	</table>
+		<div class="table-wrap" th:unless="${#lists.isEmpty(orders)}">
+			<table>
+				<thead>
+					<tr>
+						<th>Projekt</th>
+						<th>Liczba sztuk</th>
+						<th>Priorytet</th>
+						<th>Wymagany termin</th>
+						<th>Do pobrania</th>
+						<th>Status</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="order : ${orders}">
+						<td th:text="${order.project.name}"></td>
+						<td th:text="${order.quantityUnits}"></td>
+						<td><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></td>
+						<td th:text="${order.requiredDate}"></td>
+						<td th:id="|to-pick-${order.id}|" th:text="${toPickByOrderId.getOrDefault(order.id, 0L)}"></td>
+						<td><span th:if="${order.completionReported}" class="badge badge-info">Zgłoszone</span></td>
+						<td><a class="btn btn-secondary" th:href="@{/picking/{id}(id=${order.id})}">Szczegóły</a></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</main>
 </body>
 </html>

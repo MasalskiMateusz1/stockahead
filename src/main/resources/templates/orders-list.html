@@ -1,75 +1,78 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Zlecenia')}">
 	<meta charset="UTF-8">
 	<title>Zlecenia — Stockahead</title>
-	<style>
-		td, th {
-			text-align: center;
-		}
-	</style>
 </head>
 <body>
-	<h1>Zlecenia</h1>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
+	<main class="container">
+		<h1>Zlecenia</h1>
 
-	<p><a th:href="@{/orders/new}">Nowe zlecenie</a></p>
+		<div class="page-actions">
+			<a class="btn" th:href="@{/orders/new}">Nowe zlecenie</a>
+		</div>
 
-	<section id="pending-orders" th:unless="${#lists.isEmpty(pendingOrders)}">
-		<h2>Do potwierdzenia</h2>
+		<section id="pending-orders" th:unless="${#lists.isEmpty(pendingOrders)}">
+			<h2>Do potwierdzenia</h2>
 
-		<table>
-			<thead>
-				<tr>
-					<th>Projekt</th>
-					<th>Liczba sztuk</th>
-					<th>Priorytet</th>
-					<th>Wymagany termin</th>
-					<th>Zgłoszono</th>
-					<th>Zbudowano</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr th:each="order : ${pendingOrders}">
-					<td th:text="${order.project.name}"></td>
-					<td th:text="${order.quantityUnits}"></td>
-					<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
-					<td th:text="${order.requiredDate}"></td>
-					<td th:text="${@orderMoments.format(order.completionReportedAt)}"></td>
-					<td th:text="${order.builtUnits != null ? order.builtUnits + ' / ' + order.quantityUnits : '—'}"></td>
-					<td><a th:href="@{/orders/{id}(id=${order.id})}">Sprawdź</a></td>
-				</tr>
-			</tbody>
-		</table>
-	</section>
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr>
+							<th>Projekt</th>
+							<th>Liczba sztuk</th>
+							<th>Priorytet</th>
+							<th>Wymagany termin</th>
+							<th>Zgłoszono</th>
+							<th>Zbudowano</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr class="row-pending" th:each="order : ${pendingOrders}">
+							<td th:text="${order.project.name}"></td>
+							<td th:text="${order.quantityUnits}"></td>
+							<td><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></td>
+							<td th:text="${order.requiredDate}"></td>
+							<td th:text="${@orderMoments.format(order.completionReportedAt)}"></td>
+							<td th:text="${order.builtUnits != null ? order.builtUnits + ' / ' + order.quantityUnits : '—'}"></td>
+							<td><a class="btn" th:href="@{/orders/{id}(id=${order.id})}">Sprawdź</a></td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
 
-	<section id="open-orders">
-		<h2>Otwarte zlecenia</h2>
+		<section id="open-orders">
+			<h2>Otwarte zlecenia</h2>
 
-		<p th:if="${#lists.isEmpty(orders)}">Brak zleceń.</p>
+			<p th:if="${#lists.isEmpty(orders)}" class="empty">Brak zleceń.</p>
 
-		<table th:unless="${#lists.isEmpty(orders)}">
-			<thead>
-				<tr>
-					<th>Projekt</th>
-					<th>Liczba sztuk</th>
-					<th>Priorytet</th>
-					<th>Wymagany termin</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr th:each="order : ${orders}">
-					<td th:text="${order.project.name}"></td>
-					<td th:text="${order.quantityUnits}"></td>
-					<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
-					<td th:text="${order.requiredDate}"></td>
-					<td><a th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
-				</tr>
-			</tbody>
-		</table>
-	</section>
+			<div class="table-wrap" th:unless="${#lists.isEmpty(orders)}">
+				<table>
+					<thead>
+						<tr>
+							<th>Projekt</th>
+							<th>Liczba sztuk</th>
+							<th>Priorytet</th>
+							<th>Wymagany termin</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:each="order : ${orders}">
+							<td th:text="${order.project.name}"></td>
+							<td th:text="${order.quantityUnits}"></td>
+							<td><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></td>
+							<td th:text="${order.requiredDate}"></td>
+							<td><a class="btn btn-secondary" th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
+	</main>
 </body>
 </html>

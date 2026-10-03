@@ -361,28 +361,28 @@ No data or schema changes. Rollback is a plain revert of the change's commits.
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 `grep -lE '<style|style="' src/main/resources/templates/{parts-*,deliveries-new,purchasing-list}.html` returns nothing
+- [x] 2.1 `./mvnw verify` passes — cfd81d6
+- [x] 2.2 `grep -lE '<style|style="' src/main/resources/templates/{parts-*,deliveries-new,purchasing-list}.html` returns nothing — cfd81d6
 
 #### Manual
 
-- [x] 2.3 Each of the 8 views looks consistent in light and dark at desktop and ~768px width; wide tables scroll inside `.table-wrap` instead of the page
-- [x] 2.4 Parts list row actions sit on one line; Dezaktywuj is visually destructive
-- [x] 2.5 CSV import error table, import preview with NOWA badges, and delivery form read cleanly
+- [x] 2.3 Each of the 8 views looks consistent in light and dark at desktop and ~768px width; wide tables scroll inside `.table-wrap` instead of the page — cfd81d6
+- [x] 2.4 Parts list row actions sit on one line; Dezaktywuj is visually destructive — cfd81d6
+- [x] 2.5 CSV import error table, import preview with NOWA badges, and delivery form read cleanly — cfd81d6
 
 ### Phase 3: Migrate projects, orders, picking and technicians views
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes
-- [ ] 3.2 `grep -rlE '<style|style="' src/main/resources/templates` returns nothing
+- [x] 3.1 `./mvnw verify` passes
+- [x] 3.2 `grep -rlE '<style|style="' src/main/resources/templates` returns nothing
 
 #### Manual
 
-- [ ] 3.3 Orders list shows both sections with priority badges; pending-review rows stand out
-- [ ] 3.4 Order detail, cancel and completion review screens: destructive actions are clearly distinct from confirm actions
-- [ ] 3.5 Picking detail pick forms sit inline in their rows and stay usable at ~768px width (technician tablet)
-- [ ] 3.6 Project detail (BOM, links) and technician list read cleanly in light and dark
+- [x] 3.3 Orders list shows both sections with priority badges; pending-review rows stand out
+- [x] 3.4 Order detail, cancel and completion review screens: destructive actions are clearly distinct from confirm actions
+- [x] 3.5 Picking detail pick forms sit inline in their rows and stay usable at ~768px width (technician tablet)
+- [x] 3.6 Project detail (BOM, links) and technician list read cleanly in light and dark
 
 ### Phase 4: Convention guard, lessons update and final pass
 

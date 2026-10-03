@@ -1,44 +1,50 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Nowe zlecenie')}">
 	<meta charset="UTF-8">
 	<title>Nowe zlecenie — Stockahead</title>
 </head>
 <body>
-	<h1>Nowe zlecenie</h1>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<p th:if="${error}" th:text="${error}"></p>
+	<main class="container">
+		<h1>Nowe zlecenie</h1>
 
-	<form th:action="@{/orders}" method="post">
-		<div>
-			<label for="projectId">Projekt</label>
-			<select id="projectId" name="projectId" required>
-				<option value="">— wybierz projekt —</option>
-				<option th:each="project : ${activeProjects}"
-					th:value="${project.id}"
-					th:text="${project.name}"
-					th:selected="${projectId != null and projectId == ('' + project.id)}"></option>
-			</select>
-		</div>
-		<div>
-			<label for="quantityUnits">Liczba sztuk</label>
-			<input type="text" id="quantityUnits" name="quantityUnits" size="6" th:value="${quantityUnits}" required>
-		</div>
-		<div>
-			<label for="priority">Priorytet</label>
-			<select id="priority" name="priority" required>
-				<option value="LOW" th:selected="${priority == 'LOW'}" th:text="#{orders.priority.low}"></option>
-				<option value="NORMAL" th:selected="${priority == null or priority == 'NORMAL'}" th:text="#{orders.priority.normal}"></option>
-				<option value="HIGH" th:selected="${priority == 'HIGH'}" th:text="#{orders.priority.high}"></option>
-			</select>
-		</div>
-		<div>
-			<label for="requiredDate">Wymagany termin</label>
-			<input type="date" id="requiredDate" name="requiredDate" th:min="${today}" th:value="${requiredDate}" required>
-		</div>
-		<button type="submit">Utwórz zlecenie</button>
-	</form>
+		<div th:replace="~{fragments :: alerts}"></div>
 
-	<p><a th:href="@{/projects}">Powrót do listy projektów</a></p>
+		<form class="card" th:action="@{/orders}" method="post">
+			<div class="form-field">
+				<label for="projectId">Projekt</label>
+				<select id="projectId" name="projectId" required>
+					<option value="">— wybierz projekt —</option>
+					<option th:each="project : ${activeProjects}"
+						th:value="${project.id}"
+						th:text="${project.name}"
+						th:selected="${projectId != null and projectId == ('' + project.id)}"></option>
+				</select>
+			</div>
+			<div class="form-field">
+				<label for="quantityUnits">Liczba sztuk</label>
+				<input type="text" id="quantityUnits" name="quantityUnits" size="6" th:value="${quantityUnits}" required>
+			</div>
+			<div class="form-field">
+				<label for="priority">Priorytet</label>
+				<select id="priority" name="priority" required>
+					<option value="LOW" th:selected="${priority == 'LOW'}" th:text="#{orders.priority.low}"></option>
+					<option value="NORMAL" th:selected="${priority == null or priority == 'NORMAL'}" th:text="#{orders.priority.normal}"></option>
+					<option value="HIGH" th:selected="${priority == 'HIGH'}" th:text="#{orders.priority.high}"></option>
+				</select>
+			</div>
+			<div class="form-field">
+				<label for="requiredDate">Wymagany termin</label>
+				<input type="date" id="requiredDate" name="requiredDate" th:min="${today}" th:value="${requiredDate}" required>
+			</div>
+			<button type="submit" class="btn">Utwórz zlecenie</button>
+		</form>
+
+		<div class="page-actions">
+			<a class="btn btn-secondary" th:href="@{/projects}">Powrót do listy projektów</a>
+		</div>
+	</main>
 </body>
 </html>

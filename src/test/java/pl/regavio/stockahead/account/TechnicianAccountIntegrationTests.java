@@ -166,7 +166,7 @@ class TechnicianAccountIntegrationTests {
 			.andExpect(content().string(containsString("inactive@technician-phase2.example")))
 			.andExpect(content().string(containsString("Dezaktywuj")))
 			.andExpect(content().string(containsString("Reaktywuj")))
-			.andExpect(content().string(not(containsString(MANAGER_EMAIL))))
+			.andExpect(content().string(not(containsString("<td>" + MANAGER_EMAIL + "</td>"))))
 			.andExpect(content().string(containsString("_csrf")));
 		mockMvc.perform(get("/").session(managerSession))
 			.andExpect(content().string(containsString("/manager/technicians")))

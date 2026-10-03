@@ -1,36 +1,42 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Konta techników')}">
 	<meta charset="UTF-8">
 	<title>Konta techników — Stockahead</title>
-	<style>
-		td, th {
-			text-align: center;
-		}
-	</style>
 </head>
 <body>
-	<h1>Konta techników</h1>
-	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
-	<p><a th:href="@{/manager/technicians/new}">Załóż konto technika</a></p>
-	<table>
-		<thead>
-			<tr><th>E-mail</th><th>Status</th><th>Akcja</th></tr>
-		</thead>
-		<tbody>
-			<tr th:each="technician : ${technicians}">
-				<td th:text="${technician.email}"></td>
-				<td th:text="${technician.active} ? 'Aktywny' : 'Nieaktywny'"></td>
-				<td>
-					<form th:if="${technician.active}" th:action="@{/manager/technicians/{id}/deactivate(id=${technician.id})}" method="post">
-						<button type="submit">Dezaktywuj</button>
-					</form>
-					<form th:unless="${technician.active}" th:action="@{/manager/technicians/{id}/reactivate(id=${technician.id})}" method="post">
-						<button type="submit">Reaktywuj</button>
-					</form>
-				</td>
-			</tr>
-		</tbody>
-	</table>
+	<header th:replace="~{fragments :: topbar}"></header>
+
+	<main class="container">
+		<h1>Konta techników</h1>
+
+		<div class="page-actions">
+			<a class="btn" th:href="@{/manager/technicians/new}">Załóż konto technika</a>
+		</div>
+
+		<div class="table-wrap">
+			<table>
+				<thead>
+					<tr><th>E-mail</th><th>Status</th><th>Akcja</th></tr>
+				</thead>
+				<tbody>
+					<tr th:each="technician : ${technicians}">
+						<td th:text="${technician.email}"></td>
+						<td><span class="badge" th:classappend="${technician.active} ? '' : 'badge-muted'" th:text="${technician.active} ? 'Aktywny' : 'Nieaktywny'"></span></td>
+						<td>
+							<div class="actions">
+								<form th:if="${technician.active}" th:action="@{/manager/technicians/{id}/deactivate(id=${technician.id})}" method="post">
+									<button type="submit" class="btn btn-danger">Dezaktywuj</button>
+								</form>
+								<form th:unless="${technician.active}" th:action="@{/manager/technicians/{id}/reactivate(id=${technician.id})}" method="post">
+									<button type="submit" class="btn btn-secondary">Reaktywuj</button>
+								</form>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</main>
 </body>
 </html>

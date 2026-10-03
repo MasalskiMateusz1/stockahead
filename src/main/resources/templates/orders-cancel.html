@@ -1,53 +1,56 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head(${'Anulowanie zlecenia ' + projectName})}">
 	<meta charset="UTF-8">
-	<title th:text="'Anulowanie zlecenia ' + ${projectName} + ' — Stockahead'">Anulowanie zlecenia — Stockahead</title>
-	<style>
-		td, th {
-			text-align: center;
-		}
-	</style>
+	<title>Anulowanie zlecenia — Stockahead</title>
 </head>
 <body>
-	<p th:if="${error}" th:text="${error}"></p>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<h1 th:text="'Anulowanie zlecenia: ' + ${projectName}"></h1>
+	<main class="container">
+		<h1 th:text="'Anulowanie zlecenia: ' + ${projectName}"></h1>
 
-	<form th:if="${cancellable}" th:action="@{/orders/{id}/cancel(id=${orderId})}" method="post">
-		<p th:if="${#lists.isEmpty(lines)}">Z tego zlecenia nie pobrano żadnych części.</p>
+		<div th:replace="~{fragments :: alerts}"></div>
 
-		<div th:unless="${#lists.isEmpty(lines)}">
-			<p>Podaj, ile pobranych sztuk wraca na magazyn. Pozostałe zostaną uznane za zużyte.</p>
-			<table>
-				<thead>
-					<tr>
-						<th>Część</th>
-						<th>Lokalizacje</th>
-						<th>Pobrana ilość</th>
-						<th>Ilość do zwrotu</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr th:each="line : ${lines}">
-						<td th:text="${line.partName}"></td>
-						<td th:text="${line.locations}"></td>
-						<td th:text="${line.pickedQuantity}"></td>
-						<td>
-							<input type="hidden" th:name="'seenPicked_' + ${line.lineId}" th:value="${line.pickedQuantity}">
-							<input type="text" size="6"
-								th:id="'returned-' + ${line.lineId}"
-								th:name="'returned_' + ${line.lineId}"
-								th:value="${line.returnValue}">
-						</td>
-					</tr>
-				</tbody>
-			</table>
+		<form th:if="${cancellable}" th:action="@{/orders/{id}/cancel(id=${orderId})}" method="post">
+			<p th:if="${#lists.isEmpty(lines)}" class="empty">Z tego zlecenia nie pobrano żadnych części.</p>
+
+			<div th:unless="${#lists.isEmpty(lines)}">
+				<p>Podaj, ile pobranych sztuk wraca na magazyn. Pozostałe zostaną uznane za zużyte.</p>
+				<div class="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>Część</th>
+								<th>Lokalizacje</th>
+								<th>Pobrana ilość</th>
+								<th>Ilość do zwrotu</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr th:each="line : ${lines}">
+								<td th:text="${line.partName}"></td>
+								<td th:text="${line.locations}"></td>
+								<td th:text="${line.pickedQuantity}"></td>
+								<td>
+									<input type="hidden" th:name="'seenPicked_' + ${line.lineId}" th:value="${line.pickedQuantity}">
+									<input type="text" size="6"
+										th:id="'returned-' + ${line.lineId}"
+										th:name="'returned_' + ${line.lineId}"
+										th:value="${line.returnValue}">
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+			<button type="submit" class="btn btn-danger">Potwierdź anulowanie</button>
+		</form>
+
+		<div class="page-actions">
+			<a class="btn btn-secondary" th:href="@{/orders/{id}(id=${orderId})}">Powrót do zlecenia</a>
 		</div>
-
-		<button type="submit">Potwierdź anulowanie</button>
-	</form>
-
-	<p><a th:href="@{/orders/{id}(id=${orderId})}">Powrót do zlecenia</a></p>
+	</main>
 </body>
 </html>

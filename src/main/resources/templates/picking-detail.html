@@ -1,69 +1,81 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head(${order.projectName})}">
 	<meta charset="UTF-8">
-	<title th:text="${order.projectName} + ' — Stockahead'">Kompletacja — Stockahead</title>
-	<style>
-		td, th {
-			text-align: center;
-		}
-	</style>
+	<title>Kompletacja — Stockahead</title>
 </head>
 <body>
-	<p th:if="${error}" th:text="${error}"></p>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<h1 th:text="${order.projectName}"></h1>
+	<main class="container">
+		<h1 th:text="${order.projectName}"></h1>
 
-	<p>Liczba sztuk: <span th:text="${order.quantityUnits}"></span></p>
-	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
-	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
-	<p th:if="${order.taken}">Zlecenie podjęte</p>
-	<p th:if="${order.completionReported}"
-		th:text="'Zgłoszone do potwierdzenia' + (${order.builtUnits != null} ? ' — zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} : '')">Zgłoszone do potwierdzenia</p>
-	<form th:if="${order.canReportCompletion}" th:action="@{/picking/{orderId}/report-completion(orderId=${orderId})}" method="post">
-		<label for="builtUnits">Zbudowano sztuk</label>
-		<input type="number" id="builtUnits" name="builtUnits" min="0" th:max="${order.quantityUnits}" required
-			th:value="${builtUnits != null} ? ${builtUnits} : ${order.quantityUnits}">
-		<button type="submit">Zgłoś zakończenie</button>
-	</form>
+		<div th:replace="~{fragments :: alerts}"></div>
 
-	<h2>Pozycje do skompletowania</h2>
+		<dl class="stats">
+			<dt>Liczba sztuk:</dt>
+			<dd th:text="${order.quantityUnits}"></dd>
+			<dt>Priorytet:</dt>
+			<dd><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></dd>
+			<dt>Wymagany termin:</dt>
+			<dd th:text="${order.requiredDate}"></dd>
+		</dl>
+		<p th:if="${order.taken}"><span class="badge badge-muted">Zlecenie podjęte</span></p>
+		<p th:if="${order.completionReported}"><span class="badge badge-info"
+			th:text="'Zgłoszone do potwierdzenia' + (${order.builtUnits != null} ? ' — zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} : '')">Zgłoszone do potwierdzenia</span></p>
+		<form class="card form-inline" th:if="${order.canReportCompletion}" th:action="@{/picking/{orderId}/report-completion(orderId=${orderId})}" method="post">
+			<div class="form-field">
+				<label for="builtUnits">Zbudowano sztuk</label>
+				<input type="number" id="builtUnits" name="builtUnits" min="0" th:max="${order.quantityUnits}" required
+					th:value="${builtUnits != null} ? ${builtUnits} : ${order.quantityUnits}">
+			</div>
+			<button type="submit" class="btn">Zgłoś zakończenie</button>
+		</form>
 
-	<p th:if="${#lists.isEmpty(lines)}">Brak pozycji.</p>
+		<h2>Pozycje do skompletowania</h2>
 
-	<table th:unless="${#lists.isEmpty(lines)}">
-		<thead>
-			<tr>
-				<th>Część</th>
-				<th>Lokalizacje</th>
-				<th>Wymagana ilość</th>
-				<th>Zarezerwowana ilość</th>
-				<th>Pobrana ilość</th>
-				<th>Do pobrania</th>
-				<th></th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr th:each="line : ${lines}">
-				<td th:text="${line.partName}"></td>
-				<td th:text="${line.locations}"></td>
-				<td th:text="${line.requiredQuantity}"></td>
-				<td th:text="${line.reservedQuantity}"></td>
-				<td th:text="${line.pickedQuantity}"></td>
-				<td th:text="${line.remainingToPick}"></td>
-				<td th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN' and !order.completionReported}">
-					<form th:action="@{/picking/{orderId}/lines/{lineId}/pick(orderId=${orderId},lineId=${line.lineId})}" method="post" style="display:inline">
-						<input type="text" size="6"
-							th:id="'quantity-' + ${line.lineId}"
-							name="quantity"
-							th:value="${errorLineId != null and errorLineId == line.lineId} ? ${quantity} : ${line.remainingToPick}">
-						<button type="submit">Pobierz</button>
-					</form>
-				</td>
-			</tr>
-		</tbody>
-	</table>
+		<p th:if="${#lists.isEmpty(lines)}" class="empty">Brak pozycji.</p>
 
-	<p><a th:href="@{/picking}">Powrót do listy kompletacyjnej</a></p>
+		<div class="table-wrap" th:unless="${#lists.isEmpty(lines)}">
+			<table>
+				<thead>
+					<tr>
+						<th>Część</th>
+						<th>Lokalizacje</th>
+						<th>Wymagana ilość</th>
+						<th>Zarezerwowana ilość</th>
+						<th>Pobrana ilość</th>
+						<th>Do pobrania</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr th:each="line : ${lines}">
+						<td th:text="${line.partName}"></td>
+						<td th:text="${line.locations}"></td>
+						<td th:text="${line.requiredQuantity}"></td>
+						<td th:text="${line.reservedQuantity}"></td>
+						<td th:text="${line.pickedQuantity}"></td>
+						<td th:text="${line.remainingToPick}"></td>
+						<td th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN' and !order.completionReported}">
+							<div class="actions">
+								<form th:action="@{/picking/{orderId}/lines/{lineId}/pick(orderId=${orderId},lineId=${line.lineId})}" method="post">
+									<input type="text" size="6"
+										th:id="'quantity-' + ${line.lineId}"
+										name="quantity"
+										th:value="${errorLineId != null and errorLineId == line.lineId} ? ${quantity} : ${line.remainingToPick}">
+									<button type="submit" class="btn">Pobierz</button>
+								</form>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="page-actions">
+			<a class="btn btn-secondary" th:href="@{/picking}">Powrót do listy kompletacyjnej</a>
+		</div>
+	</main>
 </body>
 </html>

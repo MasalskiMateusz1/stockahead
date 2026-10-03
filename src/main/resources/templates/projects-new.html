@@ -1,22 +1,28 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Nowy projekt')}">
 	<meta charset="UTF-8">
 	<title>Nowy projekt — Stockahead</title>
 </head>
 <body>
-	<h1>Nowy projekt</h1>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<p th:if="${error}" th:text="${error}"></p>
+	<main class="container">
+		<h1>Nowy projekt</h1>
 
-	<form th:action="@{/projects}" method="post">
-		<div>
-			<label for="name">Nazwa</label>
-			<input type="text" id="name" name="name" th:value="${name}" required>
+		<div th:replace="~{fragments :: alerts}"></div>
+
+		<form class="card" th:action="@{/projects}" method="post">
+			<div class="form-field">
+				<label for="name">Nazwa</label>
+				<input type="text" id="name" name="name" th:value="${name}" required>
+			</div>
+			<button type="submit" class="btn">Dodaj projekt</button>
+		</form>
+
+		<div class="page-actions">
+			<a class="btn btn-secondary" th:href="@{/projects}">Powrót do listy projektów</a>
 		</div>
-		<button type="submit">Dodaj projekt</button>
-	</form>
-
-	<p><a th:href="@{/projects}">Powrót do listy projektów</a></p>
+	</main>
 </body>
 </html>
