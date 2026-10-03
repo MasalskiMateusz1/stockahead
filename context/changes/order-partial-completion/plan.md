@@ -286,9 +286,9 @@ V12 adds a nullable column with CHECKs and no backfill, so it is safe on the dep
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes with new confirm-partial, reject-clears-count, two-cycle, legacy-NULL and display tests
+- [x] 3.1 `./mvnw verify` passes with new confirm-partial, reject-clears-count, two-cycle, legacy-NULL and display tests — cfdd5a6
 
 #### Manual
 
-- [x] 3.2 As a manager, a 7-of-10 report shows "7 / 10" on `/orders` and "Zbudowano: 7 z 10" on the detail page, and after confirming the detail reads "Zakończone częściowo: zbudowano 7 z 10"
-- [x] 3.3 Rejecting and re-reporting with 10 shows "10 / 10" and confirms as "Zakończone"
+- [x] 3.2 As a manager, a 7-of-10 report shows "7 / 10" on `/orders` and "Zbudowano: 7 z 10" on the detail page, and after confirming the detail reads "Zakończone częściowo: zbudowano 7 z 10" — cfdd5a6
+- [x] 3.3 Rejecting and re-reporting with 10 shows "10 / 10" and confirms as "Zakończone" — cfdd5a6
