@@ -61,6 +61,9 @@ public class Order {
 	@JoinColumn(name = "completion_reported_by")
 	private Account completionReportedBy;
 
+	@Column(name = "built_units")
+	private Integer builtUnits;
+
 	@Column(name = "completed_at")
 	private Instant completedAt;
 
@@ -156,6 +159,23 @@ public class Order {
 
 	public void setCompletionReportedBy(Account completionReportedBy) {
 		this.completionReportedBy = completionReportedBy;
+	}
+
+	public Integer getBuiltUnits() {
+		return builtUnits;
+	}
+
+	public void setBuiltUnits(Integer builtUnits) {
+		this.builtUnits = builtUnits;
+	}
+
+	/**
+	 * True when the order was confirmed with fewer units built than ordered.
+	 * A {@code COMPLETED} order without a recorded count (reported before the
+	 * count existed) is not considered partial.
+	 */
+	public boolean isPartiallyCompleted() {
+		return status == OrderStatus.COMPLETED && builtUnits != null && builtUnits < quantityUnits;
 	}
 
 	public Instant getCompletedAt() {

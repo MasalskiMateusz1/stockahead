@@ -18,11 +18,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Proves the V8 completion constraints on {@code orders} hold at the
+ * Proves the V8 and V12 completion constraints on {@code orders} hold at the
  * PostgreSQL level, independently of any controller check: a report needs a
  * taken order, the report timestamp and reporter are set or cleared
- * together, and {@code COMPLETED} needs both a completion moment and a
- * report. Deliberately not {@code @Transactional}: every
+ * together, {@code COMPLETED} needs both a completion moment and a report,
+ * and a built-units count lies in 0…{@code quantity_units} and exists only
+ * with a report. Deliberately not {@code @Transactional}: every
  * {@code JdbcTemplate} call runs as its own auto-committed statement so the
  * constraint fires for real.
  */
@@ -64,10 +65,26 @@ class OrderCompletionSchemaTests {
 	}
 
 	private long insertOrder(Instant takenAt) {
+		return insertOrder(takenAt, 1);
+	}
+
+	private long insertOrder(Instant takenAt, int quantityUnits) {
 		return jdbcTemplate.queryForObject(
 			"INSERT INTO orders (project_id, quantity_units, priority, required_date, taken_at) "
-					+ "VALUES (?, 1, 'NORMAL', CURRENT_DATE, ?) RETURNING id",
-			Long.class, projectId, takenAt == null ? null : Timestamp.from(takenAt));
+					+ "VALUES (?, ?, 'NORMAL', CURRENT_DATE, ?) RETURNING id",
+			Long.class, projectId, quantityUnits, takenAt == null ? null : Timestamp.from(takenAt));
+	}
+
+	private long insertReportedOrder(int quantityUnits) {
+		long orderId = insertOrder(Instant.now(), quantityUnits);
+		jdbcTemplate.update(
+			"UPDATE orders SET completion_reported_at = now(), completion_reported_by = ? WHERE id = ?",
+			reporterId, orderId);
+		return orderId;
+	}
+
+	private Integer builtUnitsOf(long orderId) {
+		return jdbcTemplate.queryForObject("SELECT built_units FROM orders WHERE id = ?", Integer.class, orderId);
 	}
 
 	private Timestamp completionReportedAtOf(long orderId) {
@@ -162,6 +179,61 @@ class OrderCompletionSchemaTests {
 		assertThatThrownBy(() -> jdbcTemplate.update("DELETE FROM accounts WHERE id = ?", reporterId))
 			.isInstanceOf(DataIntegrityViolationException.class);
 		assertThat(completionReportedByOf(orderId)).isEqualTo(reporterId);
+	}
+
+	@Test
+	void negativeBuiltUnitsIsRejected() {
+		long orderId = insertReportedOrder(10);
+
+		assertThatThrownBy(() -> jdbcTemplate.update("UPDATE orders SET built_units = -1 WHERE id = ?", orderId))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThat(builtUnitsOf(orderId)).isNull();
+	}
+
+	@Test
+	void builtUnitsAboveQuantityIsRejected() {
+		long orderId = insertReportedOrder(10);
+
+		assertThatThrownBy(() -> jdbcTemplate.update("UPDATE orders SET built_units = 11 WHERE id = ?", orderId))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThat(builtUnitsOf(orderId)).isNull();
+	}
+
+	@Test
+	void builtUnitsWithoutReportIsRejected() {
+		long orderId = insertOrder(Instant.now(), 10);
+
+		assertThatThrownBy(() -> jdbcTemplate.update("UPDATE orders SET built_units = 5 WHERE id = ?", orderId))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThat(builtUnitsOf(orderId)).isNull();
+	}
+
+	@Test
+	void reportWithoutBuiltUnitsIsAccepted() {
+		long orderId = insertReportedOrder(10);
+
+		jdbcTemplate.update("UPDATE orders SET status = 'COMPLETED', completed_at = now() WHERE id = ?", orderId);
+
+		assertThat(statusOf(orderId)).isEqualTo("COMPLETED");
+		assertThat(builtUnitsOf(orderId)).isNull();
+	}
+
+	@Test
+	void zeroBuiltUnitsWithReportIsAccepted() {
+		long orderId = insertReportedOrder(10);
+
+		jdbcTemplate.update("UPDATE orders SET built_units = 0 WHERE id = ?", orderId);
+
+		assertThat(builtUnitsOf(orderId)).isZero();
+	}
+
+	@Test
+	void fullBuiltUnitsWithReportIsAccepted() {
+		long orderId = insertReportedOrder(10);
+
+		jdbcTemplate.update("UPDATE orders SET built_units = 10 WHERE id = ?", orderId);
+
+		assertThat(builtUnitsOf(orderId)).isEqualTo(10);
 	}
 
 }

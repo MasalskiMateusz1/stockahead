@@ -93,10 +93,12 @@ Technik lub kierownik w małym zakładzie produkującym urządzenia elektroniczn
   > Socrates: Counter-argument considered: „lista bez lokalizacji części nie rozwiązuje bólu”. Resolution: zlecenie pokazuje listę kompletacyjną z lokalizacjami.
 - FR-013: Technik może pobrać zarezerwowane części ze stanu, także częściowo (np. 6 z 10). Priority: must-have
   > Socrates: Counter-argument considered: „pobranie częściowe”. Resolution: pobranie obsługuje ilości częściowe.
-- FR-014: Technik może zgłosić zlecenie jako zakończone. Priority: must-have
+- FR-014: Technik może zgłosić zlecenie jako zakończone, podając liczbę faktycznie zbudowanych sztuk (0…N); liczbę podaje technik, nie jest wyliczana z pobranych części. Priority: must-have
   > Socrates: Counter-argument considered: „zakończenie powinien potwierdzać kierownik”. Resolution: technik zgłasza, kierownik potwierdza (FR-020).
-- FR-020: Kierownik może potwierdzić zakończenie zlecenia; niepobrane rezerwacje zostają wtedy zwolnione. Priority: must-have
+  > Socrates: Counter-argument considered: „liczba sztuk powinna wynikać z pobrań”. Resolution (2026-10-03): liczba technika jest rozstrzygająca (zamienniki), zakres 0…N, bez porównania z pobraniami.
+- FR-020: Kierownik może potwierdzić zakończenie zlecenia; niepobrane rezerwacje zostają wtedy zwolnione. Potwierdzenie zgłoszenia z X < N zbudowanymi sztukami zamyka zlecenie jako częściowo zakończone z informacją „zbudowano X z N”; niezbudowana reszta przepada (rezerwacje zwolnione, jej brak znika z listy zakupów), a w razie potrzeby kierownik zakłada na nią nowe zlecenie. Błędną liczbę kierownik odrzuca, a technik zgłasza zakończenie ponownie; kierownik nie poprawia liczby. Priority: must-have
   > Socrates: Rozważono wąskie gardło na kierowniku i odrzucanie zgłoszeń. Resolution: brak kontrargumentu; zostaje.
+  > Socrates: Counter-argument considered: „niezbudowana reszta powinna wrócić jako nowe zlecenie lub brak na liście zakupów”. Resolution (2026-10-03): reszta przepada i pozostaje widoczna na zleceniu; kierownik zamawia ją ręcznie nowym zleceniem; korekta liczby tylko przez odrzucenie i ponowne zgłoszenie.
 
 ### Zakupy
 - FR-015: Kierownik może zobaczyć listę zakupów z brakującymi częściami, wraz ze zleceniami, które dany brak blokuje. Priority: must-have
