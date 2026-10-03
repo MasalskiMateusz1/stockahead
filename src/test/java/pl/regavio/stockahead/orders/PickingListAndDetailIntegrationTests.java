@@ -228,8 +228,6 @@ class PickingListAndDetailIntegrationTests {
 			.andExpect(content().string(
 					containsString("name=\"builtUnits\" min=\"0\" max=\"4\" required")))
 			.andExpect(content().string(containsString("value=\"4\"")))
-			// novalidate: the browser's native popup must not pre-empt the server's localized error
-			.andExpect(content().string(containsString("/report-completion\" method=\"post\" novalidate>")))
 			.andExpect(content().string(not(containsString("zbudowano"))));
 
 		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(technician)

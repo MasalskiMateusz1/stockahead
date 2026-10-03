@@ -86,6 +86,8 @@ Write the decided rule into the PRD and roadmap, then add the column, constraint
 
 **Contract**: `Integer builtUnits` with getter/setter. `isPartiallyCompleted()` is true when status is `COMPLETED`, `builtUnits != null` and `builtUnits < quantityUnits`.
 
+> Addendum (impl-review F2, 2026-10-03): `Order.isPartiallyCompleted()` was removed because nothing called it. The views derive the partial state through `OrderDetailModel.OrderView.partiallyCompleted()`.
+
 #### 5. Schema tests
 
 **File**: `src/test/java/pl/regavio/stockahead/orders/OrderCompletionSchemaTests.java`
@@ -138,6 +140,8 @@ The report form collects the count, the server validates it under the lock, and 
 **File**: `src/main/resources/messages.properties`
 
 **Contract**: `picking.error.builtUnitsNotInteger` ("Podaj liczbę zbudowanych sztuk (liczba całkowita, co najmniej 0).") and `picking.error.builtUnitsTooMany` ("Liczba zbudowanych sztuk nie może przekroczyć liczby sztuk w zleceniu ({0}).").
+
+> Addendum (impl-review F3, 2026-10-03): the shipped message uses `{0,number,#}` so N ≥ 1000 prints without a grouping separator. Because `builtUnits` is now required, five tests not listed below also send `builtUnits=1`: `OrderCancelIntegrationTests`, `PickingIntegrationTests`, `ReservationAllocatorTests`, `DeliveryIntegrationTests` and `ShoppingListIntegrationTests`.
 
 #### 4. Tests
 
