@@ -327,4 +327,119 @@ class MessagesBundleTests {
 			.isEqualTo("Skorygowano stan części „Rezystor 10k”: 1200 → 5.");
 	}
 
+	@Test
+	void partsImportErrorFileRequired() {
+		assertThat(messageSource.getMessage("partsImport.error.fileRequired", null, PL))
+			.isEqualTo("Wybierz plik CSV do zaimportowania.");
+	}
+
+	@Test
+	void partsImportErrorFileTooLarge() {
+		assertThat(messageSource.getMessage("partsImport.error.fileTooLarge", null, PL))
+			.isEqualTo("Plik jest za duży. Maksymalny rozmiar to 1 MB.");
+	}
+
+	@Test
+	void partsImportErrorReadFailed() {
+		assertThat(messageSource.getMessage("partsImport.error.readFailed", null, PL))
+			.isEqualTo("Nie udało się odczytać pliku. Spróbuj ponownie.");
+	}
+
+	@Test
+	void partsImportErrorEmptyFile() {
+		assertThat(messageSource.getMessage("partsImport.error.emptyFile", null, PL))
+			.isEqualTo("Plik jest pusty.");
+	}
+
+	@Test
+	void partsImportErrorMissingColumns() {
+		assertThat(messageSource.getMessage("partsImport.error.missingColumns", new Object[] { "Ilość, Lokalizacja" }, PL))
+			.isEqualTo("Brak wymaganych kolumn w nagłówku: Ilość, Lokalizacja. Pierwszy wiersz pliku musi zawierać kolumny Nazwa, Ilość i Lokalizacja (albo po angielsku Name, Quantity i Location).");
+	}
+
+	@Test
+	void partsImportColumnLabels() {
+		assertThat(messageSource.getMessage("partsImport.column.name", null, PL)).isEqualTo("Nazwa");
+		assertThat(messageSource.getMessage("partsImport.column.quantity", null, PL)).isEqualTo("Ilość");
+		assertThat(messageSource.getMessage("partsImport.column.location", null, PL)).isEqualTo("Lokalizacja");
+	}
+
+	@Test
+	void partsImportErrorUnterminatedQuote() {
+		assertThat(messageSource.getMessage("partsImport.error.unterminatedQuote", new Object[] { 1234 }, PL))
+			.isEqualTo("Wiersz 1234: cudzysłów otwarty w tym wierszu nie został zamknięty.");
+	}
+
+	@Test
+	void partsImportErrorTooManyRows() {
+		assertThat(messageSource.getMessage("partsImport.error.tooManyRows", new Object[] { 5000 }, PL))
+			.isEqualTo("Plik może mieć maksymalnie 5000 wierszy z danymi.");
+	}
+
+	@Test
+	void partsImportErrorNoDataRows() {
+		assertThat(messageSource.getMessage("partsImport.error.noDataRows", null, PL))
+			.isEqualTo("Plik nie zawiera żadnych wierszy z danymi.");
+	}
+
+	@Test
+	void partsImportErrorNameRequired() {
+		assertThat(messageSource.getMessage("partsImport.error.nameRequired", new Object[] { 1234 }, PL))
+			.isEqualTo("Wiersz 1234: nazwa jest wymagana.");
+	}
+
+	@Test
+	void partsImportErrorNameTooLong() {
+		assertThat(messageSource.getMessage("partsImport.error.nameTooLong", new Object[] { 1234, 255 }, PL))
+			.isEqualTo("Wiersz 1234: nazwa może mieć maksymalnie 255 znaków.");
+	}
+
+	@Test
+	void partsImportErrorQuantityRequired() {
+		assertThat(messageSource.getMessage("partsImport.error.quantityRequired", new Object[] { 1234 }, PL))
+			.isEqualTo("Wiersz 1234: ilość jest wymagana.");
+	}
+
+	@Test
+	void partsImportErrorQuantityNotInteger() {
+		assertThat(messageSource.getMessage("partsImport.error.quantityNotInteger", new Object[] { 1234 }, PL))
+			.isEqualTo("Wiersz 1234: ilość musi być liczbą całkowitą.");
+	}
+
+	@Test
+	void partsImportErrorQuantityNegative() {
+		assertThat(messageSource.getMessage("partsImport.error.quantityNegative", new Object[] { 1234 }, PL))
+			.isEqualTo("Wiersz 1234: ilość nie może być ujemna.");
+	}
+
+	@Test
+	void partsImportErrorQuantityTooLarge() {
+		assertThat(messageSource.getMessage("partsImport.error.quantityTooLarge", new Object[] { 1234, 1_000_000 }, PL))
+			.isEqualTo("Wiersz 1234: ilość nie może przekraczać 1000000.");
+	}
+
+	@Test
+	void partsImportErrorLocationTooLong() {
+		assertThat(messageSource.getMessage("partsImport.error.locationTooLong", new Object[] { 1234, 255 }, PL))
+			.isEqualTo("Wiersz 1234: lokalizacja może mieć maksymalnie 255 znaków.");
+	}
+
+	@Test
+	void partsImportErrorTotalTooLarge() {
+		assertThat(messageSource.getMessage("partsImport.error.totalTooLarge", new Object[] { 1234, "Rezystor 10k", 1_000_000_000L }, PL))
+			.isEqualTo("Wiersz 1234: łączna ilość części „Rezystor 10k” w pliku nie może przekraczać 1000000000.");
+	}
+
+	@Test
+	void partsImportErrorMoreErrors() {
+		assertThat(messageSource.getMessage("partsImport.error.moreErrors", new Object[] { 1234 }, PL))
+			.isEqualTo("…i 1234 więcej.");
+	}
+
+	@Test
+	void partsImportValid() {
+		assertThat(messageSource.getMessage("partsImport.valid", new Object[] { 1234 }, PL))
+			.isEqualTo("Plik poprawny: 1234 pozycji.");
+	}
+
 }
