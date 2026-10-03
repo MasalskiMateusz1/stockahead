@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<title>Podgląd importu części — Stockahead</title>
+	<style>
+		td, th {
+			text-align: center;
+		}
+	</style>
+</head>
+<body>
+	<h1>Podgląd importu części</h1>
+
+	<p th:if="${notice}" th:text="${notice}"></p>
+
+	<p>Sprawdź stany po imporcie. Nic nie zostało jeszcze zapisane.</p>
+
+	<table>
+		<thead>
+			<tr>
+				<th>Część</th>
+				<th>Stan przed</th>
+				<th>Dodawana ilość</th>
+				<th>Stan po</th>
+				<th>Nowe lokalizacje</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="row : ${rows}">
+				<td>
+					<span th:text="${row.displayName}"></span>
+					<strong th:if="${row.newPart}">NOWA</strong>
+					<span th:if="${row.inactive}">(nieaktywna)</span>
+				</td>
+				<td th:text="${row.quantityBefore}"></td>
+				<td th:text="${row.quantityAdded}"></td>
+				<td th:text="${row.quantityAfter}"></td>
+				<td th:text="${#strings.listJoin(row.locationsToAdd, ', ')}"></td>
+			</tr>
+		</tbody>
+	</table>
+
+	<p>
+		Nowe części: <strong th:text="${totals.newParts}"></strong>,
+		aktualizowane części: <strong th:text="${totals.updatedParts}"></strong>,
+		dodawane sztuki: <strong th:text="${totals.unitsAdded}"></strong>.
+	</p>
+
+	<form th:action="@{/parts/import/confirm}" method="post">
+		<input type="hidden" name="token" th:value="${token}">
+		<button type="submit">Zatwierdź import</button>
+	</form>
+
+	<form th:action="@{/parts/import/cancel}" method="post">
+		<button type="submit">Anuluj</button>
+	</form>
+</body>
+</html>

@@ -1,6 +1,8 @@
 package pl.regavio.stockahead.parts;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -14,12 +16,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.servlet.http.HttpSession;
+
 /**
  * Manager-only parts CSV import: the upload page documenting the file format,
  * and the upload itself, which reads the file ({@link PartsCsvReader}),
- * validates and merges its rows ({@link PartsImportFile}) and re-renders the
- * page with every error found, at most {@value #MAX_ERRORS_SHOWN} of them
- * listed.
+ * validates and merges its rows ({@link PartsImportFile}), resolves them
+ * against the catalog ({@link ImportPreview}) and either re-renders the page
+ * with every error found, at most {@value #MAX_ERRORS_SHOWN} of them listed,
+ * or renders the preview of the resulting stock. The preview never writes;
+ * it is kept in the session as a {@link PendingImport} (one per session: each
+ * upload replaces it, cancel removes it).
  * <p>
  * The {@value #MAX_FILE_BYTES}-byte limit is checked here, not by the
  * multipart limits (set higher, at 10 MB): a multipart size failure happens
@@ -31,13 +38,18 @@ public class PartImportController {
 
 	static final String VIEW = "parts-import";
 
+	static final String PREVIEW_VIEW = "parts-import-preview";
+
 	static final long MAX_FILE_BYTES = 1024 * 1024;
 
 	static final int MAX_ERRORS_SHOWN = 50;
 
+	private final PartRepository partRepository;
+
 	private final MessageSource messageSource;
 
-	PartImportController(MessageSource messageSource) {
+	PartImportController(PartRepository partRepository, MessageSource messageSource) {
+		this.partRepository = partRepository;
 		this.messageSource = messageSource;
 	}
 
@@ -50,7 +62,9 @@ public class PartImportController {
 	@PostMapping("/parts/import")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String upload(@RequestParam(name = "file", required = false) MultipartFile file, Model model,
-			Locale locale) {
+			Locale locale, HttpSession session) {
+		// A new upload replaces any pending import, valid or not.
+		session.removeAttribute(PendingImport.SESSION_ATTRIBUTE);
 		if (file == null || file.isEmpty()) {
 			return renderErrors(model, List.of(ImportError.ofFile("partsImport.error.fileRequired")), locale);
 		}
@@ -71,14 +85,40 @@ public class PartImportController {
 			return renderErrors(model, List.of(result.error()), locale);
 		}
 		PartsImportFile importFile = PartsImportFile.parse(result.records());
-		if (importFile.hasErrors()) {
-			return renderErrors(model, importFile.errors(), locale);
+		List<PartsImportFile.ImportLine> lines = List.copyOf(importFile.lines().values());
+		ImportPreview.Result preview = lines.isEmpty() ? null : ImportPreview.build(lines, partRepository);
+		if (importFile.hasErrors() || preview == null || preview.hasErrors()) {
+			List<ImportError> errors = new ArrayList<>(importFile.errors());
+			if (preview != null) {
+				errors.addAll(preview.errors());
+			}
+			// File-level errors first, then by row; stable, so one row's errors keep their order.
+			errors.sort(Comparator.comparingInt(ImportError::rowNumber));
+			return renderErrors(model, errors, locale);
 		}
 
-		// Placeholder until the catalog preview replaces it.
-		model.addAttribute("validMessage", messageSource.getMessage("partsImport.valid",
-				new Object[] { importFile.lines().size() }, locale));
-		return VIEW;
+		PendingImport pending = PendingImport.create(lines, preview.snapshots());
+		session.setAttribute(PendingImport.SESSION_ATTRIBUTE, pending);
+		return renderPreview(model, pending, preview, null);
+	}
+
+	@PostMapping("/parts/import/cancel")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String cancel(HttpSession session) {
+		session.removeAttribute(PendingImport.SESSION_ATTRIBUTE);
+		return "redirect:/parts";
+	}
+
+	/**
+	 * Renders the preview of {@code pending}, built as {@code preview}, with
+	 * an optional {@code notice} shown above it.
+	 */
+	private String renderPreview(Model model, PendingImport pending, ImportPreview.Result preview, String notice) {
+		model.addAttribute("token", pending.token());
+		model.addAttribute("rows", preview.rows());
+		model.addAttribute("totals", preview.totals());
+		model.addAttribute("notice", notice);
+		return PREVIEW_VIEW;
 	}
 
 	private String renderErrors(Model model, List<ImportError> errors, Locale locale) {

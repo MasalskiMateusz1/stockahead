@@ -80,4 +80,12 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	@Query("SELECT p.id, p.quantity FROM Part p WHERE p.id IN :ids")
 	List<Object[]> findCurrentQuantities(@Param("ids") Collection<Long> ids);
 
+	/**
+	 * Every part's {@code (id, name)} pair as a plain scalar projection (no
+	 * {@link Part} hydrated), for matching names in Java; see
+	 * {@link CatalogNameIndex}.
+	 */
+	@Query("SELECT p.id, p.name FROM Part p")
+	List<Object[]> findAllIdsAndNames();
+
 }

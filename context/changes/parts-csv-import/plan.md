@@ -341,29 +341,29 @@ No schema change. Existing case-variant duplicate part names (if any were create
 
 #### Automated
 
-- [x] 1.1 PartsCsvReaderTests passes (encodings, delimiters, quoting, headers, limits)
-- [x] 1.2 PartsImportFileTests passes (row rules, all errors collected, merge, sum bound)
-- [x] 1.3 PartImportIntegrationTests passes (role gates, error list, oversized/empty upload)
-- [x] 1.4 MessagesBundleTests covers every new key
-- [x] 1.5 ./mvnw verify passes
+- [x] 1.1 PartsCsvReaderTests passes (encodings, delimiters, quoting, headers, limits) — 8266b67
+- [x] 1.2 PartsImportFileTests passes (row rules, all errors collected, merge, sum bound) — 8266b67
+- [x] 1.3 PartImportIntegrationTests passes (role gates, error list, oversized/empty upload) — 8266b67
+- [x] 1.4 MessagesBundleTests covers every new key — 8266b67
+- [x] 1.5 ./mvnw verify passes — 8266b67
 
 #### Manual
 
-- [x] 1.6 Excel "CSV UTF-8" and plain semicolon CSV both parse with Polish characters
-- [x] 1.7 A file with three bad rows lists all three with Excel row numbers
-- [x] 1.8 A 3 MB browser upload shows the friendly size message
+- [x] 1.6 Excel "CSV UTF-8" and plain semicolon CSV both parse with Polish characters — 8266b67
+- [x] 1.7 A file with three bad rows lists all three with Excel row numbers — 8266b67
+- [x] 1.8 A 3 MB browser upload shows the friendly size message — 8266b67
 
 ### Phase 2: Preview against the catalog
 
 #### Automated
 
-- [ ] 2.1 PartImportIntegrationTests passes (preview values, markers, name matching, catalog errors, session state, cancel)
-- [ ] 2.2 Preview request writes nothing
-- [ ] 2.3 ./mvnw verify passes
+- [x] 2.1 PartImportIntegrationTests passes (preview values, markers, name matching, catalog errors, session state, cancel)
+- [x] 2.2 Preview request writes nothing
+- [x] 2.3 ./mvnw verify passes
 
 #### Manual
 
-- [ ] 2.4 Preview of a ~100-row file is readable and totals match
+- [x] 2.4 Preview of a ~100-row file is readable and totals match
 
 ### Phase 3: Accept — atomic write with reallocation
 

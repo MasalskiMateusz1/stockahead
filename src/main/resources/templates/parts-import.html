@@ -41,8 +41,6 @@
 		<p th:if="${moreErrors}" th:text="${moreErrors}"></p>
 	</div>
 
-	<p th:if="${validMessage}" th:text="${validMessage}"></p>
-
 	<form th:action="@{/parts/import}" method="post" enctype="multipart/form-data">
 		<label for="file">Plik CSV</label>
 		<input type="file" id="file" name="file" accept=".csv,text/csv">

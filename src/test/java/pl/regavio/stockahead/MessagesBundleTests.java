@@ -437,9 +437,21 @@ class MessagesBundleTests {
 	}
 
 	@Test
-	void partsImportValid() {
-		assertThat(messageSource.getMessage("partsImport.valid", new Object[] { 1234 }, PL))
-			.isEqualTo("Plik poprawny: 1234 pozycji.");
+	void partsImportErrorAmbiguousName() {
+		assertThat(messageSource.getMessage("partsImport.error.ambiguousName", new Object[] { 1234, "KONDENSATOR", "Kondensator, kondensator" }, PL))
+			.isEqualTo("Wiersz 1234: nazwa „KONDENSATOR” pasuje do kilku części w katalogu (Kondensator, kondensator). Zmień nazwy w katalogu tak, aby się różniły, i wgraj plik ponownie.");
+	}
+
+	@Test
+	void partsImportErrorNewPartLocationRequired() {
+		assertThat(messageSource.getMessage("partsImport.error.newPartLocationRequired", new Object[] { 1234, "Dioda" }, PL))
+			.isEqualTo("Wiersz 1234: nowa część „Dioda” musi mieć co najmniej jedną lokalizację.");
+	}
+
+	@Test
+	void partsImportErrorStockOverflow() {
+		assertThat(messageSource.getMessage("partsImport.error.stockOverflow", new Object[] { 1234, "Rezystor 10k", Integer.MAX_VALUE }, PL))
+			.isEqualTo("Wiersz 1234: stan części „Rezystor 10k” po imporcie przekroczyłby 2147483647.");
 	}
 
 }
