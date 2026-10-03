@@ -1,57 +1,58 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Przyjęcie dostawy')}">
 	<meta charset="UTF-8">
 	<title>Przyjęcie dostawy — Stockahead</title>
-	<style>
-		td, th {
-			text-align: center;
-		}
-	</style>
 </head>
 <body>
-	<h1>Przyjęcie dostawy</h1>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<p th:if="${error}" th:text="${error}"></p>
+	<main class="container">
+		<h1>Przyjęcie dostawy</h1>
 
-	<form th:action="@{/deliveries}" method="post">
-		<input type="hidden" name="rows" th:value="${rowCount}">
-		<table>
-			<thead>
-				<tr>
-					<th>Lp.</th>
-					<th>Część</th>
-					<th>Ilość</th>
-					<th>Lokalizacja (opcjonalnie)</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr th:each="row, iter : ${rowInputs}">
-					<td th:text="${iter.count}"></td>
-					<td>
-						<select th:name="'partId' + ${iter.index}" th:id="'partId' + ${iter.index}">
-							<option value="">— wybierz część —</option>
-							<option th:each="option : ${parts}"
-								th:value="${option.id}" th:selected="${row.partId == ('' + option.id)}"
-								th:text="${option.active} ? ${option.name} : ${option.name} + ' (nieaktywna)'"></option>
-						</select>
-					</td>
-					<td>
-						<input type="text" size="8" th:name="'quantity' + ${iter.index}" th:value="${row.quantity}" th:id="'quantity' + ${iter.index}">
-					</td>
-					<td>
-						<input type="text" size="20" list="known-locations" th:name="'location' + ${iter.index}" th:value="${row.location}" th:id="'location' + ${iter.index}">
-					</td>
-				</tr>
-			</tbody>
-		</table>
-		<datalist id="known-locations">
-			<option th:each="knownLocation : ${knownLocations}" th:value="${knownLocation}"></option>
-		</datalist>
-		<button type="submit">Przyjmij dostawę</button>
-		<button type="submit" name="action" value="addRows">Dodaj wiersze</button>
-	</form>
+		<div th:replace="~{fragments :: alerts}"></div>
 
-	<p><a th:href="@{/}">Powrót do pulpitu</a></p>
+		<form th:action="@{/deliveries}" method="post">
+			<input type="hidden" name="rows" th:value="${rowCount}">
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr>
+							<th>Lp.</th>
+							<th>Część</th>
+							<th>Ilość</th>
+							<th>Lokalizacja (opcjonalnie)</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:each="row, iter : ${rowInputs}">
+							<td th:text="${iter.count}"></td>
+							<td>
+								<select th:name="'partId' + ${iter.index}" th:id="'partId' + ${iter.index}">
+									<option value="">— wybierz część —</option>
+									<option th:each="option : ${parts}"
+										th:value="${option.id}" th:selected="${row.partId == ('' + option.id)}"
+										th:text="${option.active} ? ${option.name} : ${option.name} + ' (nieaktywna)'"></option>
+								</select>
+							</td>
+							<td>
+								<input type="text" size="8" th:name="'quantity' + ${iter.index}" th:value="${row.quantity}" th:id="'quantity' + ${iter.index}">
+							</td>
+							<td>
+								<input type="text" size="20" list="known-locations" th:name="'location' + ${iter.index}" th:value="${row.location}" th:id="'location' + ${iter.index}">
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<datalist id="known-locations">
+				<option th:each="knownLocation : ${knownLocations}" th:value="${knownLocation}"></option>
+			</datalist>
+			<div class="page-actions">
+				<button type="submit" class="btn">Przyjmij dostawę</button>
+				<button type="submit" class="btn btn-secondary" name="action" value="addRows">Dodaj wiersze</button>
+			</div>
+		</form>
+	</main>
 </body>
 </html>

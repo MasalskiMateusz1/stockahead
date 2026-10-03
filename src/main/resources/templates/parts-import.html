@@ -1,52 +1,57 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Import części z CSV')}">
 	<meta charset="UTF-8">
 	<title>Import części z CSV — Stockahead</title>
-	<style>
-		td, th {
-			text-align: center;
-		}
-	</style>
 </head>
 <body>
-	<h1>Import części z CSV</h1>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<p><a th:href="@{/parts}">Powrót do katalogu części</a></p>
+	<main class="container">
+		<h1>Import części z CSV</h1>
 
-	<p th:if="${notice}" th:text="${notice}"></p>
+		<div class="page-actions">
+			<a class="btn btn-secondary" th:href="@{/parts}">Powrót do katalogu części</a>
+		</div>
 
-	<h2>Format pliku</h2>
-	<ul>
-		<li>Pierwszy wiersz to nagłówek z kolumnami <strong th:text="#{partsImport.column.name}">Nazwa</strong>, <strong th:text="#{partsImport.column.quantity}">Ilość</strong> i <strong th:text="#{partsImport.column.location}">Lokalizacja</strong>. Nazwy kolumn mogą być też po angielsku: <strong>Name</strong>, <strong>Quantity</strong> i <strong>Location</strong>. Kolejność kolumn i wielkość liter nie mają znaczenia, a pozostałe kolumny są pomijane.</li>
-		<li>Każdy wiersz podaje jedną lokalizację. Aby dodać część na kilku regałach, powtórz jej wiersz z inną lokalizacją.</li>
-		<li>Ilość to liczba całkowita od 0 do 1000000. Jest dodawana do obecnego stanu części, a wiersze tej samej części (bez względu na wielkość liter) są sumowane.</li>
-		<li>Część, której nie ma jeszcze w katalogu, zostanie utworzona i musi mieć co najmniej jedną lokalizację.</li>
-		<li>W Excelu zapisz plik jako „CSV UTF-8 (rozdzielany przecinkami)” albo „CSV (rozdzielany średnikami)” — oba formaty działają.</li>
-		<li>Plik może mieć najwyżej 1 MB i 5000 wierszy z danymi. Plik z jakimkolwiek błędem jest odrzucany w całości.</li>
-	</ul>
+		<p th:if="${notice}" class="alert alert-error" role="alert" th:text="${notice}"></p>
 
-	<div th:if="${errors}">
-		<h2>Błędy w pliku</h2>
-		<table>
-			<thead>
-				<tr>
-					<th>Błąd</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr th:each="importError : ${errors}">
-					<td th:text="${importError}"></td>
-				</tr>
-			</tbody>
-		</table>
-		<p th:if="${moreErrors}" th:text="${moreErrors}"></p>
-	</div>
+		<h2>Format pliku</h2>
+		<ul>
+			<li>Pierwszy wiersz to nagłówek z kolumnami <strong th:text="#{partsImport.column.name}">Nazwa</strong>, <strong th:text="#{partsImport.column.quantity}">Ilość</strong> i <strong th:text="#{partsImport.column.location}">Lokalizacja</strong>. Nazwy kolumn mogą być też po angielsku: <strong>Name</strong>, <strong>Quantity</strong> i <strong>Location</strong>. Kolejność kolumn i wielkość liter nie mają znaczenia, a pozostałe kolumny są pomijane.</li>
+			<li>Każdy wiersz podaje jedną lokalizację. Aby dodać część na kilku regałach, powtórz jej wiersz z inną lokalizacją.</li>
+			<li>Ilość to liczba całkowita od 0 do 1000000. Jest dodawana do obecnego stanu części, a wiersze tej samej części (bez względu na wielkość liter) są sumowane.</li>
+			<li>Część, której nie ma jeszcze w katalogu, zostanie utworzona i musi mieć co najmniej jedną lokalizację.</li>
+			<li>W Excelu zapisz plik jako „CSV UTF-8 (rozdzielany przecinkami)” albo „CSV (rozdzielany średnikami)” — oba formaty działają.</li>
+			<li>Plik może mieć najwyżej 1 MB i 5000 wierszy z danymi. Plik z jakimkolwiek błędem jest odrzucany w całości.</li>
+		</ul>
 
-	<form th:action="@{/parts/import}" method="post" enctype="multipart/form-data">
-		<label for="file">Plik CSV</label>
-		<input type="file" id="file" name="file" accept=".csv,text/csv">
-		<button type="submit">Wczytaj plik</button>
-	</form>
+		<div th:if="${errors}" class="alert alert-error">
+			<h2>Błędy w pliku</h2>
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr>
+							<th>Błąd</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:each="importError : ${errors}">
+							<td th:text="${importError}"></td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<p th:if="${moreErrors}" class="hint" th:text="${moreErrors}"></p>
+		</div>
+
+		<form class="form-inline card" th:action="@{/parts/import}" method="post" enctype="multipart/form-data">
+			<div class="form-field">
+				<label for="file">Plik CSV</label>
+				<input type="file" id="file" name="file" accept=".csv,text/csv">
+			</div>
+			<button type="submit" class="btn">Wczytaj plik</button>
+		</form>
+	</main>
 </body>
 </html>

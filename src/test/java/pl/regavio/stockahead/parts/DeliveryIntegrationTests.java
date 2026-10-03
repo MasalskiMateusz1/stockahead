@@ -287,7 +287,6 @@ class DeliveryIntegrationTests {
 		assertThat(html).contains(">Stary układ (nieaktywna)<");
 		assertThat(html).contains("<option value=\"" + inactiveId + "\"");
 		assertThat(html).doesNotContain("selected=\"selected\"");
-		assertThat(html).contains("td, th");
 		assertThat(html).contains("list=\"known-locations\"");
 		assertThat(html).contains("<datalist id=\"known-locations\">");
 		assertThat(html).contains("<option value=\"Regał A1\">", "<option value=\"Regał B2\">",

@@ -347,28 +347,28 @@ No data or schema changes. Rollback is a plain revert of the change's commits.
 
 #### Automated
 
-- [x] 1.1 `./mvnw test -Dtest=StaticResourceAccessTests` passes
-- [x] 1.2 `./mvnw verify` passes (all existing tests green)
+- [x] 1.1 `./mvnw test -Dtest=StaticResourceAccessTests` passes — 0d74b17
+- [x] 1.2 `./mvnw verify` passes (all existing tests green) — 0d74b17
 
 #### Manual
 
-- [x] 1.3 `./mvnw spring-boot:test-run`: the login page is styled before logging in, with no 302 for CSS/JS in the browser network tab
-- [x] 1.4 Dashboard shows the topbar with role-correct links for a manager and for a technician
-- [x] 1.5 Theme toggle cycles Auto → Jasny → Ciemny, survives a reload, and causes no light flash on reload in dark mode; with OS set to dark and toggle on Auto, the page is dark
-- [x] 1.6 With JavaScript disabled, the toggle is not visible and the page still follows the OS theme
+- [x] 1.3 `./mvnw spring-boot:test-run`: the login page is styled before logging in, with no 302 for CSS/JS in the browser network tab — 0d74b17
+- [x] 1.4 Dashboard shows the topbar with role-correct links for a manager and for a technician — 0d74b17
+- [x] 1.5 Theme toggle cycles Auto → Jasny → Ciemny, survives a reload, and causes no light flash on reload in dark mode; with OS set to dark and toggle on Auto, the page is dark — 0d74b17
+- [x] 1.6 With JavaScript disabled, the toggle is not visible and the page still follows the OS theme — 0d74b17
 
 ### Phase 2: Migrate parts, deliveries and purchasing views
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 `grep -lE '<style|style="' src/main/resources/templates/{parts-*,deliveries-new,purchasing-list}.html` returns nothing
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 `grep -lE '<style|style="' src/main/resources/templates/{parts-*,deliveries-new,purchasing-list}.html` returns nothing
 
 #### Manual
 
-- [ ] 2.3 Each of the 8 views looks consistent in light and dark at desktop and ~768px width; wide tables scroll inside `.table-wrap` instead of the page
-- [ ] 2.4 Parts list row actions sit on one line; Dezaktywuj is visually destructive
-- [ ] 2.5 CSV import error table, import preview with NOWA badges, and delivery form read cleanly
+- [x] 2.3 Each of the 8 views looks consistent in light and dark at desktop and ~768px width; wide tables scroll inside `.table-wrap` instead of the page
+- [x] 2.4 Parts list row actions sit on one line; Dezaktywuj is visually destructive
+- [x] 2.5 CSV import error table, import preview with NOWA badges, and delivery form read cleanly
 
 ### Phase 3: Migrate projects, orders, picking and technicians views
 

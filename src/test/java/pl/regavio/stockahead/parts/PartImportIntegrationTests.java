@@ -283,8 +283,7 @@ class PartImportIntegrationTests {
 			.andExpect(content().string(containsString("name=\"file\"")))
 			.andExpect(content().string(containsString("name=\"_csrf\"")))
 			.andExpect(content().string(containsString("<strong>Lokalizacja</strong>")))
-			.andExpect(content().string(containsString("CSV UTF-8")))
-			.andExpect(content().string(containsString("td, th")));
+			.andExpect(content().string(containsString("CSV UTF-8")));
 	}
 
 	@Test
@@ -427,7 +426,6 @@ class PartImportIntegrationTests {
 		assertThat(html).contains("Nowe części: <strong>0</strong>")
 			.contains("aktualizowane części: <strong>1</strong>")
 			.contains("dodawane sztuki: <strong>10</strong>")
-			.contains("td, th")
 			.doesNotContain("Błędy w pliku");
 		assertThat(stockOf(resistorId)).isEqualTo(6);
 		assertThat(locationCount()).isEqualTo(locationsBefore);

@@ -1,30 +1,36 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="~{fragments :: head('Nowa część')}">
 	<meta charset="UTF-8">
 	<title>Nowa część — Stockahead</title>
 </head>
 <body>
-	<h1>Nowa część</h1>
+	<header th:replace="~{fragments :: topbar}"></header>
 
-	<p th:if="${error}" th:text="${error}"></p>
+	<main class="container">
+		<h1>Nowa część</h1>
 
-	<form th:action="@{/parts}" method="post">
-		<div>
-			<label for="name">Nazwa</label>
-			<input type="text" id="name" name="name" th:value="${name}" required>
-		</div>
-		<div>
-			<label for="quantity">Stan magazynowy</label>
-			<input type="text" id="quantity" name="quantity" th:value="${quantity}" required>
-		</div>
-		<div>
-			<label for="locations">Lokalizacje (jedna na linię)</label>
-			<textarea id="locations" name="locations" rows="5" th:text="${locations}"></textarea>
-		</div>
-		<button type="submit">Dodaj część</button>
-	</form>
+		<div th:replace="~{fragments :: alerts}"></div>
 
-	<p><a th:href="@{/parts}">Powrót do kartoteki</a></p>
+		<form class="card" th:action="@{/parts}" method="post">
+			<div class="form-field">
+				<label for="name">Nazwa</label>
+				<input type="text" id="name" name="name" th:value="${name}" required>
+			</div>
+			<div class="form-field">
+				<label for="quantity">Stan magazynowy</label>
+				<input type="text" id="quantity" name="quantity" th:value="${quantity}" required>
+			</div>
+			<div class="form-field">
+				<label for="locations">Lokalizacje (jedna na linię)</label>
+				<textarea id="locations" name="locations" rows="5" th:text="${locations}"></textarea>
+			</div>
+			<button type="submit" class="btn">Dodaj część</button>
+		</form>
+
+		<div class="page-actions">
+			<a class="btn btn-secondary" th:href="@{/parts}">Powrót do kartoteki</a>
+		</div>
+	</main>
 </body>
 </html>

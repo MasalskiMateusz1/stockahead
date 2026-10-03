@@ -302,7 +302,6 @@ class StockCorrectionIntegrationTests {
 		assertThat(html).contains("name=\"reason\"");
 		assertThat(html).contains("Brak korekt");
 		assertThat(html).contains("href=\"/parts\"");
-		assertThat(html).contains("td, th");
 	}
 
 	@Test
