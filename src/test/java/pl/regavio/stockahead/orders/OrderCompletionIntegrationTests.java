@@ -52,6 +52,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the next open order (and off the shopping list), reject clears the report
  * and picking resumes, both refuse an unreported order, both are 403 for a
  * technician, and the report-reject-report-confirm cycle works on one order.
+ * The built count: confirming a partial report keeps it and drops the
+ * order's shortage, reject clears it and each re-report stores its own, and a
+ * legacy report with no count can still be confirmed.
  * Also proves the taken-order top-up end to end: confirm hands released
  * units to a short taken order (which then picks them), a reported order is
  * skipped until reject catches it up in allocation order, and a new lower
@@ -97,6 +100,8 @@ class OrderCompletionIntegrationTests {
 	private static final String CONFIRM_BUTTON = "Potwierdź zakończenie";
 
 	private static final String REJECT_BUTTON = "Odrzuć zgłoszenie";
+
+	private static final String PARTIAL_NOTE = "Pozostałe sztuki nie zostaną zbudowane";
 
 	private static final String PENDING_SECTION = "Do potwierdzenia";
 
@@ -236,6 +241,14 @@ class OrderCompletionIntegrationTests {
 
 	private void report(MockHttpSession session, Long orderId) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session).with(csrf()).param("builtUnits", "1"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/picking/" + orderId));
+	}
+
+	private void report(MockHttpSession session, Long orderId, int builtUnits) throws Exception {
+		mockMvc.perform(post("/picking/{orderId}/report-completion", orderId).session(session)
+			.with(csrf())
+			.param("builtUnits", Integer.toString(builtUnits)))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + orderId));
 	}
@@ -605,10 +618,85 @@ class OrderCompletionIntegrationTests {
 			.andExpect(content().string(not(containsString("Order Completion Board"))));
 		mockMvc.perform(get("/orders/{id}", orderA).session(manager))
 			.andExpect(status().isOk())
-			.andExpect(content().string(matchesPattern("(?s).*Zakończone <span>" + MINUTE_PATTERN + "</span>.*")))
+			.andExpect(content().string(matchesPattern("(?s).*<p>Zakończone " + MINUTE_PATTERN + "</p>.*")))
 			.andExpect(content().string(not(containsString("Brakująca ilość"))))
 			.andExpect(content().string(not(containsString(CONFIRM_BUTTON))))
 			.andExpect(content().string(not(containsString(REJECT_BUTTON))));
+	}
+
+	@Test
+	void confirmPartialReportCompletesWithCountAndDropsTheShortage() throws Exception {
+		Long partId = seedPart("Partial Resistor", 6);
+		Long orderA = seedOrderWithUnits(10);
+		Long lineA = seedOrderLine(orderA, partId, 10, 6);
+		Long orderB = seedOrder(seedProject("Partial Next Board"));
+		Long lineB = seedOrderLine(orderB, partId, 4, 0);
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+
+		pick(technician, orderA, lineA, 2);
+		report(technician, orderA, 7);
+
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("<td>7 / 10</td>")));
+		mockMvc.perform(get("/orders/{id}", orderA).session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Zbudowano: 7 z 10")))
+			.andExpect(content().string(containsString(PARTIAL_NOTE)));
+		mockMvc.perform(get("/purchasing").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Order Completion Board")));
+
+		confirm(manager, orderA);
+
+		assertThat(statusOf(orderA)).isEqualTo("COMPLETED");
+		assertThat(builtUnitsOf(orderA)).isEqualTo(7);
+		assertThat(reservedOf(lineA)).isZero();
+		assertThat(pickedOf(lineA)).isEqualTo(2);
+		assertThat(reservedOf(lineB)).isEqualTo(4);
+
+		mockMvc.perform(get("/purchasing").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("Order Completion Board"))));
+		mockMvc.perform(get("/orders/{id}", orderA).session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(
+					matchesPattern("(?s).*Zakończone częściowo: zbudowano 7 z 10, " + MINUTE_PATTERN + ".*")));
+	}
+
+	@Test
+	void legacyReportWithoutCountCanBeConfirmed() throws Exception {
+		Long partId = seedPart("Legacy Resistor", 10);
+		Long orderId = seedOrderWithUnits(3);
+		Long lineId = seedOrderLine(orderId, partId, 5, 5);
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+		pick(technician, orderId, lineId, 1);
+		// A report made before V12: stamped, with no built count.
+		jdbcTemplate.update(
+				"UPDATE orders SET completion_reported_at = now(), completion_reported_by = ? WHERE id = ?",
+				accountIdOf(TECHNICIAN_EMAIL), orderId);
+
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("<td>—</td>")));
+		mockMvc.perform(get("/orders/{id}", orderId).session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Zbudowano: — (liczba zbudowanych sztuk nie została zapisana)")))
+			.andExpect(content().string(not(containsString(PARTIAL_NOTE))));
+
+		confirm(manager, orderId);
+
+		assertThat(statusOf(orderId)).isEqualTo("COMPLETED");
+		assertThat(builtUnitsOf(orderId)).isNull();
+		assertThat(reservedOf(lineId)).isZero();
+		mockMvc.perform(get("/orders/{id}", orderId).session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(matchesPattern(
+					"(?s).*Zakończone " + MINUTE_PATTERN + " — liczba zbudowanych sztuk nie została zapisana.*")));
 	}
 
 	@Test
@@ -734,6 +822,48 @@ class OrderCompletionIntegrationTests {
 		assertThat(reservedOf(lineId)).isZero();
 		assertThat(pickedOf(lineId)).isEqualTo(3);
 		assertThat(partQuantityOf(partId)).isEqualTo(7);
+	}
+
+	@Test
+	void rejectClearsBuiltCountAndEachReReportStoresItsOwnCount() throws Exception {
+		Long partId = seedPart("Recount Resistor", 20);
+		Long orderId = seedOrderWithUnits(10);
+		Long lineId = seedOrderLine(orderId, partId, 10, 10);
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+		pick(technician, orderId, lineId, 1);
+
+		for (int builtUnits : new int[] { 7, 3 }) {
+			report(technician, orderId, builtUnits);
+			assertThat(builtUnitsOf(orderId)).isEqualTo(builtUnits);
+			mockMvc.perform(get("/orders").session(manager))
+				.andExpect(status().isOk())
+				.andExpect(content().string(containsString("<td>" + builtUnits + " / 10</td>")));
+
+			reject(manager, orderId);
+			assertThat(statusOf(orderId)).isEqualTo("OPEN");
+			assertThat(completionReportedAtOf(orderId)).isNull();
+			assertThat(builtUnitsOf(orderId)).isNull();
+		}
+
+		report(technician, orderId, 10);
+		assertThat(builtUnitsOf(orderId)).isEqualTo(10);
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("<td>10 / 10</td>")));
+		mockMvc.perform(get("/orders/{id}", orderId).session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Zbudowano: 10 z 10")))
+			.andExpect(content().string(not(containsString(PARTIAL_NOTE))));
+
+		confirm(manager, orderId);
+		assertThat(statusOf(orderId)).isEqualTo("COMPLETED");
+		assertThat(builtUnitsOf(orderId)).isEqualTo(10);
+		mockMvc.perform(get("/orders/{id}", orderId).session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(matchesPattern("(?s).*<p>Zakończone " + MINUTE_PATTERN + "</p>.*")))
+			.andExpect(content().string(not(containsString("Zakończone częściowo"))));
 	}
 
 	@Test

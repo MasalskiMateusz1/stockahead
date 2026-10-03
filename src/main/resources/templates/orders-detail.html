@@ -17,7 +17,12 @@
 	<p>Liczba sztuk: <span th:text="${order.quantityUnits}"></span></p>
 	<p>Priorytet: <span th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></p>
 	<p>Wymagany termin: <span th:text="${order.requiredDate}"></span></p>
-	<p th:if="${order.status.name() == 'COMPLETED'}">Zakończone <span th:text="${order.completedAt}"></span></p>
+	<p th:if="${order.status.name() == 'COMPLETED'}"
+		th:text="${order.builtUnits == null}
+			? 'Zakończone ' + ${order.completedAt} + ' — liczba zbudowanych sztuk nie została zapisana'
+			: (${order.partiallyCompleted()}
+				? 'Zakończone częściowo: zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} + ', ' + ${order.completedAt}
+				: 'Zakończone ' + ${order.completedAt})">Zakończone</p>
 	<p th:if="${order.status.name() == 'CANCELLED'}">Anulowane <span th:text="${order.cancelledAt}"></span>, <span th:text="${order.cancelledByEmail}"></span></p>
 	<p th:if="${order.canCancel()}"><a th:href="@{/orders/{id}/cancel(id=${orderId})}">Anuluj zlecenie</a></p>
 
@@ -43,6 +48,10 @@
 	<section id="completion-report" th:if="${order.completionReported and order.status.name() == 'OPEN'}">
 		<h2>Zgłoszenie zakończenia</h2>
 		<p>Zgłosił(a): <span th:text="${order.reportedByEmail}"></span>, <span th:text="${order.reportedAt}"></span></p>
+		<p th:text="${order.builtUnits != null}
+			? 'Zbudowano: ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits}
+			: 'Zbudowano: — (liczba zbudowanych sztuk nie została zapisana)'">Zbudowano</p>
+		<p th:if="${order.partiallyCompleted()}">Pozostałe sztuki nie zostaną zbudowane — po potwierdzeniu ich braki znikną z listy zakupów.</p>
 
 		<div th:unless="${#lists.isEmpty(unmetLines)}">
 			<p>Uwaga: nie wszystkie pozycje zostały w pełni pobrane:</p>

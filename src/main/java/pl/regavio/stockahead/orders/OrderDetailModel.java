@@ -111,7 +111,8 @@ class OrderDetailModel {
 				order.getPriority(), order.getRequiredDate(), order.getStatus(), order.isCompletionReported(),
 				orderMoments.format(order.getCompletionReportedAt()), reportedByEmail,
 				orderMoments.format(order.getCompletedAt()), order.isTaken(),
-				orderMoments.format(order.getCancelledAt()), cancelledByEmail, order.canCancel());
+				orderMoments.format(order.getCancelledAt()), cancelledByEmail, order.canCancel(),
+				order.getBuiltUnits());
 		return new DetailData(orderView, lines);
 	}
 
@@ -179,14 +180,25 @@ class OrderDetailModel {
 	/**
 	 * {@code changeable} gates the priority/date change form: only an
 	 * {@code OPEN} order nobody has picked from yet; {@code canCancel} gates
-	 * the cancel link ({@code OPEN} and not reported).
+	 * the cancel link ({@code OPEN} and not reported). {@code builtUnits} is
+	 * the reported count of units built, {@code null} when no report is
+	 * pending or the report predates the count.
 	 */
 	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate,
 			OrderStatus status, boolean completionReported, String reportedAt, String reportedByEmail,
-			String completedAt, boolean taken, String cancelledAt, String cancelledByEmail, boolean canCancel) {
+			String completedAt, boolean taken, String cancelledAt, String cancelledByEmail, boolean canCancel,
+			Integer builtUnits) {
 
 		public boolean changeable() {
 			return status == OrderStatus.OPEN && !taken;
+		}
+
+		/**
+		 * Whether a count was reported and it is below {@code quantityUnits};
+		 * {@code false} for an unknown ({@code null}) count.
+		 */
+		public boolean partiallyCompleted() {
+			return builtUnits != null && builtUnits < quantityUnits;
 		}
 
 	}

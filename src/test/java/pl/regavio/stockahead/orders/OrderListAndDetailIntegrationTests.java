@@ -1,5 +1,6 @@
 package pl.regavio.stockahead.orders;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -26,7 +27,10 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.not;
 
 /**
  * Covers {@code OrderController}'s Phase 4 routes: {@code GET /orders} (the
@@ -51,6 +55,13 @@ class OrderListAndDetailIntegrationTests {
 	private static final String TECHNICIAN_EMAIL = "order-list-detail-technician@example.com";
 
 	private static final String PASSWORD = "correct-password";
+
+	/** Report/completion moments render as date + minute, no seconds or zone. */
+	private static final String MINUTE_PATTERN = "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}";
+
+	private static final String PARTIAL_NOTE = "Pozostałe sztuki nie zostaną zbudowane";
+
+	private static final String NOT_RECORDED = "liczba zbudowanych sztuk nie została zapisana";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -150,6 +161,86 @@ class OrderListAndDetailIntegrationTests {
 				VALUES (?, ?, ?, ?)
 				""",
 				orderId, partId, requiredQuantity, reservedQuantity));
+	}
+
+	/**
+	 * A taken order with a completion report by {@code reporterEmail} and the
+	 * given built count ({@code null} stands in for a report made before V12),
+	 * left pending or already {@code COMPLETED}.
+	 */
+	private Long seedReportedOrder(Long projectId, int quantityUnits, Integer builtUnits, boolean completed,
+			String reporterEmail) {
+		Long reporterId = accountRepository.findByEmail(reporterEmail).orElseThrow().getId();
+		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+				"""
+				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, taken_at,
+					completion_reported_at, completion_reported_by, built_units, status, completed_at)
+				VALUES (?, ?, 'NORMAL', ?, now(), now(), now(), ?, ?, ?, ?)
+				RETURNING id
+				""",
+				Long.class, projectId, quantityUnits, LocalDate.now().plusDays(7), reporterId, builtUnits,
+				completed ? "COMPLETED" : "OPEN", completed ? Timestamp.from(Instant.now()) : null));
+	}
+
+	// ---- built count display ----------------------------------------------
+
+	@Test
+	void pendingListShowsBuiltCountOrDashForALegacyReport() throws Exception {
+		MockHttpSession session = managerSession();
+		seedReportedOrder(seedProject("Partial Pending Board", true), 10, 7, false, MANAGER_EMAIL);
+		seedReportedOrder(seedProject("Legacy Pending Board", true), 4, null, false, MANAGER_EMAIL);
+
+		String html = mockMvc.perform(get("/orders").session(session))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+
+		assertThat(html).contains("<th>Zbudowano</th>");
+		assertThat(html).contains("<td>7 / 10</td>");
+		assertThat(html).contains("<td>—</td>");
+	}
+
+	@Test
+	void pendingDetailShowsBuiltCountAndPartialNote() throws Exception {
+		MockHttpSession session = managerSession();
+		Long partial = seedReportedOrder(seedProject("Partial Review Board", true), 10, 7, false, MANAGER_EMAIL);
+		Long full = seedReportedOrder(seedProject("Full Review Board", true), 10, 10, false, MANAGER_EMAIL);
+		Long legacy = seedReportedOrder(seedProject("Legacy Review Board", true), 10, null, false, MANAGER_EMAIL);
+
+		mockMvc.perform(get("/orders/" + partial).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Zbudowano: 7 z 10")))
+			.andExpect(content().string(containsString(PARTIAL_NOTE)));
+		mockMvc.perform(get("/orders/" + full).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Zbudowano: 10 z 10")))
+			.andExpect(content().string(not(containsString(PARTIAL_NOTE))));
+		mockMvc.perform(get("/orders/" + legacy).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("Zbudowano: — (liczba zbudowanych sztuk nie została zapisana)")))
+			.andExpect(content().string(not(containsString(PARTIAL_NOTE))));
+	}
+
+	@Test
+	void completedDetailShowsFullPartialOrUnknownOutcome() throws Exception {
+		MockHttpSession session = managerSession();
+		Long partial = seedReportedOrder(seedProject("Partial Done Board", true), 10, 7, true, MANAGER_EMAIL);
+		Long full = seedReportedOrder(seedProject("Full Done Board", true), 10, 10, true, MANAGER_EMAIL);
+		Long legacy = seedReportedOrder(seedProject("Legacy Done Board", true), 10, null, true, MANAGER_EMAIL);
+
+		mockMvc.perform(get("/orders/" + partial).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(
+					matchesPattern("(?s).*<p>Zakończone częściowo: zbudowano 7 z 10, " + MINUTE_PATTERN + "</p>.*")));
+		mockMvc.perform(get("/orders/" + full).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(matchesPattern("(?s).*<p>Zakończone " + MINUTE_PATTERN + "</p>.*")))
+			.andExpect(content().string(not(containsString("Zakończone częściowo"))))
+			.andExpect(content().string(not(containsString(NOT_RECORDED))));
+		mockMvc.perform(get("/orders/" + legacy).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(
+					matchesPattern("(?s).*<p>Zakończone " + MINUTE_PATTERN + " — " + NOT_RECORDED + "</p>.*")))
+			.andExpect(content().string(not(containsString("Zakończone częściowo"))));
 	}
 
 	// ---- US-01 acceptance example, through GET /orders/{id} -----------

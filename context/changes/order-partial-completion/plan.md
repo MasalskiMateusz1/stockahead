@@ -275,20 +275,20 @@ V12 adds a nullable column with CHECKs and no backfill, so it is safe on the dep
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes with new report tests for 0, N, partial, missing, non-integer, negative and N+1 counts
-- [x] 2.2 Existing completion and concurrency tests pass with `builtUnits` sent
+- [x] 2.1 `./mvnw verify` passes with new report tests for 0, N, partial, missing, non-integer, negative and N+1 counts — 9c2a444
+- [x] 2.2 Existing completion and concurrency tests pass with `builtUnits` sent — 9c2a444
 
 #### Manual
 
-- [x] 2.3 As a technician on a taken order, the report form is pre-filled with N, entering N+1 shows the error, and entering 7 of 10 shows "zbudowano 7 z 10" after reporting
+- [x] 2.3 As a technician on a taken order, the report form is pre-filled with N, entering N+1 shows the error, and entering 7 of 10 shows "zbudowano 7 z 10" after reporting — 9c2a444
 
 ### Phase 3: Manager review, confirm/reject & display
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes with new confirm-partial, reject-clears-count, two-cycle, legacy-NULL and display tests
+- [x] 3.1 `./mvnw verify` passes with new confirm-partial, reject-clears-count, two-cycle, legacy-NULL and display tests
 
 #### Manual
 
-- [ ] 3.2 As a manager, a 7-of-10 report shows "7 / 10" on `/orders` and "Zbudowano: 7 z 10" on the detail page, and after confirming the detail reads "Zakończone częściowo: zbudowano 7 z 10"
-- [ ] 3.3 Rejecting and re-reporting with 10 shows "10 / 10" and confirms as "Zakończone"
+- [x] 3.2 As a manager, a 7-of-10 report shows "7 / 10" on `/orders` and "Zbudowano: 7 z 10" on the detail page, and after confirming the detail reads "Zakończone częściowo: zbudowano 7 z 10"
+- [x] 3.3 Rejecting and re-reporting with 10 shows "10 / 10" and confirms as "Zakończone"

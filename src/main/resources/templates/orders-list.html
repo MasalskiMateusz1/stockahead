@@ -27,6 +27,7 @@
 					<th>Priorytet</th>
 					<th>Wymagany termin</th>
 					<th>Zgłoszono</th>
+					<th>Zbudowano</th>
 					<th></th>
 				</tr>
 			</thead>
@@ -37,6 +38,7 @@
 					<td th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></td>
 					<td th:text="${order.requiredDate}"></td>
 					<td th:text="${@orderMoments.format(order.completionReportedAt)}"></td>
+					<td th:text="${order.builtUnits != null ? order.builtUnits + ' / ' + order.quantityUnits : '—'}"></td>
 					<td><a th:href="@{/orders/{id}(id=${order.id})}">Sprawdź</a></td>
 				</tr>
 			</tbody>

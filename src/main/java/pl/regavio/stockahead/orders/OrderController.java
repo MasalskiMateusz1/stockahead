@@ -135,7 +135,9 @@ public class OrderController {
 	 * zeroed reservations BEFORE {@link ReservationAllocator#reallocateForParts}
 	 * runs — otherwise the still-{@code OPEN}, taken order's frozen reservation
 	 * would be subtracted from the pool and the released units would never
-	 * reach the other orders.
+	 * reach the other orders. The reported {@code builtUnits} stays as
+	 * recorded: fewer than {@code quantityUnits} makes it a partial completion,
+	 * and {@code null} (a report from before the count existed) is accepted.
 	 */
 	@PostMapping("/orders/{id}/confirm-completion")
 	@PreAuthorize("hasRole('MANAGER')")
@@ -153,7 +155,9 @@ public class OrderController {
 
 	/**
 	 * Rejects a pending completion report, clearing
-	 * {@code completionReportedAt}/{@code completionReportedBy} so the order
+	 * {@code completionReportedAt}/{@code completionReportedBy} and the
+	 * reported {@code builtUnits} (the next report starts fresh, and the
+	 * {@code built_units} CHECK forbids a count without a report) so the order
 	 * goes back to normal picking, then reallocates the order's parts so it
 	 * immediately catches up on units it missed while reported (a reported
 	 * order receives no top-up). The report is cleared and flushed BEFORE
