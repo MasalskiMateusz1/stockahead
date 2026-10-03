@@ -374,25 +374,25 @@ No data or schema changes. Rollback is a plain revert of the change's commits.
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes
-- [x] 3.2 `grep -rlE '<style|style="' src/main/resources/templates` returns nothing
+- [x] 3.1 `./mvnw verify` passes — 4085e38
+- [x] 3.2 `grep -rlE '<style|style="' src/main/resources/templates` returns nothing — 4085e38
 
 #### Manual
 
-- [x] 3.3 Orders list shows both sections with priority badges; pending-review rows stand out
-- [x] 3.4 Order detail, cancel and completion review screens: destructive actions are clearly distinct from confirm actions
-- [x] 3.5 Picking detail pick forms sit inline in their rows and stay usable at ~768px width (technician tablet)
-- [x] 3.6 Project detail (BOM, links) and technician list read cleanly in light and dark
+- [x] 3.3 Orders list shows both sections with priority badges; pending-review rows stand out — 4085e38
+- [x] 3.4 Order detail, cancel and completion review screens: destructive actions are clearly distinct from confirm actions — 4085e38
+- [x] 3.5 Picking detail pick forms sit inline in their rows and stay usable at ~768px width (technician tablet) — 4085e38
+- [x] 3.6 Project detail (BOM, links) and technician list read cleanly in light and dark — 4085e38
 
 ### Phase 4: Convention guard, lessons update and final pass
 
 #### Automated
 
-- [ ] 4.1 `./mvnw test -Dtest=TemplateConventionTests` passes
-- [ ] 4.2 `./mvnw verify` passes
+- [x] 4.1 `./mvnw test -Dtest=TemplateConventionTests` passes
+- [x] 4.2 `./mvnw verify` passes
 
 #### Manual
 
-- [ ] 4.3 Full walkthrough of all 22 views as manager and as technician in light, dark and Auto at desktop and ~768px width; no unreadable contrast, no horizontally scrolling page body
-- [ ] 4.4 Keyboard-only pass: focus ring visible on nav links, buttons and inputs
-- [ ] 4.5 `lessons.md` reads correctly and no longer instructs copying a `<style>` block
+- [x] 4.3 Full walkthrough of all 22 views as manager and as technician in light, dark and Auto at desktop and ~768px width; no unreadable contrast, no horizontally scrolling page body
+- [x] 4.4 Keyboard-only pass: focus ring visible on nav links, buttons and inputs
+- [x] 4.5 `lessons.md` reads correctly and no longer instructs copying a `<style>` block

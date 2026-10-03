@@ -62,9 +62,9 @@
 
 **Applies to:** Any future code (this codebase's or elsewhere) that maintains a "remaining"/"available" counter alongside a cumulative counter fed from the same mutation, and any test suite's coverage for a repeatable mutating action on one row — S-09 (`order-change-and-cancel`) and any other future change touching `OrderLine.reservedQuantity`/`pickedQuantity` should re-check this invariant before adding new call sites.
 
-## Center cell content in every table template
+## Build every template on the shared head and stylesheet
 
-- **Context**: Any Thymeleaf template under `src/main/resources/templates/` that renders a `<table>`.
-- **Problem**: There is no shared stylesheet, so a new table renders left-aligned and looks different from the others. This had to be fixed by hand across 8 templates during `taken-order-top-up` (2026-10-02).
-- **Rule**: Every template with a `<table>` must include the inline `<style>td, th { text-align: center; }</style>` block in `<head>`, as in `purchasing-list.html`.
+- **Context**: Any Thymeleaf template under `src/main/resources/templates/` (other than `fragments.html`), and any styling change to a view.
+- **Problem**: Before `ui-enhancement` there was no shared stylesheet, so every template carried its own inline `<style>` (e.g. `td, th { text-align: center; }`) and a new view that forgot it looked different from the rest — fixed by hand across 8 templates during `taken-order-top-up` (2026-10-02). Copying style blocks per template drifts; centered table cells are now provided once by `static/css/app.css`.
+- **Rule**: Every template uses `th:replace="~{fragments :: head(...)}"` for its `<head>`, plus `fragments :: topbar` when the view is authenticated (all except `login.html` and `setup.html`). Put styling only in `src/main/resources/static/css/app.css` via its tokens — never an inline `<style>` block or `style="..."` attribute. Do not add attributes (classes etc.) to elements that tests match by exact markup. Enforced by `TemplateConventionTests`.
 - **Applies to**: plan, implement, impl-review
