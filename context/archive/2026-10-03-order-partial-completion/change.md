@@ -1,9 +1,10 @@
 ---
 change_id: order-partial-completion
 title: Częściowe zakończenie zlecenia z liczbą zbudowanych sztuk
-status: impl_reviewed
+status: archived
 created: 2026-10-03
 updated: 2026-10-03
+archived_at: 2026-10-03T14:01:20Z
 ---
 
 ## Notes

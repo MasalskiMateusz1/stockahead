@@ -57,7 +57,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | done |
 | S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | done |
 | S-12  | parts-csv-import                 | Kierownik importuje części z CSV po obejrzeniu podglądu stanów wynikowych                       | S-02, S-04    | FR-017                                      | done |
-| S-13  | order-partial-completion         | Technik zamyka zlecenie jako częściowo wykonane, podając liczbę zbudowanych sztuk              | S-08          | FR-014, FR-020 (rozszerzenie spoza PRD v1)  | in-progress |
+| S-13  | order-partial-completion         | Technik zamyka zlecenie jako częściowo wykonane, podając liczbę zbudowanych sztuk              | S-08          | FR-014, FR-020 (rozszerzenie spoza PRD v1)  | done        |
 
 ## Streams
 
@@ -258,7 +258,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - ~~Co dzieje się z niezbudowaną resztą (N − zbudowane) — przepada, czy wraca jako nowe zlecenie lub brak na liście zakupów?~~ — **Rozstrzygnięte (2026-10-03): przepada.** Rezerwacje reszty są zwalniane, jej brak znika z listy zakupów, a zlecenie pokazuje „zbudowano X z N"; w razie potrzeby kierownik zakłada ręcznie nowe zlecenie. Reguła dopisana do PRD FR-020. Owner: user.
   - ~~Czy liczba zbudowanych sztuk może przekroczyć to, na co pozwalają pobrane części (zamienniki), i czy kierownik może ją poprawić przy potwierdzeniu?~~ — **Rozstrzygnięte (2026-10-03):** liczba 0…N podawana przez technika, bez porównania z pobraniami (zamienniki dozwolone); kierownik jej nie poprawia — odrzuca zgłoszenie, a technik zgłasza ponownie. Reguła dopisana do PRD FR-014/FR-020. Owner: user.
 - **Risk:** Źródło: rama zmiany `taken-order-top-up` (2026-10-01) — użytkownik: zlecenie z brakami „powinno być oznaczone jako częściowo zakończone i pokazywać, ile zbudowano"; liczbę podaje technik, nie wyliczamy jej z pobrań. Dziś S-08 pozwala potwierdzić zlecenie z brakami jako zwykłe COMPLETED, a brak znika z listy zakupów i widoku bez śladu. Wymaga migracji (nowy stan i kolumna liczby sztuk) oraz zmiany zgłoszenia/potwierdzenia z S-08.
-- **Status:** in-progress
+- **Status:** done
 
 ## Backlog Handoff
 
@@ -318,3 +318,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-10: Technik przyjmuje dostawę części, zwiększając jej stan, a rezerwacje i lista zakupów przeliczają się automatycznie — nowe sztuki uzupełniają braki zgodnie z kolejnością przydziału.** — Archived 2026-10-02 → `context/archive/2026-10-02-delivery-receipt/`. Lesson: —.
 - **S-11: Kierownik koryguje stan części po inwentaryzacji, podając powód korekty; rezerwacje i lista zakupów przeliczają się po zapisie.** — Archived 2026-10-03 → `context/archive/2026-10-02-stock-correction/`. Lesson: —.
 - **S-12: Kierownik importuje części z pliku CSV i przed zapisem widzi stany, jakie będą po zaakceptowaniu pliku; dla istniejących części import dopisuje ilość i dodaje lokalizację, jeśli jej brak, a nowe części są tworzone.** — Archived 2026-10-03 → `context/archive/2026-10-03-parts-csv-import/`. Lesson: —.
+- **S-13: Technik zgłasza zlecenie, któremu brakuje części, jako częściowo wykonane i podaje, ile sztuk faktycznie zbudował; kierownik widzi tę liczbę (np. „zbudowano 7 z 10") przy potwierdzeniu, a po potwierdzeniu zlecenie zostaje zapisane jako częściowo zakończone, a nie jako zwykłe COMPLETED.** — Archived 2026-10-03 → `context/archive/2026-10-03-order-partial-completion/`. Lesson: —.
