@@ -23,7 +23,7 @@ Correction is the only event that can push stock below what taken orders still h
   
   Below the forms is a table of the part's past corrections, newest first: time, author e-mail, before → after, change, reason.
 - A valid submit commits atomically: lock the part, set stock, insert the `stock_corrections` row, flush, reallocate. The manager is redirected to `/parts` with a flash such as `Skorygowano stan części „Rezystor 10k”: 12 → 5.`
-- After a downward correction, non-taken orders lose reservations first (normal recompute). If stock is still below the taken orders' unpicked reservations, those shrink in reverse allocation order: lowest priority, then latest date, then newest order loses first. The missing units reappear as shortages on `/purchasing` and the order detail.
+- After a downward correction, non-taken orders lose reservations first (normal recompute). If stock is still below the taken orders' unpicked reservations, those shrink: first the leftover unpicked reservations of completion-reported orders (they can no longer be picked), then in reverse allocation order: lowest priority, then latest date, then newest order loses first. The missing units reappear as shortages on `/purchasing` and the order detail.
 - Rejections re-render the correction page with the inputs kept and nothing written: stale total, delta below zero, empty or too-long reason, non-integer, out-of-range, no-op.
 - `stock ≥ 0` and `Σ reserved ≤ stock` hold for every part under concurrent picks, deliveries and order creation.
 
@@ -53,7 +53,7 @@ Prove the risky rule first. Phase 1 changes only the allocator and the docs that
 
 ## Critical Implementation Details
 
-- **Deficit pass placement:** the deficit is per part, computed as `stock − Σ taken reservedQuantity` (completion-reported orders count as taken). It must be resolved **before** the clamp at `ReservationAllocator.java:100`. Walk that part's taken lines in reverse `ALLOCATION_ORDER` and lower each `reservedQuantity` by `min(deficit, reservedQuantity)` until the deficit is 0. The non-taken allocation then runs on a pool of 0. Never touch `pickedQuantity`.
+- **Deficit pass placement:** the deficit is per part, computed as `stock − Σ taken reservedQuantity` (completion-reported orders count as taken). It must be resolved **before** the clamp at `ReservationAllocator.java:100`. Walk that part's taken lines completion-reported first, then the rest, each group in reverse `ALLOCATION_ORDER`, and lower each `reservedQuantity` by `min(deficit, reservedQuantity)` until the deficit is 0. The non-taken allocation then runs on a pool of 0. Never touch `pickedQuantity`.
 - **Open-in-view:** the POST handlers must not load the `Part` entity before `findByIdInForUpdate`, same as `DeliveryController`. Load the part for re-rendering only on error paths, after the transaction.
 - **Stale check is under the lock:** compare `expectedQuantity` with the locked part's quantity inside the transaction, not before it.
 
@@ -69,9 +69,9 @@ Make `reallocateForParts` restore `Σ reserved ≤ stock` when stock has fallen 
 
 **File**: `src/main/java/pl/regavio/stockahead/orders/ReservationAllocator.java`
 
-**Intent**: Before the taken reservations are subtracted and the pool is clamped, detect each part whose stock is below its taken lines' total `reservedQuantity`. Shrink those lines in reverse allocation order until the totals match. Update the class and method Javadoc: a taken reservation is protected from takeover by other orders, but shrinks when the physical units are gone.
+**Intent**: Before the taken reservations are subtracted and the pool is clamped, detect each part whose stock is below its taken lines' total `reservedQuantity`. Shrink those lines, completion-reported orders first, then in reverse allocation order, until the totals match. Update the class and method Javadoc: a taken reservation is protected from takeover by other orders, but shrinks when the physical units are gone.
 
-**Contract**: `reallocateForParts(Set<Long>)` keeps its signature. New post-condition: for every part in `partIds`, `Σ reservedQuantity over OPEN lines ≤ parts.quantity`. Taken lines are reduced only when `stock < Σ taken reserved`, and only by the deficit. Order of reduction: `ALLOCATION_ORDER.reversed()` over the orders owning those lines, reported orders included.
+**Contract**: `reallocateForParts(Set<Long>)` keeps its signature. New post-condition: for every part in `partIds`, `Σ reservedQuantity over OPEN lines ≤ parts.quantity`. Taken lines are reduced only when `stock < Σ taken reserved`, and only by the deficit. Order of reduction: completion-reported orders first (their unpicked reservation can no longer be picked; confirm would release it anyway), then the rest; within each group `ALLOCATION_ORDER.reversed()` over the orders owning those lines.
 
 #### 2. Allocator tests
 
@@ -84,6 +84,7 @@ Make `reallocateForParts` restore `Σ reserved ≤ stock` when stock has fallen 
 - `deficitShrinksLowestPriorityTakenOrderFirst`: two taken orders, the deficit comes out of the later one in allocation order first.
 - `nonTakenReservationsGoBeforeAnyTakenOneShrinks`: a taken order keeps its reservation while the deficit can be covered by freeing non-taken ones.
 - `reportedTakenOrderAlsoShrinksOnDeficit`.
+- `reportedTakenOrderShrinksBeforeActiveTakenOrder`: a higher-priority reported order loses its unpicked reservation before a lower-priority taken order still being picked.
 - `deficitNeverTouchesPickedQuantity`.
 
 #### 3. Rule docs
@@ -92,7 +93,7 @@ Make `reallocateForParts` restore `Σ reserved ≤ stock` when stock has fallen 
 
 **Intent**: State the exception so future work doesn't read the shrink as a violation.
 
-**Contract**: AGENTS.md § Hard rules, second bullet: append "— except when stock drops below those reservations (stock correction); then taken reservations shrink in reverse allocation order, never into picked parts." PRD § Business Logic: add one sentence after "Przydzielone w ten sposób sztuki od razu podlegają ochronie przed przejęciem.": "Wyjątek: gdy korekta obniży stan poniżej niepobranych rezerwacji zleceń podjętych, rezerwacje te maleją w odwrotnej kolejności przydziału — brak fizycznych sztuk nie jest przejęciem."
+**Contract**: AGENTS.md § Hard rules, second bullet: append "— except when stock drops below those reservations (stock correction); then taken reservations shrink — completion-reported orders first, then in reverse allocation order — never into picked parts." PRD § Business Logic: add one sentence after "Przydzielone w ten sposób sztuki od razu podlegają ochronie przed przejęciem.": "Wyjątek: gdy korekta obniży stan poniżej niepobranych rezerwacji zleceń podjętych, rezerwacje te maleją — najpierw zleceń ze zgłoszonym zakończeniem, potem w odwrotnej kolejności przydziału — brak fizycznych sztuk nie jest przejęciem."
 
 ### Success Criteria:
 
@@ -302,7 +303,7 @@ Every scenario asserts `stock ≥ 0` and `Σ reserved ≤ stock` as SQL over `pa
 
 ### Integration Tests:
 
-- Allocator deficit pass: single taken order, multiple taken orders in reverse order, non-taken first, reported orders, picked untouched.
+- Allocator deficit pass: single taken order, multiple taken orders in reverse order, non-taken first, reported orders (and before active taken ones), picked untouched.
 - Correction screen: access per role, listing, link visibility.
 - Write paths: both modes, every rejection, the stale form, shortage on `/purchasing`, top-up on an upward correction, the taken deficit followed by a pick.
 - Concurrency: corrections vs pick, delivery, order creation.

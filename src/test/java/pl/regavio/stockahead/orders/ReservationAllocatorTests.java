@@ -637,6 +637,43 @@ class ReservationAllocatorTests {
 	}
 
 	@Test
+	void reportedTakenOrderShrinksBeforeActiveTakenOrder() throws Exception {
+		Long projectId = seedProject("Deficit Reported First Board");
+		Long partId = seedPart("Scarce Part", 10);
+		Instant createdAt = Instant.now();
+		Long reportedOrderId = seedOrder(projectId, 1, Priority.HIGH, LocalDate.now().plusDays(7), createdAt);
+		Long reportedLineId = seedOrderLine(reportedOrderId, partId, 5);
+		Long activeOrderId = seedOrder(projectId, 1, Priority.LOW, LocalDate.now().plusDays(7),
+				createdAt.plusSeconds(5));
+		Long activeLineId = seedOrderLine(activeOrderId, partId, 5);
+
+		reallocate(Set.of(partId));
+		pick(reportedOrderId, reportedLineId, 1);
+		pick(activeOrderId, activeLineId, 1);
+		reportCompletion(reportedOrderId);
+		assertThat(stockOf(partId)).isEqualTo(8);
+		assertThat(reservedQuantityOf(reportedLineId)).isEqualTo(4);
+		assertThat(reservedQuantityOf(activeLineId)).isEqualTo(4);
+
+		// Deficit of 3 comes out of the reported HIGH order, although LOW is later
+		// in allocation order: the reported order's units can no longer be picked.
+		setStock(partId, 5);
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(reportedLineId)).isEqualTo(1);
+		assertThat(reservedQuantityOf(activeLineId)).isEqualTo(4);
+
+		// Deficit larger than the reported reservation spills over into LOW.
+		setStock(partId, 2);
+		reallocate(Set.of(partId));
+
+		assertThat(reservedQuantityOf(reportedLineId)).isEqualTo(0);
+		assertThat(reservedQuantityOf(activeLineId)).isEqualTo(2);
+		assertThat(pickedQuantityOf(reportedLineId)).isEqualTo(1);
+		assertThat(pickedQuantityOf(activeLineId)).isEqualTo(1);
+	}
+
+	@Test
 	void deficitNeverTouchesPickedQuantity() throws Exception {
 		Long projectId = seedProject("Deficit Picked Board");
 		Long partId = seedPart("Scarce Part", 5);

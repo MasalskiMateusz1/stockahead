@@ -31,8 +31,9 @@ import pl.regavio.stockahead.parts.PartRepository;
  * front and can never be taken over by another order, however high its
  * priority. It shrinks only when the physical units are gone: if stock falls
  * below the taken orders' total reservation on a part (e.g. a stock
- * correction), those reservations shrink by exactly the deficit, in reverse
- * allocation order, never touching picked units. A taken order whose
+ * correction), those reservations shrink by exactly the deficit, those of
+ * completion-reported orders first (they can no longer be picked), then in
+ * reverse allocation order, never touching picked units. A taken order whose
  * completion has not been reported still joins the allocation pass in its
  * normal allocation-order position, but can only <em>grow</em>: it is
  * topped up by what the pool has left, at
@@ -74,9 +75,9 @@ public class ReservationAllocator {
 	 * pool before any order is processed, so no order can absorb units a
 	 * taken order already holds. If a part's stock is below that total (the
 	 * units are physically gone), the taken lines on it are first shrunk by
-	 * the deficit, in {@code ALLOCATION_ORDER.reversed()} over their orders
-	 * (completion-reported ones included), each by at most its own
-	 * reservation; {@code pickedQuantity} is never touched. This guarantees
+	 * the deficit: lines of completion-reported orders first, then the rest,
+	 * each group in {@code ALLOCATION_ORDER.reversed()} over their orders,
+	 * each by at most its own reservation; {@code pickedQuantity} is never touched. This guarantees
 	 * {@code Σ reservedQuantity ≤ quantity} per part afterwards. Then
 	 * non-taken orders and taken orders whose completion is not reported are
 	 * processed together in allocation order: a non-taken line is rebuilt as {@code min(pool, required)}; a taken
@@ -149,8 +150,10 @@ public class ReservationAllocator {
 	/**
 	 * For each part whose stock is below the total {@code reservedQuantity} of
 	 * its taken lines, lowers those lines' reservations by exactly the
-	 * deficit, walking them in reverse allocation order of their orders so the
-	 * lowest-placed taken order loses its units first. Only reachable when
+	 * deficit. Completion-reported orders lose first, since their unpicked
+	 * reservation can no longer be picked (confirm releases it anyway); then
+	 * the rest in reverse allocation order, so the lowest-placed taken order
+	 * loses its units first. Only reachable when
 	 * stock was lowered under existing reservations (e.g. a stock correction):
 	 * missing physical units are not a takeover, so the protection rule does
 	 * not apply to them.
@@ -166,7 +169,8 @@ public class ReservationAllocator {
 				continue;
 			}
 			List<OrderLine> shrinkOrder = entry.getValue().stream()
-				.sorted(Comparator.comparing(OrderLine::getOrder, ALLOCATION_ORDER.reversed()))
+				.sorted(Comparator.comparing((OrderLine l) -> !l.getOrder().isCompletionReported())
+					.thenComparing(OrderLine::getOrder, ALLOCATION_ORDER.reversed()))
 				.toList();
 			for (OrderLine line : shrinkOrder) {
 				if (deficit == 0) {

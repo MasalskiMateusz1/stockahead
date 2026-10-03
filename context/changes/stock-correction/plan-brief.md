@@ -22,7 +22,7 @@ A table lists the part's past corrections (time, author, before → after, chang
 
 | Decision | Choice | Why (1 sentence) |
 | --- | --- | --- |
-| Stock below taken orders' unpicked reservations | Save; free non-taken first, then shrink taken reservations in reverse allocation order | Missing units can't be picked anyway; physical loss isn't the "przejęcie" (takeover) the PRD forbids. |
+| Stock below taken orders' unpicked reservations | Save; free non-taken first, then shrink taken reservations (completion-reported orders first, then reverse allocation order) | Missing units can't be picked anyway; physical loss isn't the "przejęcie" (takeover) the PRD forbids. |
 | Where the shrink lives | In `ReservationAllocator` (deficit pass), not the controller | Keeps reserved ≤ stock true for every caller. |
 | Input | Two separate forms: "Ustaw stan" (total) and "Dodaj / odejmij" (signed delta) | User wants both an inventory total and quick ± adjustments. |
 | Stale total | Reject and re-show the fresh stock, inputs kept; delta mode needs no check | A total never silently overwrites a pick the manager didn't see. |

@@ -55,7 +55,7 @@ Rdzeń produktu — ta jedna własność, bez której aplikacja byłaby zwykłą
 | S-08  | order-completion                 | Technik zgłasza zakończenie zlecenia, a kierownik je potwierdza                                 | S-07          | FR-014, FR-020                              | done |
 | S-09  | order-change-and-cancel          | Kierownik zmienia priorytet i termin niepodjętego zlecenia albo je anuluje                      | S-07          | FR-021, FR-011                              | done |
 | S-10  | delivery-receipt                 | Technik przyjmuje dostawę, a rezerwacje i lista zakupów przeliczają się same                    | S-02, S-04    | FR-004                                      | done |
-| S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | proposed |
+| S-11  | stock-correction                 | Kierownik koryguje stan części, podając powód                                                   | S-02, S-04    | FR-018                                      | in-progress |
 | S-12  | parts-csv-import                 | Kierownik importuje części z CSV po obejrzeniu podglądu stanów wynikowych                       | S-02, S-04    | FR-017                                      | proposed |
 | S-13  | order-partial-completion         | Technik zamyka zlecenie jako częściowo wykonane, podając liczbę zbudowanych sztuk              | S-08          | FR-014, FR-020 (rozszerzenie spoza PRD v1)  | proposed |
 
@@ -231,7 +231,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Jedyna ścieżka, która może obniżyć stan poniżej sumy istniejących rezerwacji, więc to tutaj gwarancja z §Wymagań niefunkcjonalnych jest najłatwiejsza do złamania — korekta w dół musi zabrać rezerwacje wg kolejności przydziału, a nie tylko zapisać nową liczbę. Powód korekty jest wymagany wprost przez FR-018.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-12: Import części z CSV z podglądem
 
