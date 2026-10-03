@@ -3,8 +3,11 @@ package pl.regavio.stockahead.parts;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -336,6 +339,22 @@ class StockCorrectionIntegrationTests {
 		assertThat(older).isGreaterThan(newer);
 	}
 
+	/** Only the newest {@code HISTORY_LIMIT} corrections are listed; the oldest one drops off. */
+	@Test
+	void pageListsAtMostTheNewestFiftyCorrections() throws Exception {
+		Long managerId = seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		Instant start = Instant.now().minusSeconds(3600);
+		for (int i = 0; i <= StockCorrectionController.HISTORY_LIMIT; i++) {
+			seedCorrection(resistorId, managerId, 100 + i, 101 + i, "Korekta nr " + i + ".", start.plusSeconds(i));
+		}
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		String html = correctionPage(session, resistorId);
+
+		assertThat(html).contains("Korekta nr " + StockCorrectionController.HISTORY_LIMIT + ".", "Korekta nr 1.");
+		assertThat(html).doesNotContain("Korekta nr 0.");
+	}
+
 	@Test
 	void technicianGets403() throws Exception {
 		seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN);
@@ -432,8 +451,9 @@ class StockCorrectionIntegrationTests {
 		String purchasing = mockMvc.perform(get("/purchasing").session(session))
 			.andExpect(status().isOk())
 			.andReturn().getResponse().getContentAsString();
-		assertThat(purchasing).contains("Mikrokontroler");
-		assertThat(purchasing).contains("<td>4</td>");
+		List<String> purchasingRow = rowCells(purchasing, "Mikrokontroler");
+		assertThat(purchasingRow.get(1)).isEqualTo("4");
+		assertThat(purchasingRow.get(2)).contains("Sterownik");
 	}
 
 	/** A short taken order gains units from an upward correction, as with a delivery. */
@@ -482,8 +502,14 @@ class StockCorrectionIntegrationTests {
 		String purchasing = mockMvc.perform(get("/purchasing").session(session))
 			.andExpect(status().isOk())
 			.andReturn().getResponse().getContentAsString();
-		assertThat(purchasing).contains("Przekaźnik");
-		assertThat(purchasing).contains("<td>3</td>");
+		List<String> purchasingRow = rowCells(purchasing, "Przekaźnik");
+		assertThat(purchasingRow.get(1)).isEqualTo("3");
+		assertThat(purchasingRow.get(2)).contains("Automat");
+		String orderDetail = mockMvc.perform(get("/orders/{id}", orderId).session(session))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		// Część, wymagana, zarezerwowana, pobrana, brakująca.
+		assertThat(rowCells(orderDetail, "Przekaźnik")).containsExactly("Przekaźnik", "10", "5", "2", "3");
 
 		String pickHtml = mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId)
 			.session(session)
@@ -739,6 +765,23 @@ class StockCorrectionIntegrationTests {
 		assertThatThrownBy(() -> seedCorrection(resistorId, managerId, -1, 40, "Ujemny", Instant.now()))
 			.isInstanceOf(DataIntegrityViolationException.class);
 		assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM stock_corrections", Integer.class)).isZero();
+	}
+
+	/**
+	 * The text of each {@code <td>} in the first table row containing
+	 * {@code text}, tags stripped and whitespace collapsed, so an assertion
+	 * pins a value to its row and column instead of anywhere on the page.
+	 */
+	private static List<String> rowCells(String html, String text) {
+		Matcher row = Pattern.compile("<tr>((?:(?!</tr>).)*?" + Pattern.quote(text) + "(?:(?!</tr>).)*?)</tr>",
+				Pattern.DOTALL).matcher(html);
+		assertThat(row.find()).as("table row containing %s", text).isTrue();
+		Matcher cell = Pattern.compile("<td[^>]*>(.*?)</td>", Pattern.DOTALL).matcher(row.group(1));
+		List<String> cells = new ArrayList<>();
+		while (cell.find()) {
+			cells.add(cell.group(1).replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").strip());
+		}
+		return cells;
 	}
 
 }

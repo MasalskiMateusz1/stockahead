@@ -10,6 +10,7 @@ import java.util.function.IntFunction;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -54,6 +55,9 @@ public class StockCorrectionController {
 	static final int MAX_DELTA = 1_000_000;
 
 	static final int MAX_REASON_LENGTH = 500;
+
+	/** How many of a part's newest corrections the page lists. */
+	static final int HISTORY_LIMIT = 50;
 
 	private final PartRepository partRepository;
 
@@ -303,7 +307,7 @@ public class StockCorrectionController {
 		model.addAttribute("quantity", quantity);
 		model.addAttribute("reserved", reserved);
 		model.addAttribute("available", quantity - reserved);
-		model.addAttribute("corrections", stockCorrectionRepository.findByPartIdNewestFirst(id));
+		model.addAttribute("corrections", stockCorrectionRepository.findByPartIdNewestFirst(id, Limit.of(HISTORY_LIMIT)));
 		model.addAttribute("expectedQuantity", quantity);
 		model.addAttribute("newQuantity", input.newQuantity());
 		model.addAttribute("delta", input.delta());

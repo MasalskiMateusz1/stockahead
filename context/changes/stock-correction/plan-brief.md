@@ -13,8 +13,8 @@ Stock changes today only through picks (down), deliveries (up) and cancel return
 ## Desired End State
 
 On `/parts`, a manager-only "Koryguj stan" link opens `/parts/{id}/correction`. The page shows stock, reserved and available, and two forms, each with a required reason:
-- **Ustaw stan na N** sets a counted total and is rejected if stock changed since the page opened.
-- **Dodaj / odejmij N** applies a signed change and can't go below 0.
+- **Ustaw stan po spisie: N** sets a counted total and is rejected if stock changed since the page opened.
+- **Zmień stan o N** applies a signed change and can't go below 0.
 
 A table lists the part's past corrections (time, author, before → after, change, reason). After saving, reservations recompute and any new shortage appears on `/purchasing`.
 
@@ -24,7 +24,7 @@ A table lists the part's past corrections (time, author, before → after, chang
 | --- | --- | --- |
 | Stock below taken orders' unpicked reservations | Save; free non-taken first, then shrink taken reservations (completion-reported orders first, then reverse allocation order) | Missing units can't be picked anyway; physical loss isn't the "przejęcie" (takeover) the PRD forbids. |
 | Where the shrink lives | In `ReservationAllocator` (deficit pass), not the controller | Keeps reserved ≤ stock true for every caller. |
-| Input | Two separate forms: "Ustaw stan" (total) and "Dodaj / odejmij" (signed delta) | User wants both an inventory total and quick ± adjustments. |
+| Input | Two separate forms: "Ustaw stan" (total) and "Zmień stan o" (signed delta) | User wants both an inventory total and quick ± adjustments. |
 | Stale total | Reject and re-show the fresh stock, inputs kept; delta mode needs no check | A total never silently overwrites a pick the manager didn't see. |
 | Reason storage | New `stock_corrections` table (part, before, after, reason, author, time), listed on the correction page | Answers "why did stock change" in-app without building full FR-006 history. |
 | Scope | One part per correction, linked per row on `/parts`; inactive parts included | Simple form and stale check; physical stock of inactive parts still counts. |

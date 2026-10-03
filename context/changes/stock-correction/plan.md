@@ -2,7 +2,7 @@
 
 ## Overview
 
-A manager corrects one part's stock after an inventory count and must give a reason (FR-018). The correction screen offers two separate forms: **"Ustaw stan"**, which sets a counted total and is rejected if stock changed since the form was opened, and **"Dodaj / odejmij"**, which applies a signed change to the current stock and can never go below 0. Each correction is stored with its reason in a new `stock_corrections` table and listed on the part's correction page. Reservations and the shopping list then recompute (PRD § Business Logic).
+A manager corrects one part's stock after an inventory count and must give a reason (FR-018). The correction screen offers two separate forms: **"Ustaw stan"**, which sets a counted total and is rejected if stock changed since the form was opened, and **"Zmień stan o"**, which applies a signed change to the current stock and can never go below 0. Each correction is stored with its reason in a new `stock_corrections` table and listed on the part's correction page. Reservations and the shopping list then recompute (PRD § Business Logic).
 
 Correction is the only event that can push stock below what taken orders still hold unpicked. For that case `ReservationAllocator` gains a deficit pass that shrinks taken orders' unpicked reservations in reverse allocation order until reserved ≤ stock. Losing physical units is not the "przejęcie" (takeover) the PRD forbids, and AGENTS.md and the PRD are updated to say so.
 
@@ -18,8 +18,8 @@ Correction is the only event that can push stock below what taken orders still h
 
 - `/parts` shows a manager-only **"Koryguj stan"** link per row, for active and inactive parts.
 - `GET /parts/{id}/correction` (manager) shows the part name, current stock, reserved and available, and two forms, each with a required reason field:
-  - **Ustaw stan na**: the counted total (≥ 0), with the shown stock in a hidden `expectedQuantity`.
-  - **Dodaj / odejmij**: a non-zero signed integer.
+  - **Ustaw stan po spisie**: the counted total (≥ 0), with the shown stock in a hidden `expectedQuantity`.
+  - **Zmień stan o**: a non-zero signed integer.
   
   Below the forms is a table of the part's past corrections, newest first: time, author e-mail, before → after, change, reason.
 - A valid submit commits atomically: lock the part, set stock, insert the `stock_corrections` row, flush, reallocate. The manager is redirected to `/parts` with a flash such as `Skorygowano stan części „Rezystor 10k”: 12 → 5.`
@@ -141,7 +141,7 @@ Add the `stock_corrections` table and entity, and the manager-only correction pa
 
 **Intent**: Map the table, and provide the per-part list with the author fetched in one query.
 
-**Contract**: `StockCorrection` has `@ManyToOne` `part` and `account`, plus the scalar fields above. The repository adds `findByPartIdNewestFirst(Long partId)` using `JOIN FETCH c.account`, ordered by `createdAt DESC, id DESC`.
+**Contract**: `StockCorrection` has `@ManyToOne` `part` and `account`, plus the scalar fields above. The repository adds `findByPartIdNewestFirst(Long partId, Limit limit)` using `JOIN FETCH c.account`, ordered by `createdAt DESC, id DESC`; the page lists the newest `HISTORY_LIMIT` (50).
 
 #### 3. Controller (GET) and template
 
@@ -312,7 +312,7 @@ Every scenario asserts `stock ≥ 0` and `Σ reserved ≤ stock` as SQL over `pa
 
 1. As manager, create an order that reserves all 10 units of a part, then correct the part to 6 with a reason. `/purchasing` shows 4 missing.
 2. As technician, take that order (first pick of 2), then as manager set the stock to 3. The order's reservation shrinks, and the technician can't pick more than what's reserved.
-3. Use "Dodaj / odejmij" with −100 on a part with stock 5: rejected, nothing changes.
+3. Use "Zmień stan o" with −100 on a part with stock 5: rejected, nothing changes.
 4. Check the correction page lists every correction with author, before → after and reason.
 
 ## Performance Considerations

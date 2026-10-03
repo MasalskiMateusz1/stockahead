@@ -1,7 +1,7 @@
 ---
 change_id: stock-correction
 title: Manager corrects a part's stock with a required reason (S-11)
-status: implemented
+status: impl_reviewed
 created: 2026-10-02
 updated: 2026-10-03
 ---
