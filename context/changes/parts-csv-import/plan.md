@@ -375,15 +375,15 @@ No schema change. Existing case-variant duplicate part names (if any were create
 #### Manual
 
 - [x] 3.3 End-to-end import covers a shortage and /purchasing shrinks — 1873f06
-- [x] 3.4 Accepting from two tabs writes once
+- [x] 3.4 Accepting from two tabs writes once — 26dd335
 
 ### Phase 4: Concurrency guarantees
 
 #### Automated
 
-- [x] 4.1 PartImportConcurrencyTests passes 5 consecutive runs
-- [x] 4.2 Full ./mvnw verify passes
+- [x] 4.1 PartImportConcurrencyTests passes 5 consecutive runs — 26dd335
+- [x] 4.2 Full ./mvnw verify passes — 26dd335
 
 #### Manual
 
-- [x] 4.3 Each concurrency scenario demonstrably overlaps
+- [x] 4.3 Each concurrency scenario demonstrably overlaps — 26dd335

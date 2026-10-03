@@ -1,7 +1,7 @@
 ---
 change_id: parts-csv-import
 title: Manager imports parts from CSV after previewing resulting stock (S-12)
-status: implementing
+status: implemented
 created: 2026-10-03
 updated: 2026-10-03
 ---
