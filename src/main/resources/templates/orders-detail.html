@@ -52,6 +52,23 @@
 			</form>
 		</section>
 
+		<section id="order-assign" th:if="${order.status.name() == 'OPEN'}">
+			<h2>Przypisany technik</h2>
+			<form class="card" th:action="@{/orders/{id}/assign(id=${orderId})}" method="post">
+				<div class="form-field">
+					<label for="assigneeId">Technik</label>
+					<select id="assigneeId" name="assigneeId">
+						<option value="">— nieprzypisane —</option>
+						<option th:each="account : ${assignableAccounts}"
+							th:value="${account.id}"
+							th:text="${account.email}"
+							th:selected="${assigneeId != null and assigneeId == account.id}"></option>
+					</select>
+				</div>
+				<button type="submit" class="btn">Zapisz technika</button>
+			</form>
+		</section>
+
 		<section id="completion-report" th:if="${order.completionReported and order.status.name() == 'OPEN'}">
 			<h2>Zgłoszenie zakończenia</h2>
 			<div class="card">

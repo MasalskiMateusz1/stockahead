@@ -14,6 +14,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.server.ResponseStatusException;
 
 import pl.regavio.stockahead.account.Account;
+import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartLocation;
 import pl.regavio.stockahead.parts.PartRepository;
@@ -42,11 +43,15 @@ class OrderDetailModel {
 
 	private final OrderMoments orderMoments;
 
+	private final AccountRepository accountRepository;
+
 	OrderDetailModel(OrderRepository orderRepository, PartRepository partRepository,
-			PlatformTransactionManager transactionManager, OrderMoments orderMoments) {
+			PlatformTransactionManager transactionManager, OrderMoments orderMoments,
+			AccountRepository accountRepository) {
 		this.orderRepository = orderRepository;
 		this.partRepository = partRepository;
 		this.orderMoments = orderMoments;
+		this.accountRepository = accountRepository;
 		this.readTransaction = new TransactionTemplate(transactionManager);
 		this.readTransaction.setReadOnly(true);
 	}
@@ -71,7 +76,9 @@ class OrderDetailModel {
 	/**
 	 * Same as {@link #render(Model, Long, String)}, keeping the priority and
 	 * required date a failed change submitted in the change form ({@code null}
-	 * for the order's current values).
+	 * for the order's current values). The reassign picker lists the
+	 * assignable accounts with the current assignee preselected; a deactivated
+	 * assignee is not listed, so nothing is preselected for one.
 	 */
 	String render(Model model, Long orderId, String error, String submittedPriority, String submittedRequiredDate) {
 		DetailData data = readTransaction.execute(status -> load(orderId));
@@ -86,6 +93,8 @@ class OrderDetailModel {
 		LocalDate today = LocalDate.now();
 		model.addAttribute("changeMinDate",
 				(order.requiredDate().isBefore(today) ? order.requiredDate() : today).toString());
+		model.addAttribute("assignableAccounts", accountRepository.findAssignable());
+		model.addAttribute("assigneeId", data.assigneeId());
 		model.addAttribute("lines", data.lines());
 		model.addAttribute("unmetLines", data.lines().stream()
 			.filter(line -> line.pickedQuantity() < line.requiredQuantity())
@@ -116,7 +125,7 @@ class OrderDetailModel {
 				orderMoments.format(order.getCancelledAt()), cancelledByEmail, order.canCancel(),
 				order.getBuiltUnits(), assignee == null ? null : assignee.getEmail(),
 				assignee != null && assignee.isActive());
-		return new DetailData(orderView, lines);
+		return new DetailData(orderView, lines, assignee == null ? null : assignee.getId());
 	}
 
 	/**
@@ -235,7 +244,11 @@ class OrderDetailModel {
 			String returnValue) {
 	}
 
-	private record DetailData(OrderView order, List<LineView> lines) {
+	/**
+	 * {@code assigneeId} is the current assignee's id, {@code null} when
+	 * unassigned.
+	 */
+	private record DetailData(OrderView order, List<LineView> lines, Long assigneeId) {
 	}
 
 }

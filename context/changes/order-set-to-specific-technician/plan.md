@@ -277,31 +277,31 @@ V13 is additive and nullable. Existing open orders become unassigned and, after 
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes, with V13 applied by Flyway on Testcontainers Postgres
-- [x] 1.2 `OrderCreationIntegrationTests`: creating with an active technician's id stores that assignee, creating with the manager's id stores the manager, and creating with no `assigneeId` stores `NULL`
-- [x] 1.3 `OrderCreationIntegrationTests`: an inactive technician's id, an unknown id and a non-numeric id each re-render `orders-new` with `orders.error.assigneeUnavailable`, and no order is created
-- [x] 1.4 `OrderListAndDetailIntegrationTests`: the detail page and the `/orders` list show the assignee email, "(nieaktywny)" for a deactivated assignee, and "—" for an unassigned order
+- [x] 1.1 `./mvnw verify` passes, with V13 applied by Flyway on Testcontainers Postgres — f234081
+- [x] 1.2 `OrderCreationIntegrationTests`: creating with an active technician's id stores that assignee, creating with the manager's id stores the manager, and creating with no `assigneeId` stores `NULL` — f234081
+- [x] 1.3 `OrderCreationIntegrationTests`: an inactive technician's id, an unknown id and a non-numeric id each re-render `orders-new` with `orders.error.assigneeUnavailable`, and no order is created — f234081
+- [x] 1.4 `OrderListAndDetailIntegrationTests`: the detail page and the `/orders` list show the assignee email, "(nieaktywny)" for a deactivated assignee, and "—" for an unassigned order — f234081
 
 #### Manual
 
-- [x] 1.5 On `/orders/new`, the Technik dropdown lists active technicians and the manager and leaves out a deactivated technician
-- [x] 1.6 A created order's detail page shows the chosen technician
+- [x] 1.5 On `/orders/new`, the Technik dropdown lists active technicians and the manager and leaves out a deactivated technician — f234081
+- [x] 1.6 A created order's detail page shows the chosen technician — f234081
 
 ### Phase 2: Reassign and unassign from the order detail
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 New `OrderAssignIntegrationTests`: the manager reassigns an untaken order, a **taken** order and a completion-reported order, and each new assignee is persisted
-- [ ] 2.3 `OrderAssignIntegrationTests`: a blank `assigneeId` clears the assignee
-- [ ] 2.4 `OrderAssignIntegrationTests`: assigning to an inactive or unknown account re-renders with `orders.error.assigneeUnavailable`, and the assignee is unchanged
-- [ ] 2.5 `OrderAssignIntegrationTests`: a `COMPLETED` or `CANCELLED` order is rejected with `orders.error.notAssignable`
-- [ ] 2.6 `OrderAssignIntegrationTests`: every line's `reserved_quantity`/`picked_quantity` and the order's `priority`/`required_date`/`taken_at` are identical before and after reassignment
-- [ ] 2.7 `OrderAssignIntegrationTests`: a TECHNICIAN posting to `/orders/{id}/assign` gets 403 (wrong-role lesson)
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 New `OrderAssignIntegrationTests`: the manager reassigns an untaken order, a **taken** order and a completion-reported order, and each new assignee is persisted
+- [x] 2.3 `OrderAssignIntegrationTests`: a blank `assigneeId` clears the assignee
+- [x] 2.4 `OrderAssignIntegrationTests`: assigning to an inactive or unknown account re-renders with `orders.error.assigneeUnavailable`, and the assignee is unchanged
+- [x] 2.5 `OrderAssignIntegrationTests`: a `COMPLETED` or `CANCELLED` order is rejected with `orders.error.notAssignable`
+- [x] 2.6 `OrderAssignIntegrationTests`: every line's `reserved_quantity`/`picked_quantity` and the order's `priority`/`required_date`/`taken_at` are identical before and after reassignment
+- [x] 2.7 `OrderAssignIntegrationTests`: a TECHNICIAN posting to `/orders/{id}/assign` gets 403 (wrong-role lesson)
 
 #### Manual
 
-- [ ] 2.8 On a taken order's detail page, the reassign card is visible while the priority/date card is not, and saving a new technician updates the "Technik:" entry
+- [x] 2.8 On a taken order's detail page, the reassign card is visible while the priority/date card is not, and saving a new technician updates the "Technik:" entry
 
 ### Phase 3: Per-viewer `/picking` list, manager filter and FR-022
 

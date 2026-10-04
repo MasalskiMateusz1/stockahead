@@ -66,7 +66,8 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * The same shape backs changing the priority and required date of an
  * untaken order, which reallocates its parts so the new schedule takes
  * effect at once, and cancelling an {@code OPEN}, unreported order with the
- * picked units the manager hands back returned to stock.
+ * picked units the manager hands back returned to stock. Reassigning or
+ * unassigning an {@code OPEN} order uses it too, without reallocating.
  */
 @Controller
 public class OrderController {
@@ -226,6 +227,53 @@ public class OrderController {
 					order.setRequiredDate(parsedRequiredDate);
 					orderRepository.saveAndFlush(order);
 					reservationAllocator.reallocateForParts(partIds);
+					return null;
+				});
+	}
+
+	/**
+	 * Sets or clears who an {@code OPEN} order is for, at any point before it
+	 * is closed: untaken, taken, or with a completion report pending. A blank
+	 * {@code assigneeId} unassigns; a malformed one is refused before any lock
+	 * is taken. Runs through {@link #transitionOrder} (the same part-row locks
+	 * a pick takes, then a re-read) rather than locking only the order row,
+	 * since pick and report-completion write the whole order row from a copy
+	 * read under those part locks — a lighter lock would let either silently
+	 * undo the new assignee. Under the lock the order must still be
+	 * {@code OPEN} and the account must still be assignable (the
+	 * {@link AccountRepository#findAssignable()} rule). Assigning is not a
+	 * reallocation event: reservations, picks and the schedule are untouched.
+	 */
+	@PostMapping("/orders/{id}/assign")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String assign(@PathVariable Long id,
+			@RequestParam(required = false) String assigneeId,
+			Model model,
+			Locale locale) {
+		Function<String, String> renderError = error -> orderDetailModel.render(model, id, error);
+
+		boolean assigned = assigneeId != null && !assigneeId.isBlank();
+		Long parsedAssigneeId = assigned ? parseId(assigneeId) : null;
+		if (assigned && parsedAssigneeId == null) {
+			return renderError.apply(messageSource.getMessage("orders.error.assigneeUnavailable", null, locale));
+		}
+
+		return transitionOrder(id, locale, "orders.error.assignFailed", renderError, "redirect:/orders/" + id,
+				(order, partIds) -> {
+					if (order.getStatus() != OrderStatus.OPEN) {
+						return messageSource.getMessage("orders.error.notAssignable", null, locale);
+					}
+					Account assignee = null;
+					if (parsedAssigneeId != null) {
+						assignee = accountRepository.findById(parsedAssigneeId)
+							.filter(OrderController::isAssignable)
+							.orElse(null);
+						if (assignee == null) {
+							return messageSource.getMessage("orders.error.assigneeUnavailable", null, locale);
+						}
+					}
+					order.setAssignee(assignee);
+					orderRepository.saveAndFlush(order);
 					return null;
 				});
 	}
