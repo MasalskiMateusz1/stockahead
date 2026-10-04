@@ -28,6 +28,17 @@ Stockahead is a parts-warehouse and production-reservation web app for a small e
 - The Thymeleaf security dialect artifact is `thymeleaf-extras-springsecurity6` even on Security 7; do not rename it to `…springsecurity7`.
 - Patch a vulnerable transitive library by overriding its BOM property (`tomcat.version`, `jackson-bom.version`) in @pom.xml, never with an explicit `<version>` on a starter. Remove the override once the Boot parent catches up.
 
+## Company isolation (prd-v2)
+
+- Every table holding warehouse data (parts, locations, projects, BOM lines, orders, reservations, stock movements, corrections, accounts except the operator) carries a non-null `company_id`; add it in a new Flyway migration, never by editing V1–V13.
+- Uniqueness that is global today (part name, project name, location spelling) becomes `UNIQUE (company_id, …)` per FR-028; email stays globally unique (FR-029).
+- Load records by `(id, company_id)` — never a bare `findById` on a company-owned entity from a controller. A record of another company answers 404, exactly like a missing id.
+- Hibernate 7.4 `@TenantId` does not filter native SQL and has no automatic row-level security. A native query that reads company-owned rows must include `company_id = :companyId`. Exceptions: the login email lookup in `AccountRepository` (intentionally cross-company) and the advisory locks in `PartRepository`/`LocationSpellings` (no data read); once names are unique per company, include the company in the lock key.
+- Pessimistic-lock (`PESSIMISTIC_WRITE` / `FOR UPDATE`) and allocation queries in `PartRepository`, `OrderRepository` and `ReservationAllocator` scope to the current company; allocation never reads another company's orders or stock.
+- The current company comes from the authenticated principal, never from a request parameter or form field.
+- The operator account has no company and no route to any warehouse controller; its access is limited to the company list and approve/reject/block.
+- Every company-scoped route ships with a test: a user of company B requesting company A's record id gets 404 (and cannot mutate it), alongside the existing wrong-role 403 test.
+
 ## Coding style
 
 - Indent Java and XML with tabs, matching the generated sources. No formatter or linter is configured yet.
