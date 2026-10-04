@@ -28,6 +28,10 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!-- CVE-2026-65905/65182/68525; drop when spring-boot-starter-parent ships Tomcat >= 11.0.25 -->
+		<tomcat.version>11.0.26</tomcat.version>
+		<!-- CVE-2026-89425/89407/91777/68497/91776; drop when Boot's BOM reaches Jackson >= 3.1.7 -->
+		<jackson-bom.version>3.1.7</jackson-bom.version>
 	</properties>
 	<dependencies>
 		<dependency>

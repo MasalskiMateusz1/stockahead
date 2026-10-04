@@ -23,6 +23,10 @@ Stockahead is a parts-warehouse and production-reservation web app for a small e
 ## Version tripwires
 
 - This project runs Spring Boot 4.x, not 3.x: starters are modular (`spring-boot-starter-webmvc`, per-module `*-test` starters), and Testcontainers 2 packages are used (`org.testcontainers.postgresql.PostgreSQLContainer`). Copy artifact and import names from @pom.xml and @src/test/java/pl/regavio/stockahead/TestcontainersConfiguration.java.
+- Spring Security is 7.x: configure via a `SecurityFilterChain` bean with the lambda DSL (see `security/SecurityConfig.java`); `WebSecurityConfigurerAdapter`, `antMatchers` and `authorizeRequests` do not exist. Method security uses `@PreAuthorize` as in the existing controllers.
+- Hibernate is 7.4: import `jakarta.persistence.*`, never `javax.*`.
+- The Thymeleaf security dialect artifact is `thymeleaf-extras-springsecurity6` even on Security 7; do not rename it to `…springsecurity7`.
+- Patch a vulnerable transitive library by overriding its BOM property (`tomcat.version`, `jackson-bom.version`) in @pom.xml, never with an explicit `<version>` on a starter. Remove the override once the Boot parent catches up.
 
 ## Coding style
 
