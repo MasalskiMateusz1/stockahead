@@ -74,6 +74,10 @@ public class Order {
 	@JoinColumn(name = "cancelled_by")
 	private Account cancelledBy;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "assignee_id")
+	private Account assignee;
+
 	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<OrderLine> lines = new ArrayList<>();
 
@@ -191,6 +195,14 @@ public class Order {
 
 	public void setCancelledBy(Account cancelledBy) {
 		this.cancelledBy = cancelledBy;
+	}
+
+	public Account getAssignee() {
+		return assignee;
+	}
+
+	public void setAssignee(Account assignee) {
+		this.assignee = assignee;
 	}
 
 	public boolean isCompletionReported() {

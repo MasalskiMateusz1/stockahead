@@ -3,6 +3,7 @@ package pl.regavio.stockahead.orders;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -13,6 +14,7 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -58,6 +60,9 @@ import pl.regavio.stockahead.parts.PartRepository;
 @Controller
 public class PickingController {
 
+	/** The manager's {@code /picking} filter value for "Nieprzypisane". */
+	static final String UNASSIGNED_FILTER = "none";
+
 	private final OrderRepository orderRepository;
 
 	private final PartRepository partRepository;
@@ -88,10 +93,47 @@ public class PickingController {
 		this.messageSource = messageSource;
 	}
 
+	/**
+	 * The OPEN-order list, per viewer. A technician sees only the orders
+	 * assigned to them. The manager sees every open order, optionally
+	 * narrowed by {@code assignee}: an assignable account's id (see
+	 * {@link AccountRepository#findAssignable()}), or {@value #UNASSIGNED_FILTER}
+	 * for orders with no assignee or an inactive one. It is only a view
+	 * filter, so a malformed value or an id that isn't assignable falls back
+	 * to every open order instead of an error page.
+	 */
 	@GetMapping("/picking")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
-	public String list(Model model) {
-		model.addAttribute("orders", orderRepository.findByStatusWithProject(OrderStatus.OPEN).stream()
+	public String list(@RequestParam(name = "assignee", required = false) String assignee,
+			Authentication authentication, Model model) {
+		boolean isManager = authentication.getAuthorities().stream()
+			.map(GrantedAuthority::getAuthority)
+			.anyMatch("ROLE_MANAGER"::equals);
+
+		List<Order> orders;
+		if (isManager) {
+			List<Account> assignableAccounts = accountRepository.findAssignable();
+			String selectedAssignee = resolveAssigneeFilter(assignee, assignableAccounts);
+			if (selectedAssignee == null) {
+				orders = orderRepository.findByStatusWithProject(OrderStatus.OPEN);
+			}
+			else if (UNASSIGNED_FILTER.equals(selectedAssignee)) {
+				orders = orderRepository.findByStatusUnassignedWithProject(OrderStatus.OPEN);
+			}
+			else {
+				orders = orderRepository.findByStatusAndAssigneeWithProject(OrderStatus.OPEN,
+						Long.valueOf(selectedAssignee));
+			}
+			model.addAttribute("assignableAccounts", assignableAccounts);
+			model.addAttribute("selectedAssignee", selectedAssignee);
+		}
+		else {
+			Account self = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
+			orders = orderRepository.findByStatusAndAssigneeWithProject(OrderStatus.OPEN, self.getId());
+		}
+		model.addAttribute("isManager", isManager);
+		model.addAttribute("orders", orders.stream()
 			.sorted(ReservationAllocator.ALLOCATION_ORDER)
 			.toList());
 		Map<Long, Long> toPickByOrderId = new HashMap<>();
@@ -245,6 +287,30 @@ public class PickingController {
 		}
 
 		return "redirect:/picking/" + orderId;
+	}
+
+	/**
+	 * Normalizes the manager's raw {@code assignee} filter: {@value #UNASSIGNED_FILTER},
+	 * the id of an assignable account (as a string), or {@code null} for "all"
+	 * — which is also the fallback for a blank, malformed or non-assignable
+	 * value.
+	 */
+	private static String resolveAssigneeFilter(String rawAssignee, List<Account> assignableAccounts) {
+		if (rawAssignee == null || rawAssignee.isBlank()) {
+			return null;
+		}
+		String trimmed = rawAssignee.trim();
+		if (UNASSIGNED_FILTER.equals(trimmed)) {
+			return UNASSIGNED_FILTER;
+		}
+		long id;
+		try {
+			id = Long.parseLong(trimmed);
+		}
+		catch (NumberFormatException ex) {
+			return null;
+		}
+		return assignableAccounts.stream().anyMatch(account -> account.getId() == id) ? Long.toString(id) : null;
 	}
 
 	/**

@@ -19,6 +19,8 @@
 			<dd><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></dd>
 			<dt>Wymagany termin:</dt>
 			<dd th:text="${order.requiredDate}"></dd>
+			<dt>Technik:</dt>
+			<dd th:text="${order.assigneeEmail == null ? '—' : order.assigneeEmail + (order.assigneeActive ? '' : ' (nieaktywny)')}"></dd>
 		</dl>
 		<p th:if="${order.status.name() == 'COMPLETED'}"
 			th:text="${order.builtUnits == null}
@@ -47,6 +49,23 @@
 					<input type="date" id="requiredDate" name="requiredDate" th:min="${changeMinDate}" th:value="${changeRequiredDate}" required>
 				</div>
 				<button type="submit" class="btn">Zapisz zmiany</button>
+			</form>
+		</section>
+
+		<section id="order-assign" th:if="${order.status.name() == 'OPEN'}">
+			<h2>Przypisany technik</h2>
+			<form class="card" th:action="@{/orders/{id}/assign(id=${orderId})}" method="post">
+				<div class="form-field">
+					<label for="assigneeId">Technik</label>
+					<select id="assigneeId" name="assigneeId">
+						<option value="">— nieprzypisane —</option>
+						<option th:each="account : ${assignableAccounts}"
+							th:value="${account.id}"
+							th:text="${account.email}"
+							th:selected="${assigneeId != null and assigneeId == account.id}"></option>
+					</select>
+				</div>
+				<button type="submit" class="btn">Zapisz technika</button>
 			</form>
 		</section>
 

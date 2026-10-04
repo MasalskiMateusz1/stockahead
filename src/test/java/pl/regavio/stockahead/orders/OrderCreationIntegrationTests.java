@@ -32,6 +32,7 @@ import pl.regavio.stockahead.account.Role;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -39,6 +40,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 /**
  * Covers {@code OrderController}'s creation flow (Phase 3): validation of
@@ -60,6 +62,10 @@ class OrderCreationIntegrationTests {
 
 	private static final String TECHNICIAN_EMAIL = "order-creation-technician@example.com";
 
+	private static final String ASSIGNEE_EMAIL = "order-creation-assignee@example.com";
+
+	private static final String INACTIVE_ASSIGNEE_EMAIL = "order-creation-inactive-assignee@example.com";
+
 	private static final String PASSWORD = "correct-password";
 
 	private static final String QUANTITY_NOT_INTEGER_ERROR = "Liczba sztuk musi być liczbą całkowitą.";
@@ -71,6 +77,8 @@ class OrderCreationIntegrationTests {
 	private static final String DATE_REQUIRED_ERROR = "Wymagany termin jest wymagany i musi być poprawną datą.";
 
 	private static final String DATE_PAST_ERROR = "Wymagany termin nie może być w przeszłości.";
+
+	private static final String ASSIGNEE_UNAVAILABLE_ERROR = "Wybrany technik jest nieaktywny lub nie istnieje.";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -117,20 +125,34 @@ class OrderCreationIntegrationTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		accountRepository.findByEmail(ASSIGNEE_EMAIL).ifPresent(accountRepository::delete);
+		accountRepository.findByEmail(INACTIVE_ASSIGNEE_EMAIL).ifPresent(accountRepository::delete);
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
 	private void seedAccount(String email, Role role) {
-		transactionTemplate.executeWithoutResult(status -> {
+		seedAccount(email, role, true);
+	}
+
+	private Long seedAccount(String email, Role role, boolean active) {
+		return transactionTemplate.execute(status -> {
 			Account account = new Account();
 			account.setEmail(email);
 			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
 			account.setRole(role);
-			account.setActive(true);
+			account.setActive(active);
 			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
+			return accountRepository.save(account).getId();
 		});
+	}
+
+	private Long accountId(String email) {
+		return accountRepository.findByEmail(email).orElseThrow().getId();
+	}
+
+	private Long assigneeIdOf(Long orderId) {
+		return jdbcTemplate.queryForObject("SELECT assignee_id FROM orders WHERE id = ?", Long.class, orderId);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -209,6 +231,112 @@ class OrderCreationIntegrationTests {
 		Long orderId = soleOrderId();
 		assertThat(requiredQuantityFor(orderId, resistorId)).isEqualTo(10);
 		assertThat(reservedQuantityFor(orderId, resistorId)).isEqualTo(6);
+	}
+
+	// ---- assignee ---------------------------------------------------------
+
+	@Test
+	void managerCreatesOrderAssignedToAnActiveTechnician() throws Exception {
+		MockHttpSession session = managerSession();
+		Long technicianId = seedAccount(ASSIGNEE_EMAIL, Role.TECHNICIAN, true);
+
+		mockMvc.perform(post("/orders").session(session).with(csrf())
+			.param("projectId", projectId.toString())
+			.param("quantityUnits", "1")
+			.param("priority", "NORMAL")
+			.param("requiredDate", LocalDate.now().plusDays(7).toString())
+			.param("assigneeId", technicianId.toString()))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", matchesPattern("/orders/\\d+")));
+
+		assertThat(orderCount()).isEqualTo(1);
+		assertThat(assigneeIdOf(soleOrderId())).isEqualTo(technicianId);
+	}
+
+	@Test
+	void managerCreatesOrderAssignedToThemself() throws Exception {
+		MockHttpSession session = managerSession();
+		Long managerId = accountId(MANAGER_EMAIL);
+
+		mockMvc.perform(post("/orders").session(session).with(csrf())
+			.param("projectId", projectId.toString())
+			.param("quantityUnits", "1")
+			.param("priority", "NORMAL")
+			.param("requiredDate", LocalDate.now().plusDays(7).toString())
+			.param("assigneeId", managerId.toString()))
+			.andExpect(status().is3xxRedirection());
+
+		assertThat(orderCount()).isEqualTo(1);
+		assertThat(assigneeIdOf(soleOrderId())).isEqualTo(managerId);
+	}
+
+	@Test
+	void orderCreatedWithoutAssigneeIsUnassigned() throws Exception {
+		MockHttpSession session = managerSession();
+
+		mockMvc.perform(post("/orders").session(session).with(csrf())
+			.param("projectId", projectId.toString())
+			.param("quantityUnits", "1")
+			.param("priority", "NORMAL")
+			.param("requiredDate", LocalDate.now().plusDays(7).toString()))
+			.andExpect(status().is3xxRedirection());
+		mockMvc.perform(post("/orders").session(session).with(csrf())
+			.param("projectId", projectId.toString())
+			.param("quantityUnits", "1")
+			.param("priority", "NORMAL")
+			.param("requiredDate", LocalDate.now().plusDays(7).toString())
+			.param("assigneeId", ""))
+			.andExpect(status().is3xxRedirection());
+
+		assertThat(orderCount()).isEqualTo(2);
+		assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM orders WHERE assignee_id IS NULL",
+				Integer.class)).isEqualTo(2);
+	}
+
+	@Test
+	void inactiveUnknownOrMalformedAssigneeIsRejectedWithErrorAndNoRow() throws Exception {
+		MockHttpSession session = managerSession();
+		Long inactiveId = seedAccount(INACTIVE_ASSIGNEE_EMAIL, Role.TECHNICIAN, false);
+
+		for (String assigneeIdValue : List.of(inactiveId.toString(), "999999", "not-a-number")) {
+			mockMvc.perform(post("/orders").session(session).with(csrf())
+				.param("projectId", projectId.toString())
+				.param("quantityUnits", "1")
+				.param("priority", "NORMAL")
+				.param("requiredDate", LocalDate.now().plusDays(1).toString())
+				.param("assigneeId", assigneeIdValue))
+				.andExpect(status().isOk())
+				.andExpect(view().name("orders-new"))
+				.andExpect(content().string(containsString(ASSIGNEE_UNAVAILABLE_ERROR)));
+		}
+
+		assertThat(orderCount()).isZero();
+	}
+
+	@Test
+	void assigneePickerListsAssignableAccountsAndKeepsTheChoiceOnAFailedSubmit() throws Exception {
+		MockHttpSession session = managerSession();
+		Long technicianId = seedAccount(ASSIGNEE_EMAIL, Role.TECHNICIAN, true);
+		seedAccount(INACTIVE_ASSIGNEE_EMAIL, Role.TECHNICIAN, false);
+
+		mockMvc.perform(get("/orders/new").session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("— nieprzypisane —")))
+			.andExpect(content().string(containsString(ASSIGNEE_EMAIL)))
+			.andExpect(content().string(containsString(MANAGER_EMAIL + "</option>")))
+			.andExpect(content().string(not(containsString(INACTIVE_ASSIGNEE_EMAIL))));
+
+		mockMvc.perform(post("/orders").session(session).with(csrf())
+			.param("projectId", projectId.toString())
+			.param("quantityUnits", "0")
+			.param("priority", "NORMAL")
+			.param("requiredDate", LocalDate.now().plusDays(1).toString())
+			.param("assigneeId", technicianId.toString()))
+			.andExpect(status().isOk())
+			.andExpect(content().string(matchesPattern(
+					"(?s).*<option value=\"" + technicianId + "\"\\s+selected=\"selected\">" + ASSIGNEE_EMAIL + ".*")));
+
+		assertThat(orderCount()).isZero();
 	}
 
 	// ---- validation -------------------------------------------------------

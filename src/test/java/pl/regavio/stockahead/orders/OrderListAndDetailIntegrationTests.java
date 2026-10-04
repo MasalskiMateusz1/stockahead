@@ -54,6 +54,10 @@ class OrderListAndDetailIntegrationTests {
 
 	private static final String TECHNICIAN_EMAIL = "order-list-detail-technician@example.com";
 
+	private static final String ASSIGNEE_EMAIL = "order-list-detail-assignee@example.com";
+
+	private static final String INACTIVE_ASSIGNEE_EMAIL = "order-list-detail-inactive-assignee@example.com";
+
 	private static final String PASSWORD = "correct-password";
 
 	/** Report/completion moments render as date + minute, no seconds or zone. */
@@ -101,20 +105,31 @@ class OrderListAndDetailIntegrationTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		accountRepository.findByEmail(ASSIGNEE_EMAIL).ifPresent(accountRepository::delete);
+		accountRepository.findByEmail(INACTIVE_ASSIGNEE_EMAIL).ifPresent(accountRepository::delete);
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
 	private void seedAccount(String email, Role role) {
-		transactionTemplate.executeWithoutResult(status -> {
+		seedAccount(email, role, true);
+	}
+
+	private Long seedAccount(String email, Role role, boolean active) {
+		return transactionTemplate.execute(status -> {
 			Account account = new Account();
 			account.setEmail(email);
 			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
 			account.setRole(role);
-			account.setActive(true);
+			account.setActive(active);
 			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
+			return accountRepository.save(account).getId();
 		});
+	}
+
+	private void assignOrder(Long orderId, Long assigneeId) {
+		transactionTemplate.executeWithoutResult(status -> jdbcTemplate
+			.update("UPDATE orders SET assignee_id = ? WHERE id = ?", assigneeId, orderId));
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -180,6 +195,59 @@ class OrderListAndDetailIntegrationTests {
 				""",
 				Long.class, projectId, quantityUnits, LocalDate.now().plusDays(7), reporterId, builtUnits,
 				completed ? "COMPLETED" : "OPEN", completed ? Timestamp.from(Instant.now()) : null));
+	}
+
+	// ---- assignee display -------------------------------------------------
+
+	@Test
+	void detailShowsAssigneeEmailInactiveMarkerOrDash() throws Exception {
+		MockHttpSession session = managerSession();
+		Long activeId = seedAccount(ASSIGNEE_EMAIL, Role.TECHNICIAN, true);
+		Long inactiveId = seedAccount(INACTIVE_ASSIGNEE_EMAIL, Role.TECHNICIAN, false);
+		Long assigned = seedOrder(seedProject("Assigned Board", true), 1, "NORMAL", LocalDate.now().plusDays(3));
+		assignOrder(assigned, activeId);
+		Long deactivated = seedOrder(seedProject("Deactivated Board", true), 1, "NORMAL",
+				LocalDate.now().plusDays(3));
+		assignOrder(deactivated, inactiveId);
+		Long unassigned = seedOrder(seedProject("Unassigned Board", true), 1, "NORMAL", LocalDate.now().plusDays(3));
+
+		mockMvc.perform(get("/orders/" + assigned).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("<dt>Technik:</dt>")))
+			.andExpect(content().string(containsString("<dd>" + ASSIGNEE_EMAIL + "</dd>")));
+		mockMvc.perform(get("/orders/" + deactivated).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("<dd>" + INACTIVE_ASSIGNEE_EMAIL + " (nieaktywny)</dd>")));
+		mockMvc.perform(get("/orders/" + unassigned).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(matchesPattern("(?s).*<dt>Technik:</dt>\\s*<dd>—</dd>.*")));
+	}
+
+	@Test
+	void listsShowAssigneeEmailInactiveMarkerOrDash() throws Exception {
+		MockHttpSession session = managerSession();
+		Long activeId = seedAccount(ASSIGNEE_EMAIL, Role.TECHNICIAN, true);
+		Long inactiveId = seedAccount(INACTIVE_ASSIGNEE_EMAIL, Role.TECHNICIAN, false);
+		assignOrder(seedOrder(seedProject("Assigned Board", true), 1, "NORMAL", LocalDate.now().plusDays(3)),
+				activeId);
+		assignOrder(seedOrder(seedProject("Deactivated Board", true), 1, "NORMAL", LocalDate.now().plusDays(3)),
+				inactiveId);
+		seedOrder(seedProject("Unassigned Board", true), 1, "NORMAL", LocalDate.now().plusDays(3));
+		Long pending = seedReportedOrder(seedProject("Pending Board", true), 4, 4, false, MANAGER_EMAIL);
+		assignOrder(pending, activeId);
+
+		String html = mockMvc.perform(get("/orders").session(session))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+
+		String pendingSection = html.substring(html.indexOf("id=\"pending-orders\""), html.indexOf("id=\"open-orders\""));
+		String openSection = html.substring(html.indexOf("id=\"open-orders\""));
+		assertThat(pendingSection).contains("<th>Technik</th>");
+		assertThat(pendingSection).contains("<td>" + ASSIGNEE_EMAIL + "</td>");
+		assertThat(openSection).contains("<th>Technik</th>");
+		assertThat(openSection).contains("<td>" + ASSIGNEE_EMAIL + "</td>");
+		assertThat(openSection).contains("<td>" + INACTIVE_ASSIGNEE_EMAIL + " (nieaktywny)</td>");
+		assertThat(openSection).containsPattern("(?s)<td>Unassigned Board</td>((?!</tr>).)*<td>—</td>");
 	}
 
 	// ---- built count display ----------------------------------------------
