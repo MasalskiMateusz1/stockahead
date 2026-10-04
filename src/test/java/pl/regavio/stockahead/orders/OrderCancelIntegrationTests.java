@@ -186,10 +186,16 @@ class OrderCancelIntegrationTests {
 	 * allocation order never ties on a shared {@code now()}.
 	 */
 	private Long seedOrder(Long orderProjectId, Priority priority, Instant createdAt) {
+		return seedOrder(orderProjectId, priority, createdAt, null);
+	}
+
+	/** As above, assigned to {@code assigneeId} ({@code null} leaves it unassigned). */
+	private Long seedOrder(Long orderProjectId, Priority priority, Instant createdAt, Long assigneeId) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
-				Long.class, orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt)));
+				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id) "
+						+ "VALUES (?, 1, ?, ?, ?, ?) RETURNING id",
+				Long.class, orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt),
+				assigneeId));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
@@ -578,12 +584,12 @@ class OrderCancelIntegrationTests {
 
 	@Test
 	void cancelledOrderRefusesPickAndReportAndLeavesTheLists() throws Exception {
-		Long partId = seedPart("Scarce Oscillator", 2);
-		Long orderId = seedOrder(projectId, Priority.NORMAL, Instant.now());
-		Long lineId = seedOrderLine(orderId, partId, 5, 2);
 		seedAccount(MANAGER_EMAIL, Role.MANAGER);
 		MockHttpSession technician = technicianSession();
 		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+		Long partId = seedPart("Scarce Oscillator", 2);
+		Long orderId = seedOrder(projectId, Priority.NORMAL, Instant.now(), accountIdOf(TECHNICIAN_EMAIL));
+		Long lineId = seedOrderLine(orderId, partId, 5, 2);
 
 		pick(technician, orderId, lineId, 1);
 

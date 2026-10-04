@@ -142,13 +142,23 @@ class PickingListAndDetailIntegrationTests {
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
+		return seedOrder(projectId, quantityUnits, priority, requiredDate, null);
+	}
+
+	/** As above, assigned to {@code assigneeId} ({@code null} leaves it unassigned). */
+	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate,
+			Long assigneeId) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at)
-				VALUES (?, ?, ?, ?, now())
+				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id)
+				VALUES (?, ?, ?, ?, now(), ?)
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, priority, requiredDate));
+				Long.class, projectId, quantityUnits, priority, requiredDate, assigneeId));
+	}
+
+	private Long accountIdOf(String email) {
+		return accountRepository.findByEmail(email).orElseThrow().getId();
 	}
 
 	private void seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity,
@@ -275,16 +285,18 @@ class PickingListAndDetailIntegrationTests {
 	 */
 	@Test
 	void pickingListShowsUnitsToPickPerOrderIncludingToppedUpTakenOrder() throws Exception {
+		MockHttpSession manager = managerSession();
+		MockHttpSession technician = technicianSession();
+		Long technicianId = accountIdOf(TECHNICIAN_EMAIL);
 		Long partId = seedPart("To-Pick Resistor", 10);
-		Long orderA = seedOrder(seedProject("To-Pick First Board", true), 1, "HIGH", LocalDate.now().plusDays(3));
+		Long orderA = seedOrder(seedProject("To-Pick First Board", true), 1, "HIGH", LocalDate.now().plusDays(3),
+				technicianId);
 		seedOrderLine(orderA, partId, 6, 6, 0);
 		Long lineA = lineIdOf(orderA);
 		Long orderB = seedOrder(seedProject("To-Pick Short Board", true), 1, "NORMAL",
-				LocalDate.now().plusDays(7));
+				LocalDate.now().plusDays(7), technicianId);
 		seedOrderLine(orderB, partId, 8, 4, 0);
 		Long lineB = lineIdOf(orderB);
-		MockHttpSession manager = managerSession();
-		MockHttpSession technician = technicianSession();
 
 		pick(technician, orderA, lineA, 1);
 		pick(technician, orderB, lineB, 1);

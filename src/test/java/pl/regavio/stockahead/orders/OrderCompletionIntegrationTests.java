@@ -200,10 +200,15 @@ class OrderCompletionIntegrationTests {
 	}
 
 	private Long seedOrder(Long orderProjectId) {
+		return seedOrder(orderProjectId, (Long) null);
+	}
+
+	/** An OPEN order assigned to {@code assigneeId} ({@code null} leaves it unassigned). */
+	private Long seedOrder(Long orderProjectId, Long assigneeId) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, 1, 'NORMAL', ?, ?) RETURNING id",
-				Long.class, orderProjectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now())));
+				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id) "
+						+ "VALUES (?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
+				Long.class, orderProjectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId));
 	}
 
 	/** An OPEN order for {@code quantityUnits} units of the default project. */
@@ -545,10 +550,10 @@ class OrderCompletionIntegrationTests {
 
 	@Test
 	void pickingListMarksOnlyReportedOrders() throws Exception {
-		Long partId = seedPart("List Marker Part", 10);
-		Long orderId = seedOrder();
-		Long lineId = seedOrderLine(orderId, partId, 5, 5);
 		MockHttpSession session = technicianSession();
+		Long partId = seedPart("List Marker Part", 10);
+		Long orderId = seedOrder(projectId, accountIdOf(TECHNICIAN_EMAIL));
+		Long lineId = seedOrderLine(orderId, partId, 5, 5);
 
 		mockMvc.perform(get("/picking").session(session))
 			.andExpect(status().isOk())

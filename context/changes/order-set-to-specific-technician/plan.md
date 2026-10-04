@@ -291,32 +291,32 @@ V13 is additive and nullable. Existing open orders become unassigned and, after 
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 New `OrderAssignIntegrationTests`: the manager reassigns an untaken order, a **taken** order and a completion-reported order, and each new assignee is persisted
-- [x] 2.3 `OrderAssignIntegrationTests`: a blank `assigneeId` clears the assignee
-- [x] 2.4 `OrderAssignIntegrationTests`: assigning to an inactive or unknown account re-renders with `orders.error.assigneeUnavailable`, and the assignee is unchanged
-- [x] 2.5 `OrderAssignIntegrationTests`: a `COMPLETED` or `CANCELLED` order is rejected with `orders.error.notAssignable`
-- [x] 2.6 `OrderAssignIntegrationTests`: every line's `reserved_quantity`/`picked_quantity` and the order's `priority`/`required_date`/`taken_at` are identical before and after reassignment
-- [x] 2.7 `OrderAssignIntegrationTests`: a TECHNICIAN posting to `/orders/{id}/assign` gets 403 (wrong-role lesson)
+- [x] 2.1 `./mvnw verify` passes — fb8b6c2
+- [x] 2.2 New `OrderAssignIntegrationTests`: the manager reassigns an untaken order, a **taken** order and a completion-reported order, and each new assignee is persisted — fb8b6c2
+- [x] 2.3 `OrderAssignIntegrationTests`: a blank `assigneeId` clears the assignee — fb8b6c2
+- [x] 2.4 `OrderAssignIntegrationTests`: assigning to an inactive or unknown account re-renders with `orders.error.assigneeUnavailable`, and the assignee is unchanged — fb8b6c2
+- [x] 2.5 `OrderAssignIntegrationTests`: a `COMPLETED` or `CANCELLED` order is rejected with `orders.error.notAssignable` — fb8b6c2
+- [x] 2.6 `OrderAssignIntegrationTests`: every line's `reserved_quantity`/`picked_quantity` and the order's `priority`/`required_date`/`taken_at` are identical before and after reassignment — fb8b6c2
+- [x] 2.7 `OrderAssignIntegrationTests`: a TECHNICIAN posting to `/orders/{id}/assign` gets 403 (wrong-role lesson) — fb8b6c2
 
 #### Manual
 
-- [x] 2.8 On a taken order's detail page, the reassign card is visible while the priority/date card is not, and saving a new technician updates the "Technik:" entry
+- [x] 2.8 On a taken order's detail page, the reassign card is visible while the priority/date card is not, and saving a new technician updates the "Technik:" entry — fb8b6c2
 
 ### Phase 3: Per-viewer `/picking` list, manager filter and FR-022
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes, including the repaired existing suites
-- [ ] 3.2 New `PickingVisibilityIntegrationTests`: technician A sees their order and does not see technician B's order, an unassigned order or a manager-assigned order
-- [ ] 3.3 `PickingVisibilityIntegrationTests`: the manager without a filter sees all four orders
-- [ ] 3.4 `PickingVisibilityIntegrationTests`: the manager with `assignee=<A>` sees only A's order, and with `assignee=none` sees the unassigned order and the order of a **deactivated** technician C, and nothing else
-- [ ] 3.5 `PickingVisibilityIntegrationTests`: the manager with `assignee=abc` or an unknown id gets 200 with all orders
-- [ ] 3.6 `PickingVisibilityIntegrationTests`: after A's order is reassigned to B via `POST /orders/{id}/assign` (taken order), it leaves A's `/picking` and appears on B's
-- [ ] 3.7 `TemplateConventionTests` passes for the changed `picking-list.html`
+- [x] 3.1 `./mvnw verify` passes, including the repaired existing suites
+- [x] 3.2 New `PickingVisibilityIntegrationTests`: technician A sees their order and does not see technician B's order, an unassigned order or a manager-assigned order
+- [x] 3.3 `PickingVisibilityIntegrationTests`: the manager without a filter sees all four orders
+- [x] 3.4 `PickingVisibilityIntegrationTests`: the manager with `assignee=<A>` sees only A's order, and with `assignee=none` sees the unassigned order and the order of a **deactivated** technician C, and nothing else
+- [x] 3.5 `PickingVisibilityIntegrationTests`: the manager with `assignee=abc` or an unknown id gets 200 with all orders
+- [x] 3.6 `PickingVisibilityIntegrationTests`: after A's order is reassigned to B via `POST /orders/{id}/assign` (taken order), it leaves A's `/picking` and appears on B's
+- [x] 3.7 `TemplateConventionTests` passes for the changed `picking-list.html`
 
 #### Manual
 
-- [ ] 3.8 Logged in as a technician, `/picking` lists only that technician's orders, with no filter form and no Technik column
-- [ ] 3.9 Logged in as the manager, the filter switches between Wszystkie, Nieprzypisane and each technician, and a deactivated technician's order appears under Nieprzypisane marked "(nieaktywny)"
-- [ ] 3.10 PRD FR-022 reads correctly next to FR-010 and FR-012
+- [x] 3.8 Logged in as a technician, `/picking` lists only that technician's orders, with no filter form and no Technik column
+- [x] 3.9 Logged in as the manager, the filter switches between Wszystkie, Nieprzypisane and each technician, and a deactivated technician's order appears under Nieprzypisane marked "(nieaktywny)"
+- [x] 3.10 PRD FR-022 reads correctly next to FR-010 and FR-012
