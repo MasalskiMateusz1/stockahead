@@ -1,7 +1,7 @@
 ---
 change_id: order-set-to-specific-technician
 title: Manager assigns orders to technicians; technicians see only their own orders
-status: implementing
+status: implemented
 created: 2026-10-04
 updated: 2026-10-04
 archived_at: null

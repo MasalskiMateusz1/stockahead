@@ -307,16 +307,16 @@ V13 is additive and nullable. Existing open orders become unassigned and, after 
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes, including the repaired existing suites
-- [x] 3.2 New `PickingVisibilityIntegrationTests`: technician A sees their order and does not see technician B's order, an unassigned order or a manager-assigned order
-- [x] 3.3 `PickingVisibilityIntegrationTests`: the manager without a filter sees all four orders
-- [x] 3.4 `PickingVisibilityIntegrationTests`: the manager with `assignee=<A>` sees only A's order, and with `assignee=none` sees the unassigned order and the order of a **deactivated** technician C, and nothing else
-- [x] 3.5 `PickingVisibilityIntegrationTests`: the manager with `assignee=abc` or an unknown id gets 200 with all orders
-- [x] 3.6 `PickingVisibilityIntegrationTests`: after A's order is reassigned to B via `POST /orders/{id}/assign` (taken order), it leaves A's `/picking` and appears on B's
-- [x] 3.7 `TemplateConventionTests` passes for the changed `picking-list.html`
+- [x] 3.1 `./mvnw verify` passes, including the repaired existing suites — a399885
+- [x] 3.2 New `PickingVisibilityIntegrationTests`: technician A sees their order and does not see technician B's order, an unassigned order or a manager-assigned order — a399885
+- [x] 3.3 `PickingVisibilityIntegrationTests`: the manager without a filter sees all four orders — a399885
+- [x] 3.4 `PickingVisibilityIntegrationTests`: the manager with `assignee=<A>` sees only A's order, and with `assignee=none` sees the unassigned order and the order of a **deactivated** technician C, and nothing else — a399885
+- [x] 3.5 `PickingVisibilityIntegrationTests`: the manager with `assignee=abc` or an unknown id gets 200 with all orders — a399885
+- [x] 3.6 `PickingVisibilityIntegrationTests`: after A's order is reassigned to B via `POST /orders/{id}/assign` (taken order), it leaves A's `/picking` and appears on B's — a399885
+- [x] 3.7 `TemplateConventionTests` passes for the changed `picking-list.html` — a399885
 
 #### Manual
 
-- [x] 3.8 Logged in as a technician, `/picking` lists only that technician's orders, with no filter form and no Technik column
-- [x] 3.9 Logged in as the manager, the filter switches between Wszystkie, Nieprzypisane and each technician, and a deactivated technician's order appears under Nieprzypisane marked "(nieaktywny)"
-- [x] 3.10 PRD FR-022 reads correctly next to FR-010 and FR-012
+- [x] 3.8 Logged in as a technician, `/picking` lists only that technician's orders, with no filter form and no Technik column — a399885
+- [x] 3.9 Logged in as the manager, the filter switches between Wszystkie, Nieprzypisane and each technician, and a deactivated technician's order appears under Nieprzypisane marked "(nieaktywny)" — a399885
+- [x] 3.10 PRD FR-022 reads correctly next to FR-010 and FR-012 — a399885
