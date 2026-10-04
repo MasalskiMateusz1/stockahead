@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-	@Query("SELECT o FROM Order o JOIN FETCH o.project WHERE o.status = :status")
+	@Query("SELECT o FROM Order o JOIN FETCH o.project LEFT JOIN FETCH o.assignee WHERE o.status = :status")
 	List<Order> findByStatusWithProject(@Param("status") OrderStatus status);
 
 	@Query("SELECT DISTINCT o FROM Order o JOIN FETCH o.project LEFT JOIN FETCH o.lines l LEFT JOIN FETCH l.part WHERE o.id = :id")

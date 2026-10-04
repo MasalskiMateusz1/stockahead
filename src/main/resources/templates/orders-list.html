@@ -25,6 +25,7 @@
 							<th>Liczba sztuk</th>
 							<th>Priorytet</th>
 							<th>Wymagany termin</th>
+							<th>Technik</th>
 							<th>Zgłoszono</th>
 							<th>Zbudowano</th>
 							<th></th>
@@ -36,6 +37,7 @@
 							<td th:text="${order.quantityUnits}"></td>
 							<td><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></td>
 							<td th:text="${order.requiredDate}"></td>
+							<td th:text="${order.assignee == null ? '—' : order.assignee.email + (order.assignee.active ? '' : ' (nieaktywny)')}"></td>
 							<td th:text="${@orderMoments.format(order.completionReportedAt)}"></td>
 							<td th:text="${order.builtUnits != null ? order.builtUnits + ' / ' + order.quantityUnits : '—'}"></td>
 							<td><a class="btn" th:href="@{/orders/{id}(id=${order.id})}">Sprawdź</a></td>
@@ -58,6 +60,7 @@
 							<th>Liczba sztuk</th>
 							<th>Priorytet</th>
 							<th>Wymagany termin</th>
+							<th>Technik</th>
 							<th></th>
 						</tr>
 					</thead>
@@ -67,6 +70,7 @@
 							<td th:text="${order.quantityUnits}"></td>
 							<td><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></td>
 							<td th:text="${order.requiredDate}"></td>
+							<td th:text="${order.assignee == null ? '—' : order.assignee.email + (order.assignee.active ? '' : ' (nieaktywny)')}"></td>
 							<td><a class="btn btn-secondary" th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
 						</tr>
 					</tbody>

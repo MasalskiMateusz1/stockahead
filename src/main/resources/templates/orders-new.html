@@ -39,6 +39,16 @@
 				<label for="requiredDate">Wymagany termin</label>
 				<input type="date" id="requiredDate" name="requiredDate" th:min="${today}" th:value="${requiredDate}" required>
 			</div>
+			<div class="form-field">
+				<label for="assigneeId">Technik</label>
+				<select id="assigneeId" name="assigneeId">
+					<option value="">— nieprzypisane —</option>
+					<option th:each="account : ${assignableAccounts}"
+						th:value="${account.id}"
+						th:text="${account.email}"
+						th:selected="${assigneeId != null and assigneeId == ('' + account.id)}"></option>
+				</select>
+			</div>
 			<button type="submit" class="btn">Utwórz zlecenie</button>
 		</form>
 

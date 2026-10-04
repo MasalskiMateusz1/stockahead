@@ -32,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.Emails;
+import pl.regavio.stockahead.account.Role;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
 import pl.regavio.stockahead.projects.BomLine;
@@ -49,7 +50,10 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * than 404, since the raw id came from a dropdown of active projects that
  * could have changed between page load and submit. An unrecognized priority
  * falls back to {@code NORMAL} rather than failing the submission, since the
- * form only ever offers the three valid values.
+ * form only ever offers the three valid values. An optional
+ * {@code assigneeId} (blank means unassigned) follows the same in-transaction
+ * check as the project: an unknown, inactive or malformed id re-renders the
+ * form with an error.
  * <p>
  * Also hosts the manager's side of the completion workflow: confirming a
  * reported order ({@code COMPLETED}, its unpicked reservations released and
@@ -455,38 +459,56 @@ public class OrderController {
 			@RequestParam(required = false) String quantityUnits,
 			@RequestParam(required = false) String priority,
 			@RequestParam(required = false) String requiredDate,
+			@RequestParam(required = false) String assigneeId,
 			Model model,
 			Locale locale) {
+		FormValues form = new FormValues(projectId, quantityUnits, priority, requiredDate, assigneeId);
 		String quantityError = validateQuantityUnits(quantityUnits, locale);
 		if (quantityError != null) {
-			return renderNewOrderError(model, quantityError, projectId, quantityUnits, priority, requiredDate);
+			return renderNewOrderError(model, quantityError, form);
 		}
 		int parsedQuantityUnits = Integer.parseInt(quantityUnits.trim());
 
 		String dateError = validateRequiredDate(requiredDate, locale);
 		if (dateError != null) {
-			return renderNewOrderError(model, dateError, projectId, quantityUnits, priority, requiredDate);
+			return renderNewOrderError(model, dateError, form);
 		}
 		LocalDate parsedRequiredDate = LocalDate.parse(requiredDate.trim());
 
 		Long parsedProjectId = parseProjectId(projectId);
 		if (parsedProjectId == null) {
 			return renderNewOrderError(model,
-					messageSource.getMessage("orders.error.projectUnavailable", null, locale), projectId,
-					quantityUnits, priority, requiredDate);
+					messageSource.getMessage("orders.error.projectUnavailable", null, locale), form);
+		}
+
+		boolean assigned = assigneeId != null && !assigneeId.isBlank();
+		Long parsedAssigneeId = assigned ? parseId(assigneeId) : null;
+		if (assigned && parsedAssigneeId == null) {
+			return renderNewOrderError(model,
+					messageSource.getMessage("orders.error.assigneeUnavailable", null, locale), form);
 		}
 
 		Priority parsedPriority = parsePriority(priority);
 
-		Long newOrderId;
+		CreateOutcome outcome;
 		try {
-			newOrderId = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
+			outcome = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
 				Project project = projectRepository.findById(parsedProjectId).filter(Project::isActive).orElse(null);
 				if (project == null) {
-					return null;
+					return CreateOutcome.error("orders.error.projectUnavailable");
+				}
+				Account assignee = null;
+				if (parsedAssigneeId != null) {
+					assignee = accountRepository.findById(parsedAssigneeId)
+						.filter(OrderController::isAssignable)
+						.orElse(null);
+					if (assignee == null) {
+						return CreateOutcome.error("orders.error.assigneeUnavailable");
+					}
 				}
 				Order order = new Order();
 				order.setProject(project);
+				order.setAssignee(assignee);
 				order.setQuantityUnits(parsedQuantityUnits);
 				order.setPriority(parsedPriority);
 				order.setRequiredDate(parsedRequiredDate);
@@ -503,21 +525,48 @@ public class OrderController {
 					.map(line -> line.getPart().getId())
 					.collect(Collectors.toSet());
 				reservationAllocator.reallocateForParts(affectedPartIds);
-				return saved.getId();
+				return new CreateOutcome(saved.getId(), null);
 			}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
 			return renderNewOrderError(model, messageSource.getMessage("orders.error.saveFailed", null, locale),
-					projectId, quantityUnits, priority, requiredDate);
+					form);
 		}
 
-		if (newOrderId == null) {
-			return renderNewOrderError(model,
-					messageSource.getMessage("orders.error.projectUnavailable", null, locale), projectId,
-					quantityUnits, priority, requiredDate);
+		if (outcome.errorKey() != null) {
+			return renderNewOrderError(model, messageSource.getMessage(outcome.errorKey(), null, locale), form);
 		}
 
-		return "redirect:/orders/" + newOrderId;
+		return "redirect:/orders/" + outcome.orderId();
+	}
+
+	/**
+	 * Whether an order may be assigned to {@code account}: an active
+	 * technician or the manager — the same rule as
+	 * {@link AccountRepository#findAssignable()}.
+	 */
+	private static boolean isAssignable(Account account) {
+		return account.isActive() && (account.getRole() == Role.TECHNICIAN || account.getRole() == Role.MANAGER);
+	}
+
+	/**
+	 * The create transaction's result: the new order's id, or the message key
+	 * of the reason nothing was created.
+	 */
+	private record CreateOutcome(Long orderId, String errorKey) {
+
+		static CreateOutcome error(String errorKey) {
+			return new CreateOutcome(null, errorKey);
+		}
+
+	}
+
+	/**
+	 * The raw create-form values, echoed back into the form on a failed
+	 * submission.
+	 */
+	private record FormValues(String projectId, String quantityUnits, String priority, String requiredDate,
+			String assigneeId) {
 	}
 
 	/**
@@ -564,11 +613,18 @@ public class OrderController {
 	}
 
 	private static Long parseProjectId(String rawProjectId) {
-		if (rawProjectId == null) {
+		return parseId(rawProjectId);
+	}
+
+	/**
+	 * Parses a numeric id, or {@code null} when missing or malformed.
+	 */
+	private static Long parseId(String rawId) {
+		if (rawId == null) {
 			return null;
 		}
 		try {
-			return Long.valueOf(rawProjectId.trim());
+			return Long.valueOf(rawId.trim());
 		}
 		catch (NumberFormatException ex) {
 			return null;
@@ -621,16 +677,17 @@ public class OrderController {
 	private void populateFormModel(Model model) {
 		model.addAttribute("activeProjects", projectRepository.list(false));
 		model.addAttribute("today", LocalDate.now().toString());
+		model.addAttribute("assignableAccounts", accountRepository.findAssignable());
 	}
 
-	private String renderNewOrderError(Model model, String error, String projectId, String quantityUnits,
-			String priority, String requiredDate) {
+	private String renderNewOrderError(Model model, String error, FormValues form) {
 		populateFormModel(model);
 		model.addAttribute("error", error);
-		model.addAttribute("projectId", projectId);
-		model.addAttribute("quantityUnits", quantityUnits);
-		model.addAttribute("priority", priority);
-		model.addAttribute("requiredDate", requiredDate);
+		model.addAttribute("projectId", form.projectId());
+		model.addAttribute("quantityUnits", form.quantityUnits());
+		model.addAttribute("priority", form.priority());
+		model.addAttribute("requiredDate", form.requiredDate());
+		model.addAttribute("assigneeId", form.assigneeId());
 		return "orders-new";
 	}
 

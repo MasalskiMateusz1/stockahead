@@ -13,6 +13,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.ui.Model;
 import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartLocation;
 import pl.regavio.stockahead.parts.PartRepository;
@@ -107,12 +108,14 @@ class OrderDetailModel {
 		String reportedByEmail = order.getCompletionReportedBy() == null ? null
 				: order.getCompletionReportedBy().getEmail();
 		String cancelledByEmail = order.getCancelledBy() == null ? null : order.getCancelledBy().getEmail();
+		Account assignee = order.getAssignee();
 		OrderView orderView = new OrderView(order.getProject().getName(), order.getQuantityUnits(),
 				order.getPriority(), order.getRequiredDate(), order.getStatus(), order.isCompletionReported(),
 				orderMoments.format(order.getCompletionReportedAt()), reportedByEmail,
 				orderMoments.format(order.getCompletedAt()), order.isTaken(),
 				orderMoments.format(order.getCancelledAt()), cancelledByEmail, order.canCancel(),
-				order.getBuiltUnits());
+				order.getBuiltUnits(), assignee == null ? null : assignee.getEmail(),
+				assignee != null && assignee.isActive());
 		return new DetailData(orderView, lines);
 	}
 
@@ -182,12 +185,14 @@ class OrderDetailModel {
 	 * {@code OPEN} order nobody has picked from yet; {@code canCancel} gates
 	 * the cancel link ({@code OPEN} and not reported). {@code builtUnits} is
 	 * the reported count of units built, {@code null} when no report is
-	 * pending or the report predates the count.
+	 * pending or the report predates the count. {@code assigneeEmail} is who
+	 * the order is for, {@code null} when unassigned; {@code assigneeActive}
+	 * is {@code false} for a deactivated assignee (and when unassigned).
 	 */
 	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate,
 			OrderStatus status, boolean completionReported, String reportedAt, String reportedByEmail,
 			String completedAt, boolean taken, String cancelledAt, String cancelledByEmail, boolean canCancel,
-			Integer builtUnits) {
+			Integer builtUnits, String assigneeEmail, boolean assigneeActive) {
 
 		public boolean changeable() {
 			return status == OrderStatus.OPEN && !taken;
