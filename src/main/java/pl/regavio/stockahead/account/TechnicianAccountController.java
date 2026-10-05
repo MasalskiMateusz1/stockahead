@@ -8,6 +8,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
+
+import pl.regavio.stockahead.security.CompanyUser;
 
 @Controller
 public class TechnicianAccountController {
@@ -30,15 +33,19 @@ public class TechnicianAccountController {
 
 	private final AccountRepository accountRepository;
 
+	private final CompanyRepository companyRepository;
+
 	private final PasswordEncoder passwordEncoder;
 
 	private final MessageSource messageSource;
 
 	private final TransactionTemplate transactionTemplate;
 
-	public TechnicianAccountController(AccountRepository accountRepository, PasswordEncoder passwordEncoder,
-			MessageSource messageSource, PlatformTransactionManager transactionManager) {
+	public TechnicianAccountController(AccountRepository accountRepository, CompanyRepository companyRepository,
+			PasswordEncoder passwordEncoder, MessageSource messageSource,
+			PlatformTransactionManager transactionManager) {
 		this.accountRepository = accountRepository;
+		this.companyRepository = companyRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.messageSource = messageSource;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -62,7 +69,7 @@ public class TechnicianAccountController {
 	public String create(@RequestParam(defaultValue = "") String email,
 			@RequestParam(defaultValue = "") String password,
 			@RequestParam(defaultValue = "") String confirmPassword,
-			Model model, Locale locale) {
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale) {
 		String canonicalEmail = Emails.canonical(email);
 		if (canonicalEmail.isEmpty()) {
 			return renderError(model, email, "technicians.error.emailRequired", null, locale);
@@ -88,6 +95,7 @@ public class TechnicianAccountController {
 		account.setRole(Role.TECHNICIAN);
 		account.setActive(true);
 		account.setCreatedAt(Instant.now());
+		account.setCompany(companyRepository.getReferenceById(principal.companyId()));
 		try {
 			accountRepository.saveAndFlush(account);
 		}

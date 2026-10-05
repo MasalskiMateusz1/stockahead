@@ -33,6 +33,8 @@ class OrderCompletionSchemaTests {
 
 	private static final String REPORTER_EMAIL = "completion-schema-reporter@example.com";
 
+	private static final String COMPANY_NAME = "Completion Schema Company";
+
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
@@ -43,9 +45,11 @@ class OrderCompletionSchemaTests {
 	@BeforeEach
 	void setUp() {
 		cleanUp();
+		long companyId = jdbcTemplate.queryForObject("INSERT INTO companies (name) VALUES (?) RETURNING id",
+			Long.class, COMPANY_NAME);
 		reporterId = jdbcTemplate.queryForObject(
-			"INSERT INTO accounts (email, password_hash, role) VALUES (?, 'x', 'TECHNICIAN') RETURNING id",
-			Long.class, REPORTER_EMAIL);
+			"INSERT INTO accounts (email, password_hash, role, company_id) VALUES (?, 'x', 'TECHNICIAN', ?) RETURNING id",
+			Long.class, REPORTER_EMAIL, companyId);
 		projectId = jdbcTemplate.queryForObject(
 			"INSERT INTO projects (name) VALUES ('Completion Schema Board') RETURNING id", Long.class);
 	}
@@ -62,6 +66,7 @@ class OrderCompletionSchemaTests {
 		jdbcTemplate.update("DELETE FROM bom_lines");
 		jdbcTemplate.update("DELETE FROM projects");
 		jdbcTemplate.update("DELETE FROM accounts WHERE email = ?", REPORTER_EMAIL);
+		jdbcTemplate.update("DELETE FROM companies WHERE name = ?", COMPANY_NAME);
 	}
 
 	private long insertOrder(Instant takenAt) {

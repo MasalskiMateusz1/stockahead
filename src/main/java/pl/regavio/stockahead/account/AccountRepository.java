@@ -16,6 +16,13 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
 	boolean existsByRole(Role role);
 
+	/**
+	 * Waits for and takes a transaction-scoped advisory lock; see
+	 * {@link SetupController} for the setup-only key.
+	 */
+	@Query(value = "SELECT 1 FROM pg_advisory_xact_lock(:namespace, :key)", nativeQuery = true)
+	Integer lockAdvisory(@Param("namespace") int namespace, @Param("key") int key);
+
 	List<Account> findByRoleOrderByEmailAsc(Role role);
 
 	/**

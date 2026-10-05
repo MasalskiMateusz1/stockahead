@@ -13,14 +13,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
@@ -45,7 +45,7 @@ import static org.hamcrest.Matchers.not;
  * deliberately not {@code @Transactional} so the DB constraints genuinely
  * fire, matching {@code OrderCreationIntegrationTests}'s fixture style.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class OrderListAndDetailIntegrationTests {
@@ -74,7 +74,9 @@ class OrderListAndDetailIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -107,6 +109,7 @@ class OrderListAndDetailIntegrationTests {
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(ASSIGNEE_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(INACTIVE_ASSIGNEE_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
@@ -115,16 +118,15 @@ class OrderListAndDetailIntegrationTests {
 		seedAccount(email, role, true);
 	}
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("OrderListAndDetailIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private Long seedAccount(String email, Role role, boolean active) {
-		return transactionTemplate.execute(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(active);
-			account.setCreatedAt(Instant.now());
-			return accountRepository.save(account).getId();
-		});
+		return companyFixtures.account(company(), email, PASSWORD, role, active).getId();
 	}
 
 	private void assignOrder(Long orderId, Long assigneeId) {

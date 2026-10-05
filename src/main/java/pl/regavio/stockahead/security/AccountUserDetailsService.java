@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -29,11 +28,8 @@ public class AccountUserDetailsService implements UserDetailsService {
 		Account account = accountRepository.findByCanonicalEmail(Emails.canonical(email))
 			.orElseThrow(() -> new UsernameNotFoundException("No account with email " + email));
 
-		return User.withUsername(account.getEmail())
-			.password(account.getPasswordHash())
-			.authorities(authoritiesFor(account.getRole()))
-			.disabled(!account.isActive())
-			.build();
+		return new CompanyUser(account.getEmail(), account.getPasswordHash(), account.isActive(),
+				authoritiesFor(account.getRole()), account.getCompany().getId());
 	}
 
 	private List<GrantedAuthority> authoritiesFor(Role role) {

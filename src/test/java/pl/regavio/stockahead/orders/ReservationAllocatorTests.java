@@ -14,14 +14,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * real pick endpoint, so a taken order's stock, reservation and pick counts
  * are exactly what the app produces.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class ReservationAllocatorTests {
@@ -67,7 +67,9 @@ class ReservationAllocatorTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private PlatformTransactionManager transactionManager;
@@ -95,6 +97,7 @@ class ReservationAllocatorTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
@@ -142,24 +145,22 @@ class ReservationAllocatorTests {
 		jdbcTemplate.update("UPDATE parts SET quantity = ? WHERE id = ?", quantity, partId);
 	}
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("ReservationAllocatorTests Co");
+		}
+		return company;
+	}
+
 	/**
 	 * Logs in as {@code email}, creating the account on first use only, so a
 	 * test can pick (or report) more than once without colliding on the
 	 * account's unique email.
 	 */
 	private MockHttpSession session(String email, Role role) throws Exception {
-		transactionTemplate.executeWithoutResult(status -> {
-			if (accountRepository.findByEmail(email).isPresent()) {
-				return;
-			}
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
-		});
+		if (accountRepository.findByEmail(email).isEmpty()) {
+			companyFixtures.account(company(), email, PASSWORD, role, true);
+		}
 		return (MockHttpSession) mockMvc.perform(formLogin().user(email).password(PASSWORD))
 			.andExpect(status().is3xxRedirection())
 			.andReturn().getRequest().getSession();

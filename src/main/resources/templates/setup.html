@@ -13,6 +13,10 @@
 
 			<form th:action="@{/setup}" method="post">
 				<div class="form-field">
+					<label for="companyName">Nazwa firmy</label>
+					<input type="text" id="companyName" name="companyName" th:value="${companyName}" maxlength="255" required>
+				</div>
+				<div class="form-field">
 					<label for="email">E-mail</label>
 					<input type="email" id="email" name="email" th:value="${email}" required>
 				</div>

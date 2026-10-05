@@ -14,15 +14,15 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.hamcrest.Matchers.containsString;
@@ -48,7 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Postgres via Testcontainers, deliberately not {@code @Transactional} so
  * every write commits for real.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class PickingVisibilityIntegrationTests {
@@ -84,7 +84,9 @@ class PickingVisibilityIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -131,20 +133,20 @@ class PickingVisibilityIntegrationTests {
 		for (String email : List.of(MANAGER_EMAIL, TECHNICIAN_A_EMAIL, TECHNICIAN_B_EMAIL, TECHNICIAN_C_EMAIL)) {
 			accountRepository.findByEmail(email).ifPresent(accountRepository::delete);
 		}
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("PickingVisibilityIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private Long seedAccount(String email, Role role) {
-		return transactionTemplate.execute(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			return accountRepository.save(account).getId();
-		});
+		return companyFixtures.account(company(), email, PASSWORD, role, true).getId();
 	}
 
 	private void deactivate(Long accountId) {

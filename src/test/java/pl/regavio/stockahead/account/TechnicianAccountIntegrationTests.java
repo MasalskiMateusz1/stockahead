@@ -13,6 +13,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class TechnicianAccountIntegrationTests {
@@ -42,6 +43,11 @@ class TechnicianAccountIntegrationTests {
 
 	@Autowired
 	private AccountRepository accountRepository;
+
+	@Autowired
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
@@ -60,16 +66,18 @@ class TechnicianAccountIntegrationTests {
 		accountRepository.findAll().stream()
 			.filter(account -> account.getEmail().endsWith("@technician-phase2.example"))
 			.forEach(accountRepository::delete);
+		companyFixtures.cleanUp();
+	}
+
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("TechnicianAccountIntegrationTests Co");
+		}
+		return company;
 	}
 
 	private Account seedAccount(String email, Role role, boolean active) {
-		Account account = new Account();
-		account.setEmail(email);
-		account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-		account.setRole(role);
-		account.setActive(active);
-		account.setCreatedAt(Instant.now());
-		return accountRepository.saveAndFlush(account);
+		return companyFixtures.account(company(), email, PASSWORD, role, active);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
