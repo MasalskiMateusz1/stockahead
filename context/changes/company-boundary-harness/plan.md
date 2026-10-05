@@ -315,11 +315,11 @@ V14 is deliberately not expand/contract (it deviates from deployment.md S5): it 
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 `TechnicianAccountIntegrationTests` has the cross-company list, deactivate-404, reactivate-404 and create-in-own-company tests
-- [x] 2.3 `grep -n "findById(" src/main/java/pl/regavio/stockahead/account/TechnicianAccountController.java` returns nothing
+- [x] 2.1 `./mvnw verify` passes — 2e1032a
+- [x] 2.2 `TechnicianAccountIntegrationTests` has the cross-company list, deactivate-404, reactivate-404 and create-in-own-company tests — 2e1032a
+- [x] 2.3 `grep -n "findById(" src/main/java/pl/regavio/stockahead/account/TechnicianAccountController.java` returns nothing — 2e1032a
 
 #### Manual
 
-- [x] 2.4 On `./mvnw spring-boot:test-run`, the manager lists, deactivates and reactivates a technician, which works as before.
-- [x] 2.5 AGENTS.md and deployment.md additions read correctly and name the right classes.
+- [x] 2.4 On `./mvnw spring-boot:test-run`, the manager lists, deactivates and reactivates a technician, which works as before. — 2e1032a
+- [x] 2.5 AGENTS.md and deployment.md additions read correctly and name the right classes. — 2e1032a
