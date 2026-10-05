@@ -678,6 +678,23 @@ rm "$DUMP"
 
 ---
 
+## V14 one-time wipe
+
+`V14__create_companies.sql` refuses to run while `accounts` has any row, so the database must be emptied before the PR that adds it reaches `main`. `ci.yml` deploys on every push to `main`, so do these in order, without a pause:
+
+1. Coolify → `stockahead-db` → **Backups** → **Backup now**. ✅ The execution log shows success.
+2. Empty every application table, keeping `flyway_schema_history` (`companies` doesn't exist yet; V14 creates it). Coolify → `stockahead-db` → **Terminal**:
+   ```bash
+   psql -U postgres -d stockahead -c 'TRUNCATE accounts, parts, part_locations, projects, bom_lines, project_links, orders, order_lines, stock_corrections RESTART IDENTITY CASCADE'
+   ```
+3. Merge the PR immediately. PC (Git Bash): `gh pr merge <n> --squash --delete-branch`.
+4. Watch the deploy: `gh run watch`. ✅ `verify` → `image` → `deploy` are all green.
+5. Open `https://test.regavio.com/setup` and create the company and its manager (company name, email, password, `STOCKAHEAD_SETUP_TOKEN`).
+
+If anyone uses the old `/setup` between steps 2 and 3, the V14 guard trips and the deploy fails without changing anything (V14 is transactional, and Coolify keeps the old container). Then repeat step 2 and redeploy the merge's tag: `gh workflow run ci.yml --ref main -f tag=sha-XXXXXXX`, then `gh run watch`.
+
+---
+
 ## Restore procedures
 
 ### R1. Bad deploy (app only, schema compatible)

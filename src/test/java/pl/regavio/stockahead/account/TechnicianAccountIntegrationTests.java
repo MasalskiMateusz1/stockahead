@@ -38,6 +38,10 @@ class TechnicianAccountIntegrationTests {
 
 	private static final String PASSWORD = "correct-password";
 
+	private static final String OTHER_MANAGER_EMAIL = "other-manager@technician-phase2.example";
+
+	private static final String OTHER_TECHNICIAN_EMAIL = "other-technician@technician-phase2.example";
+
 	@Autowired
 	private MockMvc mockMvc;
 
@@ -48,6 +52,8 @@ class TechnicianAccountIntegrationTests {
 	private CompanyFixtures companyFixtures;
 
 	private Company company;
+
+	private Company otherCompany;
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
@@ -76,8 +82,19 @@ class TechnicianAccountIntegrationTests {
 		return company;
 	}
 
+	private Company otherCompany() {
+		if (otherCompany == null) {
+			otherCompany = companyFixtures.company("TechnicianAccountIntegrationTests Other Co");
+		}
+		return otherCompany;
+	}
+
 	private Account seedAccount(String email, Role role, boolean active) {
 		return companyFixtures.account(company(), email, PASSWORD, role, active);
+	}
+
+	private Account seedOtherCompanyAccount(String email, Role role, boolean active) {
+		return companyFixtures.account(otherCompany(), email, PASSWORD, role, active);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -241,6 +258,67 @@ class TechnicianAccountIntegrationTests {
 		}
 		assertThat(accountRepository.findById(manager.getId()).orElseThrow().isActive()).isTrue();
 		assertThat(accountRepository.findById(missingId)).isEmpty();
+	}
+
+	@Test
+	void otherCompanysManagerDoesNotSeeThisCompanysTechnicians() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		seedAccount("inactive@technician-phase2.example", Role.TECHNICIAN, false);
+		seedOtherCompanyAccount(OTHER_MANAGER_EMAIL, Role.MANAGER, true);
+		seedOtherCompanyAccount(OTHER_TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+
+		mockMvc.perform(get("/manager/technicians").session(loginAs(OTHER_MANAGER_EMAIL)))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("<td>" + OTHER_TECHNICIAN_EMAIL + "</td>")))
+			.andExpect(content().string(not(containsString(TECHNICIAN_EMAIL))))
+			.andExpect(content().string(not(containsString("inactive@technician-phase2.example"))));
+		mockMvc.perform(get("/manager/technicians").session(loginAs(MANAGER_EMAIL)))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("<td>" + TECHNICIAN_EMAIL + "</td>")))
+			.andExpect(content().string(not(containsString(OTHER_TECHNICIAN_EMAIL))));
+	}
+
+	@Test
+	void otherCompanysManagerGets404OnDeactivateAndReactivateWithoutChangingTechnician() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account activeTechnician = seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		Account inactiveTechnician = seedAccount("inactive@technician-phase2.example", Role.TECHNICIAN, false);
+		seedOtherCompanyAccount(OTHER_MANAGER_EMAIL, Role.MANAGER, true);
+		MockHttpSession otherSession = loginAs(OTHER_MANAGER_EMAIL);
+
+		for (int attempt = 0; attempt < 2; attempt++) {
+			mockMvc.perform(post("/manager/technicians/" + activeTechnician.getId() + "/deactivate")
+					.session(otherSession).with(csrf()))
+				.andExpect(status().isNotFound());
+			mockMvc.perform(post("/manager/technicians/" + inactiveTechnician.getId() + "/reactivate")
+					.session(otherSession).with(csrf()))
+				.andExpect(status().isNotFound());
+		}
+
+		assertThat(accountRepository.findById(activeTechnician.getId()).orElseThrow().isActive()).isTrue();
+		assertThat(accountRepository.findById(inactiveTechnician.getId()).orElseThrow().isActive()).isFalse();
+		mockMvc.perform(get("/parts").session(loginAs(TECHNICIAN_EMAIL)))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void technicianCreatedByOtherCompanysManagerBelongsToThatCompany() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		seedOtherCompanyAccount(OTHER_MANAGER_EMAIL, Role.MANAGER, true);
+
+		mockMvc.perform(post("/manager/technicians").session(loginAs(OTHER_MANAGER_EMAIL)).with(csrf())
+				.param("email", "created-by-other@technician-phase2.example")
+				.param("password", PASSWORD)
+				.param("confirmPassword", PASSWORD))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/manager/technicians"));
+
+		Account created = accountRepository.findByEmail("created-by-other@technician-phase2.example").orElseThrow();
+		assertThat(created.getCompany().getId()).isEqualTo(otherCompany().getId());
+		mockMvc.perform(get("/manager/technicians").session(loginAs(MANAGER_EMAIL)))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("created-by-other@technician-phase2.example"))));
 	}
 
 	@Test

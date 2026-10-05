@@ -299,27 +299,27 @@ V14 is deliberately not expand/contract (it deviates from deployment.md S5): it 
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes (all existing tests green on V14 schema)
-- [x] 1.2 `V14MigrationTests` covers guard, default status, status check, NOT NULL company and multiple managers
-- [x] 1.3 `grep -rn "new Account()" src/test` matches only `CompanyFixtures.java` and `AccountUserDetailsServiceTest.java`
-- [x] 1.4 Setup tests cover the happy path, blank company name, the closed-after-manager case and two concurrent POSTs creating exactly one manager
-- [x] 1.5 The principal test asserts `companyId` after a real form login
+- [x] 1.1 `./mvnw verify` passes (all existing tests green on V14 schema) — b843c42
+- [x] 1.2 `V14MigrationTests` covers guard, default status, status check, NOT NULL company and multiple managers — b843c42
+- [x] 1.3 `grep -rn "new Account()" src/test` matches only `CompanyFixtures.java` and `AccountUserDetailsServiceTest.java` — b843c42
+- [x] 1.4 Setup tests cover the happy path, blank company name, the closed-after-manager case and two concurrent POSTs creating exactly one manager — b843c42
+- [x] 1.5 The principal test asserts `companyId` after a real form login — b843c42
 
 #### Manual
 
-- [x] 1.6 On `./mvnw spring-boot:test-run`, `/setup` shows the company-name field. Submitting creates the manager, who can log in and reach the dashboard.
-- [x] 1.7 Opening `/setup` again redirects to `/login`.
-- [x] 1.8 The manager creates a technician, which works as before.
+- [x] 1.6 On `./mvnw spring-boot:test-run`, `/setup` shows the company-name field. Submitting creates the manager, who can log in and reach the dashboard. — b843c42
+- [x] 1.7 Opening `/setup` again redirects to `/login`. — b843c42
+- [x] 1.8 The manager creates a technician, which works as before. — b843c42
 
 ### Phase 2: Two-company pattern on technician routes
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 `TechnicianAccountIntegrationTests` has the cross-company list, deactivate-404, reactivate-404 and create-in-own-company tests
-- [ ] 2.3 `grep -n "findById(" src/main/java/pl/regavio/stockahead/account/TechnicianAccountController.java` returns nothing
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 `TechnicianAccountIntegrationTests` has the cross-company list, deactivate-404, reactivate-404 and create-in-own-company tests
+- [x] 2.3 `grep -n "findById(" src/main/java/pl/regavio/stockahead/account/TechnicianAccountController.java` returns nothing
 
 #### Manual
 
-- [ ] 2.4 On `./mvnw spring-boot:test-run`, the manager lists, deactivates and reactivates a technician, which works as before.
-- [ ] 2.5 AGENTS.md and deployment.md additions read correctly and name the right classes.
+- [x] 2.4 On `./mvnw spring-boot:test-run`, the manager lists, deactivates and reactivates a technician, which works as before.
+- [x] 2.5 AGENTS.md and deployment.md additions read correctly and name the right classes.

@@ -53,8 +53,9 @@ public class TechnicianAccountController {
 
 	@GetMapping("/manager/technicians")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String list(Model model) {
-		model.addAttribute("technicians", accountRepository.findByRoleOrderByEmailAsc(Role.TECHNICIAN));
+	public String list(@AuthenticationPrincipal CompanyUser principal, Model model) {
+		model.addAttribute("technicians",
+				accountRepository.findByCompanyIdAndRoleOrderByEmailAsc(principal.companyId(), Role.TECHNICIAN));
 		return "technicians-list";
 	}
 
@@ -107,21 +108,21 @@ public class TechnicianAccountController {
 
 	@PostMapping("/manager/technicians/{id}/deactivate")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String deactivate(@PathVariable Long id) {
-		setActive(id, false);
+	public String deactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
+		setActive(id, principal.companyId(), false);
 		return "redirect:/manager/technicians";
 	}
 
 	@PostMapping("/manager/technicians/{id}/reactivate")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String reactivate(@PathVariable Long id) {
-		setActive(id, true);
+	public String reactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
+		setActive(id, principal.companyId(), true);
 		return "redirect:/manager/technicians";
 	}
 
-	private void setActive(Long id, boolean active) {
+	private void setActive(Long id, Long companyId, boolean active) {
 		transactionTemplate.executeWithoutResult(status -> {
-			Account account = accountRepository.findById(id)
+			Account account = accountRepository.findByIdAndCompanyId(id, companyId)
 				.filter(found -> found.getRole() == Role.TECHNICIAN)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 			if (account.isActive() != active) {

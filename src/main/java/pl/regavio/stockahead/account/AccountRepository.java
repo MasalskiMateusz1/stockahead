@@ -23,7 +23,9 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 	@Query(value = "SELECT 1 FROM pg_advisory_xact_lock(:namespace, :key)", nativeQuery = true)
 	Integer lockAdvisory(@Param("namespace") int namespace, @Param("key") int key);
 
-	List<Account> findByRoleOrderByEmailAsc(Role role);
+	List<Account> findByCompanyIdAndRoleOrderByEmailAsc(Long companyId, Role role);
+
+	Optional<Account> findByIdAndCompanyId(Long id, Long companyId);
 
 	/**
 	 * The accounts an order may be assigned to: active technicians and the

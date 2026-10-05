@@ -38,6 +38,7 @@ Stockahead is a parts-warehouse and production-reservation web app for a small e
 - The current company comes from the authenticated principal, never from a request parameter or form field.
 - The operator account has no company and no route to any warehouse controller; its access is limited to the company list and approve/reject/block.
 - Every company-scoped route ships with a test: a user of company B requesting company A's record id gets 404 (and cannot mutate it), alongside the existing wrong-role 403 test.
+- Shared pieces: take the company from `security/CompanyUser.companyId()` (`@AuthenticationPrincipal CompanyUser`); seed companies and accounts with the test bean `CompanyFixtures` (`@Import` it next to `TestcontainersConfiguration`), and copy the two-company test pattern from `account/TechnicianAccountIntegrationTests`.
 
 ## Coding style
 
