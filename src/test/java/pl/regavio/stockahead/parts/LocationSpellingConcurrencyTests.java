@@ -144,9 +144,11 @@ class LocationSpellingConcurrencyTests {
 	private Long seedPart(String name, String... locations) {
 		return transactionTemplate.execute(status -> {
 			Long partId = jdbcTemplate.queryForObject(
-					"INSERT INTO parts (name, quantity, active) VALUES (?, 1, true) RETURNING id", Long.class, name);
+					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, 1, true, ?) RETURNING id",
+					Long.class, name, company().getId());
 			for (String location : locations) {
-				jdbcTemplate.update("INSERT INTO part_locations (part_id, location) VALUES (?, ?)", partId, location);
+				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
+						partId, location, company().getId());
 			}
 			return partId;
 		});

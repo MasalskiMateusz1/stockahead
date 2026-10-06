@@ -172,8 +172,8 @@ class DeliveryConcurrencyTests {
 
 	private Long seedPart(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				quantity));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, quantity, company().getId()));
 	}
 
 	private Long seedBomLine(Long project, Long part, int quantityPerUnit) {

@@ -279,9 +279,9 @@ class PickingVisibilityIntegrationTests {
 	@Test
 	void reassigningTakenOrderMovesItBetweenTechnicianLists() throws Exception {
 		Long partId = transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES ('Visibility Handover Resistor', 10, true) "
-						+ "RETURNING id",
-				Long.class));
+				"INSERT INTO parts (name, quantity, active, company_id) "
+						+ "VALUES ('Visibility Handover Resistor', 10, true, ?) RETURNING id",
+				Long.class, company().getId()));
 		Long lineId = transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
 						+ "VALUES (?, ?, 5, 5) RETURNING id",

@@ -174,14 +174,14 @@ class OrderCompletionConcurrencyTests {
 
 	private Long seedPart(String name) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				INITIAL_STOCK));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, INITIAL_STOCK, company().getId()));
 	}
 
 	private Long seedPartWithStock(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				quantity));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, quantity, company().getId()));
 	}
 
 	/** A not-yet-taken OPEN order holding the given reservation, as the allocator would leave it. */

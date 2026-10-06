@@ -18,6 +18,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -29,11 +30,14 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.servlet.http.HttpSession;
+import pl.regavio.stockahead.account.Company;
+import pl.regavio.stockahead.account.CompanyRepository;
 import pl.regavio.stockahead.orders.LockRetry;
 import pl.regavio.stockahead.orders.ReservationAllocator;
 import pl.regavio.stockahead.parts.CatalogNameIndex.CatalogPart;
 import pl.regavio.stockahead.parts.PartsImportFile.ImportLine;
 import pl.regavio.stockahead.parts.PendingImport.Snapshot;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Manager-only parts CSV import: the upload page documenting the file format,
@@ -75,6 +79,8 @@ public class PartImportController {
 
 	private final PartRepository partRepository;
 
+	private final CompanyRepository companyRepository;
+
 	private final MessageSource messageSource;
 
 	private final ReservationAllocator reservationAllocator;
@@ -83,10 +89,11 @@ public class PartImportController {
 
 	private final TransactionTemplate transactionTemplate;
 
-	PartImportController(PartRepository partRepository, MessageSource messageSource,
-			ReservationAllocator reservationAllocator, LockRetry lockRetry,
+	PartImportController(PartRepository partRepository, CompanyRepository companyRepository,
+			MessageSource messageSource, ReservationAllocator reservationAllocator, LockRetry lockRetry,
 			PlatformTransactionManager transactionManager) {
 		this.partRepository = partRepository;
+		this.companyRepository = companyRepository;
 		this.messageSource = messageSource;
 		this.reservationAllocator = reservationAllocator;
 		this.lockRetry = lockRetry;
@@ -151,8 +158,9 @@ public class PartImportController {
 
 	@PostMapping("/parts/import/confirm")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String confirm(@RequestParam(name = "token", required = false) String token, Model model, Locale locale,
-			HttpSession session, RedirectAttributes redirectAttributes) {
+	public String confirm(@RequestParam(name = "token", required = false) String token,
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale, HttpSession session,
+			RedirectAttributes redirectAttributes) {
 		PendingImport pending = session.getAttribute(PendingImport.SESSION_ATTRIBUTE) instanceof PendingImport p ? p
 				: null;
 		if (pending == null || token == null || !pending.token().equals(token)) {
@@ -164,7 +172,7 @@ public class PartImportController {
 		Outcome outcome;
 		try {
 			outcome = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-				Outcome result = applyImport(pending);
+				Outcome result = applyImport(pending, companyRepository.getReferenceById(principal.companyId()));
 				if (result.status() != OutcomeStatus.APPLIED) {
 					status.setRollbackOnly();
 				}
@@ -212,9 +220,10 @@ public class PartImportController {
 	 * matching several parts makes it {@code REJECTED}. Only then does it
 	 * mutate: stock raised ({@link Math#addExact}), missing locations added in
 	 * the shelf's spelling, new parts created, the persistence context
-	 * flushed and the existing parts whose stock rose reallocated.
+	 * flushed and the existing parts whose stock rose reallocated. New parts
+	 * belong to {@code company}, the confirming manager's.
 	 */
-	private Outcome applyImport(PendingImport pending) {
+	private Outcome applyImport(PendingImport pending, Company company) {
 		List<ImportLine> lines = pending.lines();
 		List<Snapshot> snapshots = pending.snapshots();
 		// Shelves, then part names, then part rows: the lock order every writer shares.
@@ -326,6 +335,7 @@ public class PartImportController {
 			part.setQuantity(Math.toIntExact(line.quantity()));
 			part.setActive(true);
 			part.setCreatedAt(now);
+			part.setCompany(company);
 			addMissingLocations(part, line, resolvedSpellings);
 			partRepository.save(part);
 		}

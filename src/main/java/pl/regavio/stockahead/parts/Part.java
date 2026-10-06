@@ -7,11 +7,16 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+
+import pl.regavio.stockahead.account.Company;
 
 @Entity
 @Table(name = "parts")
@@ -21,8 +26,12 @@ public class Part {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false, unique = true)
+	@Column(nullable = false)
 	private String name;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "company_id", nullable = false)
+	private Company company;
 
 	@Column(nullable = false)
 	private int quantity;
@@ -50,6 +59,21 @@ public class Part {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public Company getCompany() {
+		return company;
+	}
+
+	/**
+	 * Sets the owning company; locations already added take it too, since a
+	 * location always carries its part's company.
+	 */
+	public void setCompany(Company company) {
+		this.company = company;
+		for (PartLocation location : locations) {
+			location.setCompanyId(companyId());
+		}
 	}
 
 	public int getQuantity() {
@@ -83,6 +107,11 @@ public class Part {
 	public void addLocation(PartLocation location) {
 		locations.add(location);
 		location.setPart(this);
+		location.setCompanyId(companyId());
+	}
+
+	private Long companyId() {
+		return company == null ? null : company.getId();
 	}
 
 	public void removeLocation(PartLocation location) {

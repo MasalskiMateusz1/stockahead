@@ -128,8 +128,8 @@ class ProjectIntegrationTests {
 
 	private Long seedPart(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, 10, ?) RETURNING id", Long.class, name,
-				active));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, 10, ?, ?) RETURNING id",
+				Long.class, name, active, company().getId()));
 	}
 
 	private List<String> projectNames() {

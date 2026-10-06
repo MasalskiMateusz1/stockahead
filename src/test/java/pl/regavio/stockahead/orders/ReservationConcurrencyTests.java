@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * version of "two concurrent order-creation POSTs" is naturally re-covered
  * once {@code OrderController} exists (Phase 3).
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 class ReservationConcurrencyTests {
 
@@ -51,6 +52,11 @@ class ReservationConcurrencyTests {
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 
+	@Autowired
+	private CompanyFixtures companyFixtures;
+
+	private Long companyId;
+
 	private Long projectId;
 
 	private Long partId;
@@ -58,12 +64,13 @@ class ReservationConcurrencyTests {
 	@BeforeEach
 	void setUp() {
 		cleanUp();
+		companyId = companyFixtures.company("ReservationConcurrencyTests Co").getId();
 		projectId = jdbcTemplate.queryForObject(
 				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class,
 				"Concurrency Board");
 		partId = jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class,
-				"Scarce Resistor", 5);
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, "Scarce Resistor", 5, companyId);
 	}
 
 	@AfterEach
@@ -79,6 +86,7 @@ class ReservationConcurrencyTests {
 		jdbcTemplate.update("DELETE FROM projects");
 		jdbcTemplate.update("DELETE FROM part_locations");
 		jdbcTemplate.update("DELETE FROM parts");
+		companyFixtures.cleanUp();
 	}
 
 	@Test
@@ -126,11 +134,11 @@ class ReservationConcurrencyTests {
 	@Test
 	void twoConcurrentOrdersSharingATwoPartBomNeverDeadlockOrOverReserveEitherPart() throws Exception {
 		Long partAId = jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class,
-				"Scarce Capacitor A", 5);
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, "Scarce Capacitor A", 5, companyId);
 		Long partBId = jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class,
-				"Scarce Capacitor B", 5);
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, "Scarce Capacitor B", 5, companyId);
 
 		CountDownLatch bothReady = new CountDownLatch(2);
 		ExecutorService executor = Executors.newFixedThreadPool(2);

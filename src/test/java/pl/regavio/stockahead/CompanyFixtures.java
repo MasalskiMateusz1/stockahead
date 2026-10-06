@@ -19,13 +19,17 @@ import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.CompanyRepository;
 import pl.regavio.stockahead.account.CompanyStatus;
 import pl.regavio.stockahead.account.Role;
+import pl.regavio.stockahead.parts.Part;
+import pl.regavio.stockahead.parts.PartLocation;
+import pl.regavio.stockahead.parts.PartRepository;
 
 /**
- * The shared way tests create companies and accounts in them. Every write
- * commits in its own transaction, so MockMvc requests and other threads see
- * it. {@link #cleanUp()} removes what this fixture created, accounts first
- * and then companies (FK order); call it after the test's own deletes of
- * rows that reference accounts (orders, stock corrections).
+ * The shared way tests create companies, accounts and parts in them. Every
+ * write commits in its own transaction, so MockMvc requests and other
+ * threads see it. {@link #cleanUp()} removes what this fixture created:
+ * the companies' parts, accounts and then companies (FK order); call it
+ * after the test's own deletes of rows that reference parts or accounts
+ * (BOM lines, orders, stock corrections).
  *
  * <p>Not picked up by component scanning: {@code @Import} it explicitly,
  * next to {@link TestcontainersConfiguration}.
@@ -36,6 +40,8 @@ public class CompanyFixtures {
 	private final AccountRepository accountRepository;
 
 	private final CompanyRepository companyRepository;
+
+	private final PartRepository partRepository;
 
 	private final PasswordEncoder passwordEncoder;
 
@@ -48,10 +54,11 @@ public class CompanyFixtures {
 	private final Set<String> emails = ConcurrentHashMap.newKeySet();
 
 	public CompanyFixtures(AccountRepository accountRepository, CompanyRepository companyRepository,
-			PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate,
+			PartRepository partRepository, PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate,
 			PlatformTransactionManager transactionManager) {
 		this.accountRepository = accountRepository;
 		this.companyRepository = companyRepository;
+		this.partRepository = partRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jdbcTemplate = jdbcTemplate;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -90,7 +97,29 @@ public class CompanyFixtures {
 	}
 
 	/**
-	 * Deletes the accounts this fixture created (by email), any other
+	 * Creates and commits an active part of {@code company} with
+	 * {@code quantity} in stock and one location row per given location.
+	 */
+	public Part part(Company company, String name, int quantity, String... locations) {
+		return transactionTemplate.execute(status -> {
+			Part part = new Part();
+			part.setName(name);
+			part.setQuantity(quantity);
+			part.setActive(true);
+			part.setCreatedAt(Instant.now());
+			part.setCompany(companyRepository.getReferenceById(company.getId()));
+			for (String location : locations) {
+				PartLocation partLocation = new PartLocation();
+				partLocation.setLocation(location);
+				part.addLocation(partLocation);
+			}
+			return partRepository.saveAndFlush(part);
+		});
+	}
+
+	/**
+	 * Deletes the parts left in a company this fixture created, then the
+	 * accounts this fixture created (by email), any other
 	 * account left in a company it created (e.g. a technician created
 	 * through the UI), and then those companies.
 	 */
@@ -102,6 +131,7 @@ public class CompanyFixtures {
 				jdbcTemplate.update("DELETE FROM accounts WHERE lower(btrim(email)) = lower(btrim(?))", email);
 			}
 			for (Long companyId : createdCompanyIds) {
+				jdbcTemplate.update("DELETE FROM parts WHERE company_id = ?", companyId);
 				jdbcTemplate.update("DELETE FROM accounts WHERE company_id = ?", companyId);
 				jdbcTemplate.update("DELETE FROM companies WHERE id = ?", companyId);
 			}

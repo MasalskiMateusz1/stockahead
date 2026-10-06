@@ -133,13 +133,14 @@ class PickingListAndDetailIntegrationTests {
 
 	private Long seedPart(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				quantity));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, quantity, company().getId()));
 	}
 
 	private void seedPartLocation(Long partId, String location) {
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"INSERT INTO part_locations (part_id, location) VALUES (?, ?)", partId, location));
+				"INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
+				partId, location, company().getId()));
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {

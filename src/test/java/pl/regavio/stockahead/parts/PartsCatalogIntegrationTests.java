@@ -151,6 +151,7 @@ class PartsCatalogIntegrationTests {
 		part.setQuantity(quantity);
 		part.setActive(active);
 		part.setCreatedAt(Instant.now());
+		part.setCompany(company());
 		for (String location : locations) {
 			PartLocation partLocation = new PartLocation();
 			partLocation.setLocation(location);
@@ -223,8 +224,8 @@ class PartsCatalogIntegrationTests {
 	@Test
 	void negativeQuantityViolatesDatabaseCheckConstraint() {
 		assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"INSERT INTO parts (name, quantity, active, created_at) VALUES (?, ?, ?, now())",
-				"Negative Stock Part", -1, true)))
+				"INSERT INTO parts (name, quantity, active, created_at, company_id) VALUES (?, ?, ?, now(), ?)",
+				"Negative Stock Part", -1, true, company().getId())))
 			.isInstanceOf(DataIntegrityViolationException.class);
 
 		assertThat(partRepository.findByName("Negative Stock Part")).isEmpty();
@@ -286,6 +287,7 @@ class PartsCatalogIntegrationTests {
 				part.setQuantity(1);
 				part.setActive(true);
 				part.setCreatedAt(Instant.now());
+				part.setCompany(company());
 				PartLocation location = new PartLocation();
 				location.setLocation("Holder Shelf");
 				part.addLocation(location);

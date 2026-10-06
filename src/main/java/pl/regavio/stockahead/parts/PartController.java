@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,7 +27,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.account.CompanyRepository;
 import pl.regavio.stockahead.orders.OrderLineRepository;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Parts catalog search/browse screen, open to any authenticated user, plus
@@ -45,14 +48,18 @@ public class PartController {
 
 	private final OrderLineRepository orderLineRepository;
 
+	private final CompanyRepository companyRepository;
+
 	private final TransactionTemplate transactionTemplate;
 
 	private final MessageSource messageSource;
 
 	public PartController(PartRepository partRepository, OrderLineRepository orderLineRepository,
-			PlatformTransactionManager transactionManager, MessageSource messageSource) {
+			CompanyRepository companyRepository, PlatformTransactionManager transactionManager,
+			MessageSource messageSource) {
 		this.partRepository = partRepository;
 		this.orderLineRepository = orderLineRepository;
+		this.companyRepository = companyRepository;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 		this.messageSource = messageSource;
 	}
@@ -105,6 +112,7 @@ public class PartController {
 			@RequestParam String name,
 			@RequestParam String quantity,
 			@RequestParam String locations,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
 		String trimmedName = name == null ? "" : name.trim();
@@ -176,6 +184,7 @@ public class PartController {
 				part.setQuantity(parsedQuantity);
 				part.setActive(true);
 				part.setCreatedAt(Instant.now());
+				part.setCompany(companyRepository.getReferenceById(principal.companyId()));
 				for (String location : parsedLocations) {
 					PartLocation partLocation = new PartLocation();
 					partLocation.setLocation(spellings.resolve(location));

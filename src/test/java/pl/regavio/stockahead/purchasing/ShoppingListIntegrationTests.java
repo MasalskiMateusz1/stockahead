@@ -141,8 +141,8 @@ class ShoppingListIntegrationTests {
 
 	private Long seedPart(String name, int quantity, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, ?) RETURNING id", Long.class, name,
-				quantity, active));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, ?, ?) RETURNING id",
+				Long.class, name, quantity, active, company().getId()));
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {

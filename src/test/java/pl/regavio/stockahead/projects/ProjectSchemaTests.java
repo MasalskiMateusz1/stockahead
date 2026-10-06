@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,16 +21,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Deliberately not {@code @Transactional}: every {@code JdbcTemplate} call
  * runs as its own auto-committed statement so the constraint fires for real.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 class ProjectSchemaTests {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
+	@Autowired
+	private CompanyFixtures companyFixtures;
+
+	private Long companyId;
+
 	@BeforeEach
 	void setUp() {
 		cleanUp();
+		companyId = companyFixtures.company("ProjectSchemaTests Co").getId();
 	}
 
 	@AfterEach
@@ -43,6 +50,7 @@ class ProjectSchemaTests {
 		jdbcTemplate.update("DELETE FROM projects");
 		jdbcTemplate.update("DELETE FROM part_locations");
 		jdbcTemplate.update("DELETE FROM parts");
+		companyFixtures.cleanUp();
 	}
 
 	private long insertProject(String name) {
@@ -52,7 +60,8 @@ class ProjectSchemaTests {
 
 	private long insertPart(String name) {
 		return jdbcTemplate.queryForObject(
-			"INSERT INTO parts (name, quantity) VALUES (?, 10) RETURNING id", Long.class, name);
+			"INSERT INTO parts (name, quantity, company_id) VALUES (?, 10, ?) RETURNING id", Long.class, name,
+			companyId);
 	}
 
 	private void insertBomLine(long projectId, long partId, int quantityPerUnit) {

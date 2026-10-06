@@ -209,10 +209,11 @@ class PartImportConcurrencyTests {
 	private Long seedPart(String name, int quantity, String... locations) {
 		return transactionTemplate.execute(status -> {
 			Long id = jdbcTemplate.queryForObject(
-					"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-					quantity);
+					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+					Long.class, name, quantity, company().getId());
 			for (String location : locations) {
-				jdbcTemplate.update("INSERT INTO part_locations (part_id, location) VALUES (?, ?)", id, location);
+				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
+						id, location, company().getId());
 			}
 			return id;
 		});

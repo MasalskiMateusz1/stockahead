@@ -191,10 +191,11 @@ class PartImportIntegrationTests {
 	private Long seedPart(String name, int quantity, boolean active, String... locations) {
 		return transactionTemplate.execute(status -> {
 			Long id = jdbcTemplate.queryForObject(
-					"INSERT INTO parts (name, quantity, active) VALUES (?, ?, ?) RETURNING id", Long.class, name,
-					quantity, active);
+					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, ?, ?) RETURNING id",
+					Long.class, name, quantity, active, company().getId());
 			for (String location : locations) {
-				jdbcTemplate.update("INSERT INTO part_locations (part_id, location) VALUES (?, ?)", id, location);
+				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
+						id, location, company().getId());
 			}
 			return id;
 		});
