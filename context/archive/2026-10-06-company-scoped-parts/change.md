@@ -1,10 +1,10 @@
 ---
 change_id: company-scoped-parts
 title: Company scoped parts
-status: impl_reviewed
+status: archived
 created: 2026-10-06
 updated: 2026-10-06
-archived_at: null
+archived_at: 2026-10-06T19:57:08Z
 ---
 
 ## Notes

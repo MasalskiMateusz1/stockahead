@@ -42,7 +42,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | ID   | Change ID                         | Outcome (user can …)                                                                                   | Prerequisites | PRD refs                                   | Status   |
 | ---- | --------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------- | ------------------------------------------ | -------- |
 | F-01 | company-boundary-harness          | (foundation) every account belongs to a company, the logged-in user carries it, two-company test pattern exists | —             | FR-028, FR-029, Success Criteria › Guardrails, Access Control Changes (company isolation) | done |
-| S-01 | company-scoped-parts              | Manager of each company sees, searches and edits only their company's parts and locations              | F-01          | US-01, FR-028, Success Criteria › Guardrails | in-progress |
+| S-01 | company-scoped-parts              | Manager of each company sees, searches and edits only their company's parts and locations              | F-01          | US-01, FR-028, Success Criteria › Guardrails | done |
 | S-02 | company-scoped-projects           | Manager keeps projects, BOMs and links visible only within their company                               | S-01          | US-01, FR-028 | proposed |
 | S-03 | company-scoped-orders             | Manager orders production; reservations draw only on their company's parts and orders                 | S-02          | US-01, FR-028, Business Logic Changes (modified rule), Success Criteria › Guardrails (stock/reservation guarantees per company) | proposed |
 | S-04 | company-scoped-picking-completion | Technician picks and reports completion only for their company's orders                                | S-03          | US-01, FR-028, Success Criteria › Guardrails | proposed |
@@ -106,7 +106,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Should company scoping be enforced by one central mechanism or by an explicit company parameter on every query — given that native queries and row locks are not filtered automatically? — Owner: user. Block: no.
 - **Risk:** The north star and the first real test of the guardrail. The parts catalog carries the trickiest global pieces: name and location-spelling uniqueness, the advisory locks keyed by name, and the rewrite of location spellings across all parts — any of them left global leaks data or blocks one company on another's lock. Every route ships with the company-B→404 test next to the existing wrong-role 403 test.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-02: Projects, BOMs and links stay within a company
 
@@ -287,3 +287,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 ## Done
 
 - **F-01: (foundation) a company record exists, every account belongs to one company, the logged-in user carries its company id, the one-manager-per-database rule becomes one-or-more-managers-per-company, and the repository has a two-company test pattern asserting that company B's user gets 404 for company A's record id.** — Archived 2026-10-06 → `context/archive/2026-10-05-company-boundary-harness/`. Lesson: —.
+- **S-01: Manager of company A adds, edits and searches parts and their locations; manager of company B sees none of them, gets 404 on A's part ids, and may reuse the same part names and shelf spellings.** — Archived 2026-10-06 → `context/archive/2026-10-06-company-scoped-parts/`. Lesson: —.
