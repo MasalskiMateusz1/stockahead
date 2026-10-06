@@ -30,7 +30,7 @@ class V10MigrationTests {
 			insertLocation(postgres, second, "a1");
 			insertLocation(postgres, third, "B2");
 
-			migrateToLatest(postgres);
+			migrateToV13(postgres);
 
 			assertThat(locationsOf(postgres, first)).containsExactly("A1");
 			assertThat(locationsOf(postgres, second)).containsExactly("A1");
@@ -48,7 +48,7 @@ class V10MigrationTests {
 			insertLocation(postgres, part, "A1");
 			long other = insertLocation(postgres, part, "B2");
 
-			migrateToLatest(postgres);
+			migrateToV13(postgres);
 
 			assertThat(locationIdsOf(postgres, part)).containsExactly(kept, other);
 			assertThat(locationsOf(postgres, part)).containsExactly("a1", "B2");
@@ -59,7 +59,7 @@ class V10MigrationTests {
 	void indexRejectsACaseDuplicateOnOnePart() throws Exception {
 		try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:18"))) {
 			postgres.start();
-			migrateToLatest(postgres);
+			migrateToV13(postgres);
 			long part = insertPart(postgres, "Part X");
 			long otherPart = insertPart(postgres, "Part Y");
 			insertLocation(postgres, part, "A1");
@@ -80,9 +80,10 @@ class V10MigrationTests {
 			.migrate();
 	}
 
-	private void migrateToLatest(PostgreSQLContainer postgres) {
+	private void migrateToV13(PostgreSQLContainer postgres) {
 		Flyway.configure()
 			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+			.target("13")
 			.load()
 			.migrate();
 	}

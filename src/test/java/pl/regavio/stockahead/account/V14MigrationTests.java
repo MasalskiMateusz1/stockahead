@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Pins V14: it refuses to run while {@code accounts} has rows, and the
+ * Pins V14: it refuses to run while any application table has rows, and the
  * {@code companies} table and {@code accounts.company_id} enforce the status
  * default, the status check, a non-null company and several managers.
  */
@@ -40,6 +40,22 @@ class V14MigrationTests {
 			assertThat(strings(postgres,
 					"SELECT column_name FROM information_schema.columns WHERE table_name = 'accounts' AND column_name = 'company_id'"))
 				.isEmpty();
+			assertThat(strings(postgres, "SELECT to_regclass('companies')::text")).containsExactly((String) null);
+		}
+	}
+
+	@Test
+	void leftoverWarehouseRowsStopMigrationEvenWithoutAccounts() throws Exception {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:18"))) {
+			postgres.start();
+			migrate(postgres, "13");
+			execute(postgres, "INSERT INTO parts (name, quantity) VALUES ('Leftover resistor', 5)");
+
+			assertThatThrownBy(() -> migrate(postgres, null))
+				.isInstanceOf(FlywayException.class)
+				.hasStackTraceContaining("V14:");
+
+			assertThat(strings(postgres, "SELECT name FROM parts")).containsExactly("Leftover resistor");
 			assertThat(strings(postgres, "SELECT to_regclass('companies')::text")).containsExactly((String) null);
 		}
 	}

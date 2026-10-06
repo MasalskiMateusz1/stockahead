@@ -13,6 +13,8 @@ import org.springframework.security.core.userdetails.User;
  */
 public class CompanyUser extends User {
 
+	private static final long serialVersionUID = 1L;
+
 	private final Long companyId;
 
 	public CompanyUser(String username, String password, boolean enabled,

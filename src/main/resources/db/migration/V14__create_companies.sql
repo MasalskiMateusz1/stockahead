@@ -1,7 +1,15 @@
 DO $$
 BEGIN
-	IF EXISTS (SELECT 1 FROM accounts) THEN
-		RAISE EXCEPTION 'V14: tabela accounts nie jest pusta — wyczyść bazę przed wdrożeniem';
+	IF EXISTS (SELECT 1 FROM accounts)
+			OR EXISTS (SELECT 1 FROM parts)
+			OR EXISTS (SELECT 1 FROM part_locations)
+			OR EXISTS (SELECT 1 FROM projects)
+			OR EXISTS (SELECT 1 FROM bom_lines)
+			OR EXISTS (SELECT 1 FROM project_links)
+			OR EXISTS (SELECT 1 FROM orders)
+			OR EXISTS (SELECT 1 FROM order_lines)
+			OR EXISTS (SELECT 1 FROM stock_corrections) THEN
+		RAISE EXCEPTION 'V14: baza nie jest pusta — wyczyść wszystkie tabele aplikacji przed wdrożeniem';
 	END IF;
 END $$;
 

@@ -680,7 +680,7 @@ rm "$DUMP"
 
 ## V14 one-time wipe
 
-`V14__create_companies.sql` refuses to run while `accounts` has any row, so the database must be emptied before the PR that adds it reaches `main`. `ci.yml` deploys on every push to `main`, so do these in order, without a pause:
+`V14__create_companies.sql` refuses to run while any application table has rows, so the database must be emptied before the PR that adds it reaches `main`. `ci.yml` deploys on every push to `main`, so do these in order, without a pause:
 
 1. Coolify → `stockahead-db` → **Backups** → **Backup now**. ✅ The execution log shows success.
 2. Empty every application table, keeping `flyway_schema_history` (`companies` doesn't exist yet; V14 creates it). Coolify → `stockahead-db` → **Terminal**:

@@ -83,6 +83,9 @@ class AuthenticationIntegrationTests {
 	@BeforeEach
 	void setUp() {
 		cleanUp();
+		assertThat(jdbcTemplate.queryForList("SELECT email FROM accounts WHERE role = 'MANAGER'", String.class))
+			.as("another test class leaked a MANAGER account; /setup would be closed")
+			.isEmpty();
 	}
 
 	@AfterEach
@@ -126,6 +129,7 @@ class AuthenticationIntegrationTests {
 			.andExpect(status().isOk())
 			.andExpect(view().name("setup"))
 			.andExpect(model().attribute("email", "blank-company@example.com"))
+			.andExpect(model().attribute("companyName", "   "))
 			.andExpect(model().attribute("error", "Podaj nazwę firmy."));
 
 		assertThat(accountRepository.findByEmail("blank-company@example.com")).isEmpty();
