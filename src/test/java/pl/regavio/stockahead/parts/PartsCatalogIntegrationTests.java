@@ -228,7 +228,7 @@ class PartsCatalogIntegrationTests {
 				"Negative Stock Part", -1, true, company().getId())))
 			.isInstanceOf(DataIntegrityViolationException.class);
 
-		assertThat(partRepository.findByName("Negative Stock Part")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Negative Stock Part")).isEmpty();
 	}
 
 	// ---- create -----------------------------------------------------------
@@ -246,7 +246,7 @@ class PartsCatalogIntegrationTests {
 			.andExpect(header().string("Location", "/parts"));
 
 		transactionTemplate.executeWithoutResult(status -> {
-			Part created = partRepository.findByName("Resistor 10k").orElseThrow();
+			Part created = partRepository.findByCompanyIdAndName(company().getId(), "Resistor 10k").orElseThrow();
 			assertThat(created.getQuantity()).isEqualTo(42);
 			assertThat(created.isActive()).isTrue();
 			assertThat(created.getLocations()).extracting(PartLocation::getLocation)
@@ -350,7 +350,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "   \n  "))
 			.andExpect(status().isOk());
 
-		assertThat(partRepository.findByName("Diode 1N4148")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Diode 1N4148")).isEmpty();
 	}
 
 	@Test
@@ -364,7 +364,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "A1\nA1"))
 			.andExpect(status().isOk());
 
-		assertThat(partRepository.findByName("Transistor BC547")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Transistor BC547")).isEmpty();
 	}
 
 	// ---- role gating --------------------------------------------------
@@ -559,7 +559,7 @@ class PartsCatalogIntegrationTests {
 			.andExpect(view().name("parts-new"))
 			.andExpect(content().string(containsString("Część o tej nazwie już istnieje.")));
 
-		assertThat(partRepository.findByName("kondensator")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "kondensator")).isEmpty();
 	}
 
 	@Test
@@ -604,7 +604,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "Regał A1\nregał a1"))
 			.andExpect(status().isOk());
 
-		assertThat(partRepository.findByName("Transistor BC557")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Transistor BC557")).isEmpty();
 	}
 
 	@Test
@@ -639,7 +639,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "a1\nB7"))
 			.andExpect(status().is3xxRedirection());
 
-		Long partY = partRepository.findByName("Part Y").orElseThrow().getId();
+		Long partY = partRepository.findByCompanyIdAndName(company().getId(), "Part Y").orElseThrow().getId();
 		assertThat(locationValuesOf(partY)).containsExactlyInAnyOrder("A1", "B7");
 	}
 
@@ -709,7 +709,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "Regał\u00A0A1\u00A0\nB2\u202F"))
 			.andExpect(status().is3xxRedirection());
 
-		Long partId = partRepository.findByName("Pasted Widget").orElseThrow().getId();
+		Long partId = partRepository.findByCompanyIdAndName(company().getId(), "Pasted Widget").orElseThrow().getId();
 		assertThat(locationValuesOf(partId)).containsExactlyInAnyOrder("Regał A1", "B2");
 	}
 
@@ -724,7 +724,7 @@ class PartsCatalogIntegrationTests {
 				.param("quantity", "4"))
 			.andExpect(status().isOk());
 
-		assertThat(partRepository.findByName("Pasted Duplicate")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Pasted Duplicate")).isEmpty();
 	}
 
 	/**

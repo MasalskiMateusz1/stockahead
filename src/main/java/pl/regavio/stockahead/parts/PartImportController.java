@@ -108,8 +108,8 @@ public class PartImportController {
 
 	@PostMapping("/parts/import")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String upload(@RequestParam(name = "file", required = false) MultipartFile file, Model model,
-			Locale locale, HttpSession session) {
+	public String upload(@RequestParam(name = "file", required = false) MultipartFile file,
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale, HttpSession session) {
 		// A new upload replaces any pending import, valid or not.
 		session.removeAttribute(PendingImport.SESSION_ATTRIBUTE);
 		if (file == null || file.isEmpty()) {
@@ -133,7 +133,8 @@ public class PartImportController {
 		}
 		PartsImportFile importFile = PartsImportFile.parse(result.records());
 		List<PartsImportFile.ImportLine> lines = List.copyOf(importFile.lines().values());
-		ImportPreview.Result preview = lines.isEmpty() ? null : ImportPreview.build(lines, partRepository);
+		ImportPreview.Result preview = lines.isEmpty() ? null : ImportPreview.build(lines, partRepository,
+				principal.companyId());
 		if (importFile.hasErrors() || preview == null || preview.hasErrors()) {
 			List<ImportError> errors = new ArrayList<>(importFile.errors());
 			if (preview != null) {
@@ -172,7 +173,7 @@ public class PartImportController {
 		Outcome outcome;
 		try {
 			outcome = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-				Outcome result = applyImport(pending, companyRepository.getReferenceById(principal.companyId()));
+				Outcome result = applyImport(pending, principal.companyId());
 				if (result.status() != OutcomeStatus.APPLIED) {
 					status.setRollbackOnly();
 				}
@@ -180,21 +181,21 @@ public class PartImportController {
 			}));
 		}
 		catch (DataIntegrityViolationException ex) {
-			return rePreview(model, locale, session, pending,
+			return rePreview(model, locale, session, pending, principal.companyId(),
 					messageSource.getMessage("partsImport.notice.catalogChanged", null, locale));
 		}
 		catch (PessimisticLockingFailureException ex) {
-			return rePreview(model, locale, session, pending,
+			return rePreview(model, locale, session, pending, principal.companyId(),
 					messageSource.getMessage("partsImport.notice.saveFailed", null, locale));
 		}
 
 		switch (outcome.status()) {
 			case STALE:
-				return rePreview(model, locale, session, pending,
+				return rePreview(model, locale, session, pending, principal.companyId(),
 						messageSource.getMessage("partsImport.notice.stale", null, locale));
 			case REJECTED:
 				ImportError error = outcome.errors().get(0);
-				return rePreview(model, locale, session, pending,
+				return rePreview(model, locale, session, pending, principal.companyId(),
 						messageSource.getMessage(error.messageKey(), resolveArgs(error, locale), locale));
 			default:
 				break;
@@ -220,18 +221,20 @@ public class PartImportController {
 	 * matching several parts makes it {@code REJECTED}. Only then does it
 	 * mutate: stock raised ({@link Math#addExact}), missing locations added in
 	 * the shelf's spelling, new parts created, the persistence context
-	 * flushed and the existing parts whose stock rose reallocated. New parts
-	 * belong to {@code company}, the confirming manager's.
+	 * flushed and the existing parts whose stock rose reallocated. Locks,
+	 * spellings and name matching are scoped to {@code companyId}, the
+	 * confirming manager's company, and new parts belong to it.
 	 */
-	private Outcome applyImport(PendingImport pending, Company company) {
+	private Outcome applyImport(PendingImport pending, Long companyId) {
+		Company company = companyRepository.getReferenceById(companyId);
 		List<ImportLine> lines = pending.lines();
 		List<Snapshot> snapshots = pending.snapshots();
 		// Shelves, then part names, then part rows: the lock order every writer shares.
-		LocationSpellings spellings = LocationSpellings.lockShelves(partRepository,
+		LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, companyId,
 				lines.stream().flatMap(line -> line.locations().stream()).toList());
-		LocationSpellings.lockPartNames(partRepository, lines.stream().map(ImportLine::name).toList());
+		LocationSpellings.lockPartNames(partRepository, companyId, lines.stream().map(ImportLine::name).toList());
 
-		CatalogNameIndex index = CatalogNameIndex.of(partRepository.findAllIdsAndNames());
+		CatalogNameIndex index = CatalogNameIndex.of(partRepository.findAllIdsAndNames(companyId));
 		List<ImportError> errors = new ArrayList<>();
 		boolean stale = false;
 		Long[] matchedIdPerLine = new Long[lines.size()];
@@ -362,13 +365,15 @@ public class PartImportController {
 
 	/**
 	 * After a confirm that wrote nothing: builds the preview of the pending
-	 * lines afresh (an unlocked read after the transaction), keeps it under
+	 * lines afresh against company {@code companyId}'s catalog (an unlocked
+	 * read after the transaction), keeps it under
 	 * the same token with its new snapshot, and renders it with
 	 * {@code notice}. If the catalog now makes the file invalid, the pending
 	 * import is dropped and the errors are listed on the upload page.
 	 */
-	private String rePreview(Model model, Locale locale, HttpSession session, PendingImport pending, String notice) {
-		ImportPreview.Result preview = ImportPreview.build(pending.lines(), partRepository);
+	private String rePreview(Model model, Locale locale, HttpSession session, PendingImport pending, Long companyId,
+			String notice) {
+		ImportPreview.Result preview = ImportPreview.build(pending.lines(), partRepository, companyId);
 		if (preview.hasErrors()) {
 			session.removeAttribute(PendingImport.SESSION_ATTRIBUTE);
 			return renderErrors(model, preview.errors(), locale);

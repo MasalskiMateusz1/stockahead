@@ -6,6 +6,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -17,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Manager-only BOM editing on a project's detail page: add a line (active
@@ -55,6 +57,7 @@ public class ProjectBomController {
 			@PathVariable Long id,
 			@RequestParam(required = false) String partId,
 			@RequestParam(required = false) String quantityPerUnit,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
 		if (!projectRepository.existsById(id)) {
@@ -63,13 +66,13 @@ public class ProjectBomController {
 
 		String quantityError = validateQuantity(quantityPerUnit, locale);
 		if (quantityError != null) {
-			return renderAddLineError(model, id, quantityError, partId, quantityPerUnit);
+			return renderAddLineError(model, id, principal.companyId(), quantityError, partId, quantityPerUnit);
 		}
 		int parsedQuantity = Integer.parseInt(quantityPerUnit.trim());
 
 		Long parsedPartId = parsePartId(partId);
 		if (parsedPartId == null) {
-			return renderAddLineError(model, id,
+			return renderAddLineError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.bom.error.partUnavailable", null, locale), partId,
 					quantityPerUnit);
 		}
@@ -92,13 +95,13 @@ public class ProjectBomController {
 			}));
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderAddLineError(model, id,
+			return renderAddLineError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.bom.error.duplicatePart", null, locale), partId,
 					quantityPerUnit);
 		}
 
 		if (!added) {
-			return renderAddLineError(model, id,
+			return renderAddLineError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.bom.error.partUnavailable", null, locale), partId,
 					quantityPerUnit);
 		}
@@ -112,13 +115,15 @@ public class ProjectBomController {
 			@PathVariable Long id,
 			@PathVariable Long lineId,
 			@RequestParam(required = false) String quantityPerUnit,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
 		transactionTemplate.executeWithoutResult(status -> findLine(id, lineId));
 
 		String quantityError = validateQuantity(quantityPerUnit, locale);
 		if (quantityError != null) {
-			return renderChangeQuantityError(model, id, lineId, quantityError, quantityPerUnit);
+			return renderChangeQuantityError(model, id, principal.companyId(), lineId, quantityError,
+					quantityPerUnit);
 		}
 		int parsedQuantity = Integer.parseInt(quantityPerUnit.trim());
 
@@ -130,7 +135,7 @@ public class ProjectBomController {
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderChangeQuantityError(model, id, lineId,
+			return renderChangeQuantityError(model, id, principal.companyId(), lineId,
 					messageSource.getMessage("projects.bom.error.saveFailed", null, locale), quantityPerUnit);
 		}
 
@@ -193,16 +198,17 @@ public class ProjectBomController {
 		}
 	}
 
-	private String renderAddLineError(Model model, Long id, String error, String partId, String quantityPerUnit) {
-		projectDetailModel.render(model, id, true, error);
+	private String renderAddLineError(Model model, Long id, Long companyId, String error, String partId,
+			String quantityPerUnit) {
+		projectDetailModel.render(model, id, companyId, true, error);
 		model.addAttribute("partId", partId);
 		model.addAttribute("quantityPerUnit", quantityPerUnit);
 		return ProjectDetailModel.VIEW;
 	}
 
-	private String renderChangeQuantityError(Model model, Long id, Long lineId, String error,
+	private String renderChangeQuantityError(Model model, Long id, Long companyId, Long lineId, String error,
 			String quantityPerUnit) {
-		projectDetailModel.render(model, id, true, error);
+		projectDetailModel.render(model, id, companyId, true, error);
 		model.addAttribute("errorLineId", lineId);
 		model.addAttribute("quantityPerUnit", quantityPerUnit);
 		return ProjectDetailModel.VIEW;

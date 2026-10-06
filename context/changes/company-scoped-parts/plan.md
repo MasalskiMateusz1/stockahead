@@ -281,25 +281,25 @@ V15 assumes `parts` and `part_locations` are empty. That holds because V14's gua
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes with V15 applied
-- [x] 1.2 A test asserts that two companies can each hold a part named "R 10k", while a second "R 10k" in the same company violates the unique constraint
-- [x] 1.3 A test asserts that a `part_locations` row whose `company_id` differs from its part's company is rejected by the database
+- [x] 1.1 `./mvnw verify` passes with V15 applied — 8eb019e
+- [x] 1.2 A test asserts that two companies can each hold a part named "R 10k", while a second "R 10k" in the same company violates the unique constraint — 8eb019e
+- [x] 1.3 A test asserts that a `part_locations` row whose `company_id` differs from its part's company is rejected by the database — 8eb019e
 
 #### Manual
 
-- [x] 1.4 `./mvnw spring-boot:test-run`: the manager creates a part and imports a CSV, and both succeed
+- [x] 1.4 `./mvnw spring-boot:test-run`: the manager creates a part and imports a CSV, and both succeed — 8eb019e
 
 ### Phase 2: Scoped catalog and the two-company tests
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 `PartsCompanyIsolationIntegrationTests` passes: B gets 404 on all four `/parts/{id}` routes with A's data unchanged, the list and search show only the user's own company, names and shelves are reused across companies, and re-spelling stays within one company
-- [ ] 2.3 The BOM picker and import-preview isolation tests pass
-- [ ] 2.4 The cross-company concurrency test shows two companies creating the same name and shelf at the same time without blocking each other
-- [ ] 2.5 `grep -n "findById(" src/main/java/pl/regavio/stockahead/parts/PartController.java` returns nothing
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 `PartsCompanyIsolationIntegrationTests` passes: B gets 404 on all four `/parts/{id}` routes with A's data unchanged, the list and search show only the user's own company, names and shelves are reused across companies, and re-spelling stays within one company
+- [x] 2.3 The BOM picker and import-preview isolation tests pass
+- [x] 2.4 The cross-company concurrency test shows two companies creating the same name and shelf at the same time without blocking each other
+- [x] 2.5 `grep -n "findById(" src/main/java/pl/regavio/stockahead/parts/PartController.java` returns nothing
 
 #### Manual
 
-- [ ] 2.6 With `spring-boot:test-run`, two companies each create "R 10k" at "A1". Each manager sees only their own part, and pasting the other company's part id into `/parts/{id}/edit` shows the 404 page
-- [ ] 2.7 The BOM add-line picker and the delivery form list only the user's own company's parts
+- [x] 2.6 With `spring-boot:test-run`, two companies each create "R 10k" at "A1". Each manager sees only their own part, and pasting the other company's part id into `/parts/{id}/edit` shows the 404 page
+- [x] 2.7 The BOM add-line picker and the delivery form list only the user's own company's parts

@@ -26,7 +26,7 @@ final class CatalogNameIndex {
 		this.partsByKey = partsByKey;
 	}
 
-	/** Builds the index from {@link PartRepository#findAllIdsAndNames()} rows. */
+	/** Builds the index from {@link PartRepository#findAllIdsAndNames(Long)} rows (one company's catalog). */
 	static CatalogNameIndex of(List<Object[]> idsAndNames) {
 		Map<String, List<CatalogPart>> partsByKey = new HashMap<>();
 		for (Object[] row : idsAndNames) {

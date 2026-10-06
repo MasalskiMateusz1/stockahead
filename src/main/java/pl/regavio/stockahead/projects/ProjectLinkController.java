@@ -8,6 +8,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
+
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Manager-only documentation links on a project's detail page: add a link
@@ -54,6 +57,7 @@ public class ProjectLinkController {
 			@PathVariable Long id,
 			@RequestParam(required = false) String url,
 			@RequestParam(required = false) String label,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
 		if (!projectRepository.existsById(id)) {
@@ -63,13 +67,15 @@ public class ProjectLinkController {
 		String trimmedUrl = url == null ? "" : url.trim();
 		String urlError = validateUrl(trimmedUrl, locale);
 		if (urlError != null) {
-			return renderAddLinkError(model, id, urlError, url, label);
+			return renderAddLinkError(model, id, principal.companyId(), urlError, url, label);
 		}
 
 		String trimmedLabel = label == null ? "" : label.trim();
 		if (trimmedLabel.length() > MAX_LABEL_LENGTH) {
-			return renderAddLinkError(model, id, messageSource.getMessage("projects.links.error.labelTooLong",
-					new Object[] { MAX_LABEL_LENGTH }, locale), url, label);
+			return renderAddLinkError(model, id, principal.companyId(),
+					messageSource.getMessage("projects.links.error.labelTooLong", new Object[] { MAX_LABEL_LENGTH },
+							locale),
+					url, label);
 		}
 		String storedLabel = trimmedLabel.isEmpty() ? null : trimmedLabel;
 
@@ -85,7 +91,7 @@ public class ProjectLinkController {
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderAddLinkError(model, id,
+			return renderAddLinkError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.links.error.saveFailed", null, locale), url, label);
 		}
 
@@ -155,8 +161,9 @@ public class ProjectLinkController {
 		return host != null && !host.isEmpty();
 	}
 
-	private String renderAddLinkError(Model model, Long id, String error, String url, String label) {
-		projectDetailModel.render(model, id, true, error);
+	private String renderAddLinkError(Model model, Long id, Long companyId, String error, String url,
+			String label) {
+		projectDetailModel.render(model, id, companyId, true, error);
 		model.addAttribute("linkUrl", url);
 		model.addAttribute("linkLabel", label);
 		return ProjectDetailModel.VIEW;

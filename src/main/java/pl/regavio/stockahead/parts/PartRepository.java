@@ -14,45 +14,61 @@ import jakarta.persistence.LockModeType;
 
 public interface PartRepository extends JpaRepository<Part, Long> {
 
-	Optional<Part> findByName(String name);
+	/** The part {@code id} if it belongs to company {@code companyId}; empty otherwise, exactly like a missing id. */
+	Optional<Part> findByIdAndCompanyId(Long id, Long companyId);
+
+	Optional<Part> findByCompanyIdAndName(Long companyId, String name);
 
 	@Query("""
 		SELECT DISTINCT p FROM Part p LEFT JOIN p.locations l
-		WHERE (:showInactive = true OR p.active = true)
+		WHERE p.company.id = :companyId
+		AND (:showInactive = true OR p.active = true)
 		AND (:q = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%'))
 			OR LOWER(l.location) LIKE LOWER(CONCAT('%', :q, '%')))
 		ORDER BY p.name
 		""")
-	List<Part> search(@Param("q") String q, @Param("showInactive") boolean showInactive);
+	List<Part> search(@Param("companyId") Long companyId, @Param("q") String q,
+			@Param("showInactive") boolean showInactive);
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("SELECT p FROM Part p WHERE p.id IN :ids ORDER BY p.id")
 	List<Part> findByIdInForUpdate(@Param("ids") Collection<Long> ids);
 
-	/** Every distinct location in use across all parts, as plain strings (no {@link Part} hydrated). */
-	@Query("SELECT DISTINCT l.location FROM PartLocation l ORDER BY l.location")
-	List<String> findAllLocationNames();
+	/**
+	 * Every distinct location in use across company {@code companyId}'s parts,
+	 * as plain strings (no {@link Part} hydrated).
+	 */
+	@Query("SELECT DISTINCT l.location FROM PartLocation l WHERE l.companyId = :companyId ORDER BY l.location")
+	List<String> findAllLocationNames(@Param("companyId") Long companyId);
 
 	/**
-	 * Every stored spelling of the shelf {@code location} names, matched
-	 * case-insensitively, oldest row first. The first element is the shelf's
-	 * canonical spelling; see {@link LocationSpellings}.
+	 * Every spelling of the shelf {@code location} names stored in company
+	 * {@code companyId}, matched case-insensitively, oldest row first. The
+	 * first element is the shelf's canonical spelling in that company; see
+	 * {@link LocationSpellings}.
 	 */
-	@Query("SELECT l.location FROM PartLocation l WHERE LOWER(l.location) = LOWER(:location) ORDER BY l.id")
-	List<String> findSpellingsOf(@Param("location") String location);
+	@Query("""
+		SELECT l.location FROM PartLocation l
+		WHERE l.companyId = :companyId AND LOWER(l.location) = LOWER(:location)
+		ORDER BY l.id
+		""")
+	List<String> findSpellingsOf(@Param("companyId") Long companyId, @Param("location") String location);
 
 	/**
 	 * Re-spells the shelf {@code spelling} names (matched case-insensitively)
-	 * on every part except {@code partId}. A bulk update that bypasses the
+	 * on every part of company {@code companyId} except {@code partId}; other
+	 * companies' shelves are never touched. A bulk update that bypasses the
 	 * persistence context: flush the edited part's own row first and never
 	 * include it here, or its managed entity would go stale.
 	 */
 	@Modifying
 	@Query("""
 		UPDATE PartLocation l SET l.location = :spelling
-		WHERE LOWER(l.location) = LOWER(:spelling) AND l.location <> :spelling AND l.part.id <> :partId
+		WHERE l.companyId = :companyId AND LOWER(l.location) = LOWER(:spelling) AND l.location <> :spelling
+		AND l.part.id <> :partId
 		""")
-	int respellOnOtherParts(@Param("spelling") String spelling, @Param("partId") Long partId);
+	int respellOnOtherParts(@Param("companyId") Long companyId, @Param("spelling") String spelling,
+			@Param("partId") Long partId);
 
 	/**
 	 * Waits for and takes a transaction-scoped advisory lock on one shelf or
@@ -82,11 +98,11 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	List<Object[]> findCurrentQuantities(@Param("ids") Collection<Long> ids);
 
 	/**
-	 * Every part's {@code (id, name)} pair as a plain scalar projection (no
-	 * {@link Part} hydrated), for matching names in Java; see
-	 * {@link CatalogNameIndex}.
+	 * Every {@code (id, name)} pair of company {@code companyId}'s parts as a
+	 * plain scalar projection (no {@link Part} hydrated), for matching names
+	 * in Java; see {@link CatalogNameIndex}.
 	 */
-	@Query("SELECT p.id, p.name FROM Part p")
-	List<Object[]> findAllIdsAndNames();
+	@Query("SELECT p.id, p.name FROM Part p WHERE p.company.id = :companyId")
+	List<Object[]> findAllIdsAndNames(@Param("companyId") Long companyId);
 
 }

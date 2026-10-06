@@ -16,8 +16,8 @@ import pl.regavio.stockahead.parts.PendingImport.Snapshot;
 /**
  * Resolves merged import lines against the parts catalog and computes the
  * resulting stock, without writing anything. Every call reads the catalog
- * afresh: the names through {@link PartRepository#findAllIdsAndNames()}
- * matched in Java by {@link CatalogNameIndex}, then the matched parts with
+ * afresh: the names of the importing company's parts through
+ * {@link PartRepository#findAllIdsAndNames(Long)} matched in Java by {@link CatalogNameIndex}, then the matched parts with
  * their locations.
  * <p>
  * Catalog-dependent errors, each reported on the line's first file row: a
@@ -65,8 +65,8 @@ final class ImportPreview {
 	private ImportPreview() {
 	}
 
-	static Result build(Collection<ImportLine> lines, PartRepository partRepository) {
-		CatalogNameIndex index = CatalogNameIndex.of(partRepository.findAllIdsAndNames());
+	static Result build(Collection<ImportLine> lines, PartRepository partRepository, Long companyId) {
+		CatalogNameIndex index = CatalogNameIndex.of(partRepository.findAllIdsAndNames(companyId));
 
 		List<List<CatalogPart>> matchesPerLine = new ArrayList<>(lines.size());
 		Set<Long> matchedIds = new LinkedHashSet<>();

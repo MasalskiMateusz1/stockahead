@@ -42,7 +42,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | ID   | Change ID                         | Outcome (user can …)                                                                                   | Prerequisites | PRD refs                                   | Status   |
 | ---- | --------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------- | ------------------------------------------ | -------- |
 | F-01 | company-boundary-harness          | (foundation) every account belongs to a company, the logged-in user carries it, two-company test pattern exists | —             | FR-028, FR-029, Success Criteria › Guardrails, Access Control Changes (company isolation) | done |
-| S-01 | company-scoped-parts              | Manager of each company sees, searches and edits only their company's parts and locations              | F-01          | US-01, FR-028, Success Criteria › Guardrails | proposed |
+| S-01 | company-scoped-parts              | Manager of each company sees, searches and edits only their company's parts and locations              | F-01          | US-01, FR-028, Success Criteria › Guardrails | in-progress |
 | S-02 | company-scoped-projects           | Manager keeps projects, BOMs and links visible only within their company                               | S-01          | US-01, FR-028 | proposed |
 | S-03 | company-scoped-orders             | Manager orders production; reservations draw only on their company's parts and orders                 | S-02          | US-01, FR-028, Business Logic Changes (modified rule), Success Criteria › Guardrails (stock/reservation guarantees per company) | proposed |
 | S-04 | company-scoped-picking-completion | Technician picks and reports completion only for their company's orders                                | S-03          | US-01, FR-028, Success Criteria › Guardrails | proposed |
@@ -106,7 +106,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Should company scoping be enforced by one central mechanism or by an explicit company parameter on every query — given that native queries and row locks are not filtered automatically? — Owner: user. Block: no.
 - **Risk:** The north star and the first real test of the guardrail. The parts catalog carries the trickiest global pieces: name and location-spelling uniqueness, the advisory locks keyed by name, and the rewrite of location spellings across all parts — any of them left global leaks data or blocks one company on another's lock. Every route ships with the company-B→404 test next to the existing wrong-role 403 test.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-02: Projects, BOMs and links stay within a company
 
@@ -117,7 +117,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** S-07, S-08, S-09, S-10
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Sequenced after S-01 because a BOM line points at a part — the cross-company reference (company B's BOM naming company A's part id in a form post) is the new hole here, not just the lookups.
+- **Risk:** Sequenced after S-01 because a BOM line points at a part — the cross-company reference (company B's BOM naming company A's part id in a form post) is the new hole here, not just the lookups. S-01 left this lookup bare on purpose: `ProjectBomController.addLine`'s `partRepository.findById(parsedPartId)` (`ProjectBomController.java:85`) still accepts another company's part id.
 - **Status:** proposed
 
 ### S-03: Orders reserve only their own company's parts
@@ -153,7 +153,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** S-04, S-06, S-07, S-08, S-09, S-10, S-11, S-12
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** CSV import matches parts by name, so with names now unique only per company an unscoped match would add stock to another company's part. Columns of the import file must not change (prd-v2 § Constraints).
+- **Risk:** CSV import matches parts by name, so with names now unique only per company an unscoped match would add stock to another company's part. Columns of the import file must not change (prd-v2 § Constraints). S-01 scoped import matching, shelf locks and the delivery form's lists, but left these part lookups bare on purpose: `DeliveryController.applyReceipt`'s `findByIdInForUpdate(partIds)` with posted part ids, and `StockCorrectionController`'s `findByIdInForUpdate(Set.of(id))` and `findById(id)` (`StockCorrectionController.java:226`, `:300`) — another company's part id still reaches them.
 - **Status:** proposed
 
 ### S-06: Shopping list per company

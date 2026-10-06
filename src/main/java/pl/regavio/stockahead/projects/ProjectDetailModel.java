@@ -45,19 +45,20 @@ class ProjectDetailModel {
 
 	/**
 	 * Populates the detail page for {@code projectId}. An unknown project is
-	 * 404; an inactive project is 404 unless {@code isManager}.
+	 * 404; an inactive project is 404 unless {@code isManager}. The add-line
+	 * part picker lists only company {@code companyId}'s active parts.
 	 * @return the {@code project-detail} view name
 	 */
-	String render(Model model, Long projectId, boolean isManager) {
-		return render(model, projectId, isManager, null);
+	String render(Model model, Long projectId, Long companyId, boolean isManager) {
+		return render(model, projectId, companyId, isManager, null);
 	}
 
 	/**
-	 * Same as {@link #render(Model, Long, boolean)}, with a page-level error
+	 * Same as {@link #render(Model, Long, Long, boolean)}, with a page-level error
 	 * message shown at the top of the page ({@code null} for none).
 	 */
-	String render(Model model, Long projectId, boolean isManager, String error) {
-		DetailData data = readTransaction.execute(status -> load(projectId, isManager));
+	String render(Model model, Long projectId, Long companyId, boolean isManager, String error) {
+		DetailData data = readTransaction.execute(status -> load(projectId, companyId, isManager));
 		model.addAttribute("project", data.project());
 		model.addAttribute("lines", data.lines());
 		model.addAttribute("links", data.links());
@@ -69,7 +70,7 @@ class ProjectDetailModel {
 		return VIEW;
 	}
 
-	private DetailData load(Long projectId, boolean isManager) {
+	private DetailData load(Long projectId, Long companyId, boolean isManager) {
 		Project project = projectRepository.findById(projectId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		if (!project.isActive() && !isManager) {
@@ -86,7 +87,7 @@ class ProjectDetailModel {
 			.toList();
 		// Only the manager's add-line form offers parts; skip the catalog query otherwise.
 		List<PartOption> activeParts = !isManager ? List.of()
-				: partRepository.search("", false).stream()
+				: partRepository.search(companyId, "", false).stream()
 					.map(part -> new PartOption(part.getId(), part.getName()))
 					.toList();
 		return new DetailData(new ProjectView(project.getId(), project.getName(), project.isActive()), lines,

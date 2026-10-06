@@ -10,8 +10,13 @@ import org.springframework.data.repository.query.Param;
 
 public interface OrderLineRepository extends JpaRepository<OrderLine, Long> {
 
-	@Query("SELECT ol.part.id, SUM(ol.reservedQuantity) FROM OrderLine ol WHERE ol.order.status = pl.regavio.stockahead.orders.OrderStatus.OPEN GROUP BY ol.part.id")
-	List<Object[]> reservedQuantitiesByPart();
+	/**
+	 * Units reserved per part of company {@code companyId} across OPEN orders,
+	 * as {@code [partId (Long), sum (Long)]} rows; other companies' lines are
+	 * never read.
+	 */
+	@Query("SELECT ol.part.id, SUM(ol.reservedQuantity) FROM OrderLine ol WHERE ol.order.status = pl.regavio.stockahead.orders.OrderStatus.OPEN AND ol.part.company.id = :companyId GROUP BY ol.part.id")
+	List<Object[]> reservedQuantitiesByPart(@Param("companyId") Long companyId);
 
 	/**
 	 * Units reserved for one part across OPEN orders. {@code reservedQuantity}

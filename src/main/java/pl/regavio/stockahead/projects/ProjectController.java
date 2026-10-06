@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
+
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Project list and detail screens, open to any authenticated user, plus
@@ -63,8 +66,9 @@ public class ProjectController {
 	}
 
 	@GetMapping("/projects/{id}")
-	public String detail(@PathVariable Long id, Authentication authentication, Model model) {
-		return projectDetailModel.render(model, id, isManager(authentication));
+	public String detail(@PathVariable Long id, Authentication authentication,
+			@AuthenticationPrincipal CompanyUser principal, Model model) {
+		return projectDetailModel.render(model, id, principal.companyId(), isManager(authentication));
 	}
 
 	@GetMapping("/projects/new")
@@ -102,7 +106,8 @@ public class ProjectController {
 
 	@PostMapping("/projects/{id}")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String rename(@PathVariable Long id, @RequestParam String name, Model model, Locale locale) {
+	public String rename(@PathVariable Long id, @RequestParam String name,
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale) {
 		if (!projectRepository.existsById(id)) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
@@ -110,7 +115,7 @@ public class ProjectController {
 		String trimmedName = name == null ? "" : name.trim();
 		String validationError = validateName(trimmedName, locale);
 		if (validationError != null) {
-			return renderEditProjectError(model, id, validationError, name);
+			return renderEditProjectError(model, id, principal.companyId(), validationError, name);
 		}
 
 		try {
@@ -122,7 +127,7 @@ public class ProjectController {
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderEditProjectError(model, id,
+			return renderEditProjectError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.error.duplicateName", null, locale), name);
 		}
 
@@ -182,8 +187,8 @@ public class ProjectController {
 	 * Re-renders the detail page, where the rename form lives, with the error
 	 * and the submitted name. Routes calling this are manager-only.
 	 */
-	private String renderEditProjectError(Model model, Long id, String error, String name) {
-		projectDetailModel.render(model, id, true, error);
+	private String renderEditProjectError(Model model, Long id, Long companyId, String error, String name) {
+		projectDetailModel.render(model, id, companyId, true, error);
 		model.addAttribute("name", name);
 		return ProjectDetailModel.VIEW;
 	}

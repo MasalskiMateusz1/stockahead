@@ -3,14 +3,17 @@ package pl.regavio.stockahead.parts;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Request-scoped resolver that gives every newly added location the one
- * spelling its shelf already has: the oldest spelling stored on any part,
- * otherwise the first spelling resolved earlier in this request, otherwise
+ * spelling its shelf already has within one company: the oldest spelling
+ * stored on any of that company's parts, otherwise the first spelling resolved earlier in this request, otherwise
  * the input as typed. Matching follows {@link PartLocation#sameLocation}.
  * Obtain one per write through {@link #lockShelves} and use it inside that
- * write's transaction.
+ * write's transaction. Shelves, spellings and both lock keys are per
+ * company: two companies never share a spelling or wait on each other's
+ * shelf or name locks.
  */
 final class LocationSpellings {
 
@@ -25,10 +28,13 @@ final class LocationSpellings {
 
 	private final PartRepository partRepository;
 
+	private final Long companyId;
+
 	private final List<String> resolved = new ArrayList<>();
 
-	private LocationSpellings(PartRepository partRepository) {
+	private LocationSpellings(PartRepository partRepository, Long companyId) {
 		this.partRepository = partRepository;
+		this.companyId = companyId;
 	}
 
 	/**
@@ -40,15 +46,17 @@ final class LocationSpellings {
 	 * Call it first in the transaction, before any part row is locked or
 	 * written: every writer takes shelf locks, sorted by key, before part
 	 * locks, so writers never wait on each other in a cycle. Keys are
-	 * hashes, so a collision only over-serializes two shelves.
+	 * hashes of the company and the shelf, so a collision (within or across
+	 * companies) only over-serializes two shelves.
 	 */
-	static LocationSpellings lockShelves(PartRepository partRepository, Collection<String> locations) {
+	static LocationSpellings lockShelves(PartRepository partRepository, Long companyId,
+			Collection<String> locations) {
 		locations.stream()
-			.map(location -> shelfKey(location).hashCode())
+			.map(location -> Objects.hash(companyId, shelfKey(location)))
 			.distinct()
 			.sorted()
 			.forEach(key -> partRepository.lockShelf(SHELF_LOCK_NAMESPACE, key));
-		return new LocationSpellings(partRepository);
+		return new LocationSpellings(partRepository, companyId);
 	}
 
 	/**
@@ -60,12 +68,13 @@ final class LocationSpellings {
 	 * until the first commits and then sees its part.
 	 * <p>
 	 * Lock order is shelves ({@link #lockShelves}) first, then part names,
-	 * then part rows; within each step keys are sorted. Keys are hashes, so a
-	 * collision only over-serializes two names.
+	 * then part rows; within each step keys are sorted. Keys are hashes of the
+	 * company and the name, so a collision (within or across companies) only
+	 * over-serializes two names.
 	 */
-	static void lockPartNames(PartRepository partRepository, Collection<String> names) {
+	static void lockPartNames(PartRepository partRepository, Long companyId, Collection<String> names) {
 		names.stream()
-			.map(name -> PartsImportFile.nameKey(name).hashCode())
+			.map(name -> Objects.hash(companyId, PartsImportFile.nameKey(name)))
 			.distinct()
 			.sorted()
 			.forEach(key -> partRepository.lockShelf(PART_NAME_LOCK_NAMESPACE, key));
@@ -94,7 +103,7 @@ final class LocationSpellings {
 				return known;
 			}
 		}
-		String spelling = partRepository.findSpellingsOf(location).stream()
+		String spelling = partRepository.findSpellingsOf(companyId, location).stream()
 			.findFirst()
 			.orElse(location);
 		resolved.add(spelling);

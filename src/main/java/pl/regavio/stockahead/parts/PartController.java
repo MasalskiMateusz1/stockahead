@@ -33,7 +33,8 @@ import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Parts catalog search/browse screen, open to any authenticated user, plus
- * manager-only create/edit/deactivate/reactivate actions.
+ * manager-only create/edit/deactivate/reactivate actions. Every route sees
+ * only the principal's company: another company's part id answers 404.
  * {@code showInactive} is honored only for managers; a technician always
  * sees the active catalog regardless of the query parameter.
  */
@@ -69,6 +70,7 @@ public class PartController {
 			@RequestParam(name = "q", required = false, defaultValue = "") String q,
 			@RequestParam(name = "showInactive", required = false, defaultValue = "false") boolean showInactive,
 			Authentication authentication,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model) {
 		boolean isManager = authentication.getAuthorities().stream()
 			.map(GrantedAuthority::getAuthority)
@@ -77,13 +79,13 @@ public class PartController {
 		boolean effectiveShowInactive = isManager && showInactive;
 
 		Map<Long, Integer> reservedByPartId = new HashMap<>();
-		for (Object[] row : orderLineRepository.reservedQuantitiesByPart()) {
+		for (Object[] row : orderLineRepository.reservedQuantitiesByPart(principal.companyId())) {
 			Long partId = (Long) row[0];
 			Long sumReserved = (Long) row[1];
 			reservedByPartId.put(partId, sumReserved.intValue());
 		}
 
-		List<PartRow> parts = partRepository.search(q, effectiveShowInactive).stream()
+		List<PartRow> parts = partRepository.search(principal.companyId(), q, effectiveShowInactive).stream()
 			.map(part -> {
 				int reserved = reservedByPartId.getOrDefault(part.getId(), 0);
 				return new PartRow(part, reserved, part.getQuantity() - reserved);
@@ -126,7 +128,7 @@ public class PartController {
 					name, quantity, locations);
 		}
 
-		if (partRepository.findByName(trimmedName).isPresent()) {
+		if (partRepository.findByCompanyIdAndName(principal.companyId(), trimmedName).isPresent()) {
 			return renderNewPartError(model, messageSource.getMessage("parts.error.duplicateName", null, locale),
 					name, quantity, locations);
 		}
@@ -168,15 +170,18 @@ public class PartController {
 		boolean created;
 		try {
 			created = transactionTemplate.execute(status -> {
-				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, parsedLocations);
+				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, principal.companyId(),
+						parsedLocations);
 				// The name lock comes after the shelf locks (the import's order), so a
 				// concurrent import can't read the catalog and then insert a case
 				// variant of this name before this part commits.
-				LocationSpellings.lockPartNames(partRepository, List.of(trimmedName));
+				LocationSpellings.lockPartNames(partRepository, principal.companyId(), List.of(trimmedName));
 				// Under the name lock, a case variant committed meanwhile (e.g. by an
 				// import) is visible; the case-sensitive UNIQUE constraint alone
 				// would let it through as a second part.
-				if (!CatalogNameIndex.of(partRepository.findAllIdsAndNames()).matches(trimmedName).isEmpty()) {
+				if (!CatalogNameIndex.of(partRepository.findAllIdsAndNames(principal.companyId()))
+					.matches(trimmedName)
+					.isEmpty()) {
 					return false;
 				}
 				Part part = new Part();
@@ -208,8 +213,8 @@ public class PartController {
 
 	@GetMapping("/parts/{id}/edit")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String editForm(@PathVariable Long id, Model model) {
-		Part part = partRepository.findById(id)
+	public String editForm(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal, Model model) {
+		Part part = partRepository.findByIdAndCompanyId(id, principal.companyId())
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		model.addAttribute("id", part.getId());
 		model.addAttribute("name", part.getName());
@@ -224,9 +229,10 @@ public class PartController {
 			@PathVariable Long id,
 			@RequestParam String name,
 			@RequestParam String locations,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		Part existing = partRepository.findById(id)
+		Part existing = partRepository.findByIdAndCompanyId(id, principal.companyId())
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		int currentQuantity = existing.getQuantity();
 
@@ -241,7 +247,7 @@ public class PartController {
 					name, currentQuantity, locations);
 		}
 
-		Optional<Part> conflict = partRepository.findByName(trimmedName)
+		Optional<Part> conflict = partRepository.findByCompanyIdAndName(principal.companyId(), trimmedName)
 			.filter(other -> !other.getId().equals(id));
 		if (conflict.isPresent()) {
 			return renderEditPartError(model, id, messageSource.getMessage("parts.error.duplicateName", null, locale),
@@ -274,21 +280,22 @@ public class PartController {
 				// Lock every target shelf (new and re-spelled ones included) before
 				// anything is read or written, so a concurrent writer of the same
 				// shelf commits entirely before or after this edit.
-				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, parsedLocations);
+				LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, principal.companyId(),
+						parsedLocations);
 				// The name lock comes after the shelf locks (the import's and
 				// create's order), so a concurrent import or create can't read the
 				// catalog and then insert a case variant of this name meanwhile.
-				LocationSpellings.lockPartNames(partRepository, List.of(trimmedName));
+				LocationSpellings.lockPartNames(partRepository, principal.companyId(), List.of(trimmedName));
 				// Under the name lock, another part holding a case variant is
 				// visible; the case-sensitive UNIQUE constraint alone would let it
 				// through. The part's own name may change case.
-				if (CatalogNameIndex.of(partRepository.findAllIdsAndNames())
+				if (CatalogNameIndex.of(partRepository.findAllIdsAndNames(principal.companyId()))
 					.matches(trimmedName)
 					.stream()
 					.anyMatch(other -> !other.id().equals(id))) {
 					return false;
 				}
-				Part part = partRepository.findById(id)
+				Part part = partRepository.findByIdAndCompanyId(id, principal.companyId())
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				part.setName(trimmedName);
 				List<String> respelled = reconcileLocations(part, parsedLocations, spellings);
@@ -296,7 +303,7 @@ public class PartController {
 				// the persistence context and must never touch them.
 				partRepository.saveAndFlush(part);
 				for (String spelling : respelled) {
-					partRepository.respellOnOtherParts(spelling, part.getId());
+					partRepository.respellOnOtherParts(principal.companyId(), spelling, part.getId());
 				}
 				return true;
 			});
@@ -315,9 +322,9 @@ public class PartController {
 
 	@PostMapping("/parts/{id}/deactivate")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String deactivate(@PathVariable Long id) {
+	public String deactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
 		transactionTemplate.executeWithoutResult(status -> {
-			Part part = partRepository.findById(id)
+			Part part = partRepository.findByIdAndCompanyId(id, principal.companyId())
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 			part.setActive(false);
 			partRepository.saveAndFlush(part);
@@ -327,9 +334,9 @@ public class PartController {
 
 	@PostMapping("/parts/{id}/reactivate")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String reactivate(@PathVariable Long id) {
+	public String reactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
 		transactionTemplate.executeWithoutResult(status -> {
-			Part part = partRepository.findById(id)
+			Part part = partRepository.findByIdAndCompanyId(id, principal.companyId())
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 			part.setActive(true);
 			partRepository.saveAndFlush(part);
