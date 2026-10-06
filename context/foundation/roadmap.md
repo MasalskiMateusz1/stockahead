@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 2
 status: draft
 created: 2026-10-05
-updated: 2026-10-05
+updated: 2026-10-06
 prd_version: 2
 main_goal: quality
 top_blocker: capacity
@@ -41,7 +41,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 
 | ID   | Change ID                         | Outcome (user can …)                                                                                   | Prerequisites | PRD refs                                   | Status   |
 | ---- | --------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------- | ------------------------------------------ | -------- |
-| F-01 | company-boundary-harness          | (foundation) every account belongs to a company, the logged-in user carries it, two-company test pattern exists | —             | FR-028, FR-029, Success Criteria › Guardrails, Access Control Changes (company isolation) | in-progress |
+| F-01 | company-boundary-harness          | (foundation) every account belongs to a company, the logged-in user carries it, two-company test pattern exists | —             | FR-028, FR-029, Success Criteria › Guardrails, Access Control Changes (company isolation) | done |
 | S-01 | company-scoped-parts              | Manager of each company sees, searches and edits only their company's parts and locations              | F-01          | US-01, FR-028, Success Criteria › Guardrails | proposed |
 | S-02 | company-scoped-projects           | Manager keeps projects, BOMs and links visible only within their company                               | S-01          | US-01, FR-028 | proposed |
 | S-03 | company-scoped-orders             | Manager orders production; reservations draw only on their company's parts and orders                 | S-02          | US-01, FR-028, Business Logic Changes (modified rule), Success Criteria › Guardrails (stock/reservation guarantees per company) | proposed |
@@ -91,7 +91,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Without the company on the logged-in user, no slice can scope anything, and without a shared two-company fixture each slice would invent its own isolation test. The opposite trap is turning this into "add a company column to all nine tables" — the scope stops at accounts and the principal; each Stream A slice scopes its own tables in its own migration. Existing data may be wiped (prd-v2 § Constraints), so no backfill is needed; until S-08/S-09 land, the existing setup keeps working by placing its manager in a company.
-- **Status:** in-progress
+- **Status:** done
 
 ## Slices
 
@@ -285,3 +285,5 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **M-1: Zakład prowadzi pełny cykl zlecenia w systemie** (`mvp-production-loop`) — closed 2026-10-05. All 18 must-have FRs of prd.md v1 delivered across S-01…S-13 (archived 2026-09-26…2026-10-03); F-01 (`migration-and-invariant-harness`) closed as absorbed — its migration path and concurrency-test pattern landed inside the slices rather than as a separate change.
 
 ## Done
+
+- **F-01: (foundation) a company record exists, every account belongs to one company, the logged-in user carries its company id, the one-manager-per-database rule becomes one-or-more-managers-per-company, and the repository has a two-company test pattern asserting that company B's user gets 404 for company A's record id.** — Archived 2026-10-06 → `context/archive/2026-10-05-company-boundary-harness/`. Lesson: —.
