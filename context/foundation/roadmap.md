@@ -153,7 +153,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** S-04, S-06, S-07, S-08, S-09, S-10, S-11, S-12
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** CSV import matches parts by name, so with names now unique only per company an unscoped match would add stock to another company's part. Columns of the import file must not change (prd-v2 § Constraints). S-01 scoped import matching, shelf locks and the delivery form's lists, but left these part lookups bare on purpose: `DeliveryController.applyReceipt`'s `findByIdInForUpdate(partIds)` with posted part ids, and `StockCorrectionController`'s `findByIdInForUpdate(Set.of(id))` and `findById(id)` (`StockCorrectionController.java:226`, `:300`) — another company's part id still reaches them.
+- **Risk:** CSV import matches parts by name, so with names now unique only per company an unscoped match would add stock to another company's part. Columns of the import file must not change (prd-v2 § Constraints). S-01 scoped import matching, shelf locks and the delivery form's lists, but left these part lookups bare on purpose: `DeliveryController.applyReceipt`'s `findByIdInForUpdate(partIds)` with posted part ids, and `StockCorrectionController`'s `findByIdInForUpdate(Set.of(id))` and `findById(id)` (`StockCorrectionController.java:226`, `:300`) — another company's part id still reaches them. Scoping the posted ids in `applyReceipt` also fixes its shelf resolution: shelf spellings and lock keys come from the receiver's company, so a foreign part id gets its shelf resolved against the wrong company's spellings and can end up with a second spelling of one shelf (found in company-scoped-parts impl review F1).
 - **Status:** proposed
 
 ### S-06: Shopping list per company
@@ -191,7 +191,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Is the setup token alone enough protection against the fresh-deploy race (PRD Open Question 1)? — Owner: user. Block: no (today's token posture carries over until decided).
   - Should setup adopt the technician form's validation (12-character password minimum, email format and length)? Today `/setup` checks neither, so the first manager may have a weaker password than a technician (found in company-boundary-harness impl review F5). — Owner: user. Block: no.
-- **Risk:** A third role that is *not* a superset of manager breaks the current "manager ⊇ technician" assumption — every warehouse route must refuse the operator, which means a 403 test per controller, not one global check.
+- **Risk:** A third role that is *not* a superset of manager breaks the current "manager ⊇ technician" assumption — every warehouse route must refuse the operator, which means a 403 test per controller, not one global check. Refuse the operator with a role gate, never by relying on company-scoped queries returning nothing: `GET /parts` has no `@PreAuthorize` today, so an operator (`companyId == null`) would get an empty catalog instead of a 403 (found in company-scoped-parts impl review F3).
 - **Status:** proposed
 
 ### S-09: A visitor registers a company and waits for approval

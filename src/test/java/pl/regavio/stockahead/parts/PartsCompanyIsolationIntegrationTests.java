@@ -336,7 +336,7 @@ class PartsCompanyIsolationIntegrationTests {
 	void twoCompaniesCreatingTheSameNameAndShelfAtOnceNeverWaitOnEachOther() throws Exception {
 		MockHttpSession sessionA = managerA();
 		MockHttpSession sessionB = managerB();
-		installSlowdownFor(companyA(), 3);
+		installSlowdownFor(companyA(), 6);
 
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		try {
