@@ -188,7 +188,7 @@ class OrderCompletionIntegrationTests {
 
 	private Long seedProject(String name) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, name));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class, name, company().getId()));
 	}
 
 	private Long seedPart(String name, int quantity) {
@@ -1028,8 +1028,8 @@ class OrderCompletionIntegrationTests {
 		Long lineB = seedOrderLine(orderB, partId, 12, 4);
 		Long lowProjectId = seedProject("Late Low Board");
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, 5)", lowProjectId,
-				partId));
+				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, 5, ?)", lowProjectId,
+				partId, company().getId()));
 		seedAccount(MANAGER_EMAIL, Role.MANAGER);
 		MockHttpSession technician = technicianSession();
 		MockHttpSession manager = loginAs(MANAGER_EMAIL);

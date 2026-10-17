@@ -66,8 +66,8 @@ class ReservationConcurrencyTests {
 		cleanUp();
 		companyId = companyFixtures.company("ReservationConcurrencyTests Co").getId();
 		projectId = jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class,
-				"Concurrency Board");
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class,
+				"Concurrency Board", companyId);
 		partId = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
 				Long.class, "Scarce Resistor", 5, companyId);

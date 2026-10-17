@@ -99,7 +99,7 @@ class OrderAssignIntegrationTests {
 		transactionTemplate = new TransactionTemplate(transactionManager);
 		cleanUp();
 		projectId = transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES ('Order Assign Board', true) RETURNING id", Long.class));
+				"INSERT INTO projects (name, active, company_id) VALUES ('Order Assign Board', true, ?) RETURNING id", Long.class, company().getId()));
 	}
 
 	@AfterEach

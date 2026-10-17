@@ -164,7 +164,7 @@ class PickingVisibilityIntegrationTests {
 	private Long seedOrder(String projectName, Long assigneeId) {
 		return transactionTemplate.execute(status -> {
 			Long projectId = jdbcTemplate.queryForObject(
-					"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, projectName);
+					"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class, projectName, company().getId());
 			return jdbcTemplate.queryForObject(
 					"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id) "
 							+ "VALUES (?, 1, 'NORMAL', ?, ?, ?) RETURNING id",

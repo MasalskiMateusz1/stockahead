@@ -167,7 +167,7 @@ class DeliveryConcurrencyTests {
 
 	private Long seedProject(String name) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, name));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class, name, company().getId()));
 	}
 
 	private Long seedPart(String name, int quantity) {
@@ -178,8 +178,8 @@ class DeliveryConcurrencyTests {
 
 	private Long seedBomLine(Long project, Long part, int quantityPerUnit) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, ?) RETURNING id",
-				Long.class, project, part, quantityPerUnit));
+				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, ?, ?) RETURNING id",
+				Long.class, project, part, quantityPerUnit, company().getId()));
 	}
 
 	private Long seedOrder(Long orderProjectId, Priority priority, LocalDate requiredDate, Instant createdAt) {

@@ -262,8 +262,8 @@ class PartsCompanyIsolationIntegrationTests {
 		companyFixtures.part(companyA(), "Alpha Picker Part", 1, "A1");
 		companyFixtures.part(companyB(), "Beta Picker Part", 1, "B1");
 		Long projectId = jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class,
-				"Isolation Project");
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class,
+				"Isolation Project", companyB().getId());
 
 		mockMvc.perform(get("/projects/" + projectId).session(managerB()))
 			.andExpect(status().isOk())

@@ -123,7 +123,7 @@ class ProjectIntegrationTests {
 
 	private Long seedProject(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, ?, ?) RETURNING id", Long.class, name, active, company().getId()));
 	}
 
 	private Long seedPart(String name, boolean active) {
@@ -369,10 +369,10 @@ class ProjectIntegrationTests {
 		Long activePartId = seedPart("Resistor 10k", true);
 		Long inactivePartId = seedPart("Old Capacitor", false);
 		transactionTemplate.executeWithoutResult(status -> {
-			jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, ?)",
-					projectId, activePartId, 4);
-			jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, ?)",
-					projectId, inactivePartId, 2);
+			jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, ?, ?)",
+					projectId, activePartId, 4, company().getId());
+			jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, ?, ?)",
+					projectId, inactivePartId, 2, company().getId());
 			jdbcTemplate.update("INSERT INTO project_links (project_id, url, label) VALUES (?, ?, ?)", projectId,
 					"https://example.com/schematic.pdf", "Schemat");
 		});

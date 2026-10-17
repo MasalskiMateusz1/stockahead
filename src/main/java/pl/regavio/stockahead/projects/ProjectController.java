@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.account.CompanyRepository;
 import pl.regavio.stockahead.security.CompanyUser;
 
 /**
@@ -27,8 +28,10 @@ import pl.regavio.stockahead.security.CompanyUser;
  * manager-only create/rename/deactivate/reactivate actions. Renaming is a
  * form on the detail page, next to the BOM and links, not a separate screen.
  * {@code showInactive} is honored only for managers, and an inactive
- * project's detail page is 404 for a technician. The DB {@code UNIQUE}
- * constraint on {@code projects.name} is the only duplicate-name check.
+ * project's detail page is 404 for a technician. Project names are unique
+ * per company, not globally: the DB {@code UNIQUE} constraint
+ * {@code projects_company_name_key (company_id, name)} is the only
+ * duplicate-name check. A new project belongs to its creator's company.
  */
 @Controller
 public class ProjectController {
@@ -37,15 +40,19 @@ public class ProjectController {
 
 	private final ProjectRepository projectRepository;
 
+	private final CompanyRepository companyRepository;
+
 	private final ProjectDetailModel projectDetailModel;
 
 	private final TransactionTemplate transactionTemplate;
 
 	private final MessageSource messageSource;
 
-	ProjectController(ProjectRepository projectRepository, ProjectDetailModel projectDetailModel,
-			PlatformTransactionManager transactionManager, MessageSource messageSource) {
+	ProjectController(ProjectRepository projectRepository, CompanyRepository companyRepository,
+			ProjectDetailModel projectDetailModel, PlatformTransactionManager transactionManager,
+			MessageSource messageSource) {
 		this.projectRepository = projectRepository;
+		this.companyRepository = companyRepository;
 		this.projectDetailModel = projectDetailModel;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 		this.messageSource = messageSource;
@@ -79,7 +86,8 @@ public class ProjectController {
 
 	@PostMapping("/projects")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String create(@RequestParam String name, Model model, Locale locale) {
+	public String create(@RequestParam String name, @AuthenticationPrincipal CompanyUser principal, Model model,
+			Locale locale) {
 		String trimmedName = name == null ? "" : name.trim();
 		String validationError = validateName(trimmedName, locale);
 		if (validationError != null) {
@@ -93,6 +101,7 @@ public class ProjectController {
 				project.setName(trimmedName);
 				project.setActive(true);
 				project.setCreatedAt(Instant.now());
+				project.setCompany(companyRepository.getReferenceById(principal.companyId()));
 				return projectRepository.saveAndFlush(project).getId();
 			});
 		}

@@ -22,14 +22,18 @@ import pl.regavio.stockahead.account.Role;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartLocation;
 import pl.regavio.stockahead.parts.PartRepository;
+import pl.regavio.stockahead.projects.BomLine;
+import pl.regavio.stockahead.projects.Project;
+import pl.regavio.stockahead.projects.ProjectRepository;
 
 /**
- * The shared way tests create companies, accounts and parts in them. Every
- * write commits in its own transaction, so MockMvc requests and other
- * threads see it. {@link #cleanUp()} removes what this fixture created:
- * the companies' parts, accounts and then companies (FK order); call it
- * after the test's own deletes of rows that reference parts or accounts
- * (BOM lines, orders, stock corrections).
+ * The shared way tests create companies, accounts, parts, projects and BOM
+ * lines in them. Every write commits in its own transaction, so MockMvc
+ * requests and other threads see it. {@link #cleanUp()} removes what this
+ * fixture created: the companies' projects (their BOM lines and links
+ * cascade), parts, accounts and then companies (FK order); call it after
+ * the test's own deletes of rows that reference projects, parts or accounts
+ * (orders and their lines, stock corrections).
  *
  * <p>Not picked up by component scanning: {@code @Import} it explicitly,
  * next to {@link TestcontainersConfiguration}.
@@ -43,6 +47,8 @@ public class CompanyFixtures {
 
 	private final PartRepository partRepository;
 
+	private final ProjectRepository projectRepository;
+
 	private final PasswordEncoder passwordEncoder;
 
 	private final JdbcTemplate jdbcTemplate;
@@ -54,11 +60,12 @@ public class CompanyFixtures {
 	private final Set<String> emails = ConcurrentHashMap.newKeySet();
 
 	public CompanyFixtures(AccountRepository accountRepository, CompanyRepository companyRepository,
-			PartRepository partRepository, PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate,
-			PlatformTransactionManager transactionManager) {
+			PartRepository partRepository, ProjectRepository projectRepository, PasswordEncoder passwordEncoder,
+			JdbcTemplate jdbcTemplate, PlatformTransactionManager transactionManager) {
 		this.accountRepository = accountRepository;
 		this.companyRepository = companyRepository;
 		this.partRepository = partRepository;
+		this.projectRepository = projectRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jdbcTemplate = jdbcTemplate;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -117,11 +124,40 @@ public class CompanyFixtures {
 		});
 	}
 
+	/** Creates and commits a project of {@code company} with no BOM lines or links. */
+	public Project project(Company company, String name, boolean active) {
+		return transactionTemplate.execute(status -> {
+			Project project = new Project();
+			project.setName(name);
+			project.setActive(active);
+			project.setCreatedAt(Instant.now());
+			project.setCompany(companyRepository.getReferenceById(company.getId()));
+			return projectRepository.saveAndFlush(project);
+		});
+	}
+
 	/**
-	 * Deletes the parts left in a company this fixture created, then the
-	 * accounts this fixture created (by email), any other
-	 * account left in a company it created (e.g. a technician created
-	 * through the UI), and then those companies.
+	 * Creates and commits a BOM line of {@code project} for {@code part}; the
+	 * line takes the project's company, so both must belong to the same one.
+	 */
+	public void bomLine(Project project, Part part, int quantityPerUnit) {
+		transactionTemplate.executeWithoutResult(status -> {
+			Project managed = projectRepository.findById(project.getId()).orElseThrow();
+			BomLine bomLine = new BomLine();
+			bomLine.setPart(partRepository.getReferenceById(part.getId()));
+			bomLine.setQuantityPerUnit(quantityPerUnit);
+			managed.addBomLine(bomLine);
+			projectRepository.saveAndFlush(managed);
+		});
+	}
+
+	/**
+	 * Deletes the projects left in a company this fixture created (their BOM
+	 * lines and links cascade), then the parts left in it, then the accounts
+	 * this fixture created (by email), any other account left in a company it
+	 * created (e.g. a technician created through the UI), and then those
+	 * companies. Orders still reference projects with {@code RESTRICT}, so
+	 * the test deletes its orders first.
 	 */
 	public void cleanUp() {
 		List<String> createdEmails = new ArrayList<>(emails);
@@ -131,6 +167,7 @@ public class CompanyFixtures {
 				jdbcTemplate.update("DELETE FROM accounts WHERE lower(btrim(email)) = lower(btrim(?))", email);
 			}
 			for (Long companyId : createdCompanyIds) {
+				jdbcTemplate.update("DELETE FROM projects WHERE company_id = ?", companyId);
 				jdbcTemplate.update("DELETE FROM parts WHERE company_id = ?", companyId);
 				jdbcTemplate.update("DELETE FROM accounts WHERE company_id = ?", companyId);
 				jdbcTemplate.update("DELETE FROM companies WHERE id = ?", companyId);

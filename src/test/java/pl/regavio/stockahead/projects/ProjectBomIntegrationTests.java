@@ -147,7 +147,7 @@ class ProjectBomIntegrationTests {
 
 	private Long seedProject(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, ?, ?) RETURNING id", Long.class, name, active, company().getId()));
 	}
 
 	private Long seedPart(String name, boolean active) {
@@ -158,8 +158,8 @@ class ProjectBomIntegrationTests {
 
 	private Long seedLine(Long project, Long part, int quantityPerUnit) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, ?) RETURNING id",
-				Long.class, project, part, quantityPerUnit));
+				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, ?, ?) RETURNING id",
+				Long.class, project, part, quantityPerUnit, company().getId()));
 	}
 
 	private void deactivatePart(Long partId) {

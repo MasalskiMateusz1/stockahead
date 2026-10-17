@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 2
 status: draft
 created: 2026-10-05
-updated: 2026-10-06
+updated: 2026-10-08
 prd_version: 2
 main_goal: quality
 top_blocker: capacity
@@ -39,21 +39,21 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 
 ## At a glance
 
-| ID   | Change ID                         | Outcome (user can …)                                                                                   | Prerequisites | PRD refs                                   | Status   |
-| ---- | --------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------- | ------------------------------------------ | -------- |
-| F-01 | company-boundary-harness          | (foundation) every account belongs to a company, the logged-in user carries it, two-company test pattern exists | —             | FR-028, FR-029, Success Criteria › Guardrails, Access Control Changes (company isolation) | done |
-| S-01 | company-scoped-parts              | Manager of each company sees, searches and edits only their company's parts and locations              | F-01          | US-01, FR-028, Success Criteria › Guardrails | done |
-| S-02 | company-scoped-projects           | Manager keeps projects, BOMs and links visible only within their company                               | S-01          | US-01, FR-028 | proposed |
-| S-03 | company-scoped-orders             | Manager orders production; reservations draw only on their company's parts and orders                 | S-02          | US-01, FR-028, Business Logic Changes (modified rule), Success Criteria › Guardrails (stock/reservation guarantees per company) | proposed |
-| S-04 | company-scoped-picking-completion | Technician picks and reports completion only for their company's orders                                | S-03          | US-01, FR-028, Success Criteria › Guardrails | proposed |
-| S-05 | company-scoped-stock-movements    | Users receive deliveries, correct stock and import CSV only into their company's catalog               | S-01, S-03    | FR-028, Business Logic Changes, Constraints (CSV formats unchanged) | proposed |
-| S-06 | company-scoped-shopping-list      | Manager sees and exports a shopping list built only from their company's shortages                     | S-03          | US-01, FR-028, Constraints (CSV formats unchanged) | proposed |
-| S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company               | F-01          | FR-030, FR-032, FR-029, FR-028 | proposed |
-| S-08 | operator-setup-and-company-list   | Setup creates the operator, who sees the list of companies and nothing else                            | F-01          | FR-033, FR-025, FR-029, Success Criteria › Guardrails (operator has no path to company data) | proposed |
-| S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                            | F-01          | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle) | proposed |
-| S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction       | S-09          | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…" | proposed |
-| S-11 | operator-approves-companies       | Operator approves or rejects a pending company; an approved manager reaches the warehouse              | S-03, S-08, S-09 | US-01, FR-026, FR-024, FR-025, Business Logic Changes (company lifecycle) | proposed |
-| S-12 | operator-blocks-companies         | Operator blocks and unblocks a company; blocked users cannot log in, data stays                        | S-11          | FR-027, Success Criteria › Secondary | proposed |
+| ID   | Change ID                         | Outcome (user can …)                                                                                            | Prerequisites    | PRD refs                                                                                                                        | Status      |
+| ---- | --------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| F-01 | company-boundary-harness          | (foundation) every account belongs to a company, the logged-in user carries it, two-company test pattern exists | —                | FR-028, FR-029, Success Criteria › Guardrails, Access Control Changes (company isolation)                                       | done        |
+| S-01 | company-scoped-parts              | Manager of each company sees, searches and edits only their company's parts and locations                       | F-01             | US-01, FR-028, Success Criteria › Guardrails                                                                                    | done        |
+| S-02 | company-scoped-projects           | Manager keeps projects, BOMs and links visible only within their company                                        | S-01             | US-01, FR-028                                                                                                                   | in-progress |
+| S-03 | company-scoped-orders             | Manager orders production; reservations draw only on their company's parts and orders                           | S-02             | US-01, FR-028, Business Logic Changes (modified rule), Success Criteria › Guardrails (stock/reservation guarantees per company) | proposed    |
+| S-04 | company-scoped-picking-completion | Technician picks and reports completion only for their company's orders                                         | S-03             | US-01, FR-028, Success Criteria › Guardrails                                                                                    | proposed    |
+| S-05 | company-scoped-stock-movements    | Users receive deliveries, correct stock and import CSV only into their company's catalog                        | S-01, S-03       | FR-028, Business Logic Changes, Constraints (CSV formats unchanged)                                                             | proposed    |
+| S-06 | company-scoped-shopping-list      | Manager sees and exports a shopping list built only from their company's shortages                              | S-03             | US-01, FR-028, Constraints (CSV formats unchanged)                                                                              | proposed    |
+| S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company                        | F-01             | FR-030, FR-032, FR-029, FR-028                                                                                                  | proposed    |
+| S-08 | operator-setup-and-company-list   | Setup creates the operator, who sees the list of companies and nothing else                                     | F-01             | FR-033, FR-025, FR-029, Success Criteria › Guardrails (operator has no path to company data)                                    | proposed    |
+| S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                                     | F-01             | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle)                                                       | proposed    |
+| S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction                | S-09             | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…"                                          | proposed    |
+| S-11 | operator-approves-companies       | Operator approves or rejects a pending company; an approved manager reaches the warehouse                       | S-03, S-08, S-09 | US-01, FR-026, FR-024, FR-025, Business Logic Changes (company lifecycle)                                                       | proposed    |
+| S-12 | operator-blocks-companies         | Operator blocks and unblocks a company; blocked users cannot log in, data stays                                 | S-11             | FR-027, Success Criteria › Secondary                                                                                            | proposed    |
 
 ## Streams
 
@@ -118,7 +118,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Sequenced after S-01 because a BOM line points at a part — the cross-company reference (company B's BOM naming company A's part id in a form post) is the new hole here, not just the lookups. S-01 left this lookup bare on purpose: `ProjectBomController.addLine`'s `partRepository.findById(parsedPartId)` (`ProjectBomController.java:85`) still accepts another company's part id.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-03: Orders reserve only their own company's parts
 

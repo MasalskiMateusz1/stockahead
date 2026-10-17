@@ -51,7 +51,7 @@ class OrderCompletionSchemaTests {
 			"INSERT INTO accounts (email, password_hash, role, company_id) VALUES (?, 'x', 'TECHNICIAN', ?) RETURNING id",
 			Long.class, REPORTER_EMAIL, companyId);
 		projectId = jdbcTemplate.queryForObject(
-			"INSERT INTO projects (name) VALUES ('Completion Schema Board') RETURNING id", Long.class);
+			"INSERT INTO projects (name, company_id) VALUES ('Completion Schema Board', ?) RETURNING id", Long.class, companyId);
 	}
 
 	@AfterEach

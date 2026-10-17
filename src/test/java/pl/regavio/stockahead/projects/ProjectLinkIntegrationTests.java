@@ -138,7 +138,7 @@ class ProjectLinkIntegrationTests {
 
 	private Long seedProject(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, ?, ?) RETURNING id", Long.class, name, active, company().getId()));
 	}
 
 	private Long seedLink(Long project, String url, String label) {

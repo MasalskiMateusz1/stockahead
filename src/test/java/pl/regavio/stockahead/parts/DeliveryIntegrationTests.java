@@ -163,7 +163,7 @@ class DeliveryIntegrationTests {
 
 	private Long seedProject(String name) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, name));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class, name, company().getId()));
 	}
 
 	private Long seedOrder(Long projectId, Priority priority, LocalDate requiredDate, Instant createdAt) {

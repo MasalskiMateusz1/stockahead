@@ -16,8 +16,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Proves the V5 constraints on projects, BOM lines and documentation links
- * hold at the PostgreSQL level, independently of any controller validation.
+ * Proves the V5 constraints on projects, BOM lines and documentation links,
+ * and the V16 company constraints (project names unique per company, a BOM
+ * line never linking two companies), hold at the PostgreSQL level,
+ * independently of any controller validation.
  * Deliberately not {@code @Transactional}: every {@code JdbcTemplate} call
  * runs as its own auto-committed statement so the constraint fires for real.
  */
@@ -33,10 +35,13 @@ class ProjectSchemaTests {
 
 	private Long companyId;
 
+	private Long otherCompanyId;
+
 	@BeforeEach
 	void setUp() {
 		cleanUp();
 		companyId = companyFixtures.company("ProjectSchemaTests Co").getId();
+		otherCompanyId = companyFixtures.company("ProjectSchemaTests Other Co").getId();
 	}
 
 	@AfterEach
@@ -54,20 +59,32 @@ class ProjectSchemaTests {
 	}
 
 	private long insertProject(String name) {
+		return insertProject(companyId, name);
+	}
+
+	private long insertProject(Long ownerId, String name) {
 		return jdbcTemplate.queryForObject(
-			"INSERT INTO projects (name) VALUES (?) RETURNING id", Long.class, name);
+			"INSERT INTO projects (name, company_id) VALUES (?, ?) RETURNING id", Long.class, name, ownerId);
 	}
 
 	private long insertPart(String name) {
+		return insertPart(companyId, name);
+	}
+
+	private long insertPart(Long ownerId, String name) {
 		return jdbcTemplate.queryForObject(
 			"INSERT INTO parts (name, quantity, company_id) VALUES (?, 10, ?) RETURNING id", Long.class, name,
-			companyId);
+			ownerId);
 	}
 
 	private void insertBomLine(long projectId, long partId, int quantityPerUnit) {
+		insertBomLine(projectId, partId, quantityPerUnit, companyId);
+	}
+
+	private void insertBomLine(long projectId, long partId, int quantityPerUnit, Long lineCompanyId) {
 		jdbcTemplate.update(
-			"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, ?)",
-			projectId, partId, quantityPerUnit);
+			"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, ?, ?)",
+			projectId, partId, quantityPerUnit, lineCompanyId);
 	}
 
 	private void insertLink(long projectId, String url) {
@@ -145,6 +162,30 @@ class ProjectSchemaTests {
 		assertThatThrownBy(() -> insertProject("Board A"))
 			.isInstanceOf(DataIntegrityViolationException.class);
 		assertThat(count("projects")).isEqualTo(1);
+	}
+
+	@Test
+	void twoCompaniesEachHoldAProjectWithTheSameNameButOneCompanyCannotHoldItTwice() {
+		long first = insertProject(companyId, "Board X");
+		long second = insertProject(otherCompanyId, "Board X");
+
+		assertThat(first).isNotEqualTo(second);
+		assertThatThrownBy(() -> insertProject(companyId, "Board X"))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM projects WHERE name = ?", Integer.class,
+				"Board X")).isEqualTo(2);
+	}
+
+	@Test
+	void bomLineLinkingOneCompanysProjectToAnotherCompanysPartIsRejected() {
+		long projectId = insertProject(companyId, "Board A");
+		long foreignPartId = insertPart(otherCompanyId, "Resistor 10k");
+
+		assertThatThrownBy(() -> insertBomLine(projectId, foreignPartId, 2, companyId))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThatThrownBy(() -> insertBomLine(projectId, foreignPartId, 2, otherCompanyId))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThat(count("bom_lines")).isZero();
 	}
 
 }

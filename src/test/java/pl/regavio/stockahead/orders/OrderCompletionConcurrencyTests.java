@@ -105,8 +105,8 @@ class OrderCompletionConcurrencyTests {
 		cleanUp();
 		installPickAfterReportDetector();
 		projectId = transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES ('Completion Concurrency Board', true) RETURNING id",
-				Long.class));
+				"INSERT INTO projects (name, active, company_id) VALUES ('Completion Concurrency Board', true, ?) RETURNING id",
+				Long.class, company().getId()));
 	}
 
 	@AfterEach
@@ -326,10 +326,10 @@ class OrderCompletionConcurrencyTests {
 			Long partId = seedPartWithStock("Confirm Race Part " + iteration, 6);
 			Long newProjectId = transactionTemplate.execute(status -> {
 				Long id = jdbcTemplate.queryForObject(
-						"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class,
-						"Confirm Race Board " + iterationIndex);
-				jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, 4)",
-						id, partId);
+						"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class,
+						"Confirm Race Board " + iterationIndex, company().getId());
+				jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, 4, ?)",
+						id, partId, company().getId());
 				return id;
 			});
 			Long confirmedOrderId = seedUntakenOrderLine(partId, 6, 6);
