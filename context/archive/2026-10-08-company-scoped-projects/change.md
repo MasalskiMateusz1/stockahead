@@ -1,7 +1,8 @@
 ---
 change_id: company-scoped-projects
 title: Company scoped projects
-status: impl_reviewed
+status: archived
+archived_at: 2026-10-17T07:53:42Z
 created: 2026-10-08
 updated: 2026-10-17
 ---
