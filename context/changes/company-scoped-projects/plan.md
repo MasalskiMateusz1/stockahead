@@ -271,13 +271,13 @@ V16 assumes `projects`, `bom_lines` and `project_links` are empty. That holds be
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 `ProjectsCompanyIsolationIntegrationTests` passes: B gets 404 on all nine `/projects/{id}…` routes with A's data unchanged, the list shows only the user's own company, and project names are reused across companies
-- [x] 2.3 The cross-company BOM part test passes: A's part id posted to B's BOM shows `partUnavailable` and writes no line
-- [x] 2.4 The order isolation test passes: the new-order picker lists only the user's own company's projects, and A's project id posted to `POST /orders` shows `projectUnavailable` and creates no order
-- [x] 2.5 `grep -nE "projectRepository\.(findById|existsById)\(|partRepository\.findById\(" src/main/java/pl/regavio/stockahead/projects src/main/java/pl/regavio/stockahead/orders/OrderController.java` returns nothing
+- [x] 2.1 `./mvnw verify` passes — f427393
+- [x] 2.2 `ProjectsCompanyIsolationIntegrationTests` passes: B gets 404 on all nine `/projects/{id}…` routes with A's data unchanged, the list shows only the user's own company, and project names are reused across companies — f427393
+- [x] 2.3 The cross-company BOM part test passes: A's part id posted to B's BOM shows `partUnavailable` and writes no line — f427393
+- [x] 2.4 The order isolation test passes: the new-order picker lists only the user's own company's projects, and A's project id posted to `POST /orders` shows `projectUnavailable` and creates no order — f427393
+- [x] 2.5 `grep -nE "projectRepository\.(findById|existsById)\(|partRepository\.findById\(" src/main/java/pl/regavio/stockahead/projects src/main/java/pl/regavio/stockahead/orders/OrderController.java` returns nothing — f427393
 
 #### Manual
 
-- [x] 2.6 With `spring-boot:test-run`, two companies each create a project "Board X". Each manager sees only their own project, and pasting the other company's project id into `/projects/{id}` shows the 404 page
-- [x] 2.7 The new-order form lists only the user's own company's projects, and the BOM add-line picker lists only the user's own company's parts
+- [x] 2.6 With `spring-boot:test-run`, two companies each create a project "Board X". Each manager sees only their own project, and pasting the other company's project id into `/projects/{id}` shows the 404 page — f427393
+- [x] 2.7 The new-order form lists only the user's own company's projects, and the BOM add-line picker lists only the user's own company's parts — f427393
