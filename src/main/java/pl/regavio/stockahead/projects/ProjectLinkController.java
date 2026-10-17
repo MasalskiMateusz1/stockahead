@@ -60,7 +60,7 @@ public class ProjectLinkController {
 			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		if (!projectRepository.existsById(id)) {
+		if (!projectRepository.existsByIdAndCompanyId(id, principal.companyId())) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
 
@@ -81,7 +81,7 @@ public class ProjectLinkController {
 
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
-				Project project = projectRepository.findById(id)
+				Project project = projectRepository.findByIdAndCompanyId(id, principal.companyId())
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				ProjectLink link = new ProjectLink();
 				link.setUrl(trimmedUrl);
@@ -100,9 +100,10 @@ public class ProjectLinkController {
 
 	@PostMapping("/projects/{id}/links/{linkId}/delete")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String removeLink(@PathVariable Long id, @PathVariable Long linkId) {
+	public String removeLink(@PathVariable Long id, @PathVariable Long linkId,
+			@AuthenticationPrincipal CompanyUser principal) {
 		transactionTemplate.executeWithoutResult(status -> {
-			ProjectLink link = findLink(id, linkId);
+			ProjectLink link = findLink(id, principal.companyId(), linkId);
 			Project project = link.getProject();
 			project.removeLink(link);
 			projectRepository.saveAndFlush(project);
@@ -111,12 +112,13 @@ public class ProjectLinkController {
 	}
 
 	/**
-	 * Loads the link {@code linkId} of project {@code projectId} inside the
-	 * caller's transaction. Unknown project, unknown link, or a link of
-	 * another project is 404.
+	 * Loads the link {@code linkId} of company {@code companyId}'s project
+	 * {@code projectId} inside the caller's transaction. Unknown project,
+	 * another company's project, unknown link, or a link of another project
+	 * is 404.
 	 */
-	private ProjectLink findLink(Long projectId, Long linkId) {
-		Project project = projectRepository.findById(projectId)
+	private ProjectLink findLink(Long projectId, Long companyId, Long linkId) {
+		Project project = projectRepository.findByIdAndCompanyId(projectId, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		return project.getLinks().stream()
 			.filter(link -> link.getId().equals(linkId))

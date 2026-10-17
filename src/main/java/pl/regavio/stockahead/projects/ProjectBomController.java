@@ -60,7 +60,7 @@ public class ProjectBomController {
 			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		if (!projectRepository.existsById(id)) {
+		if (!projectRepository.existsByIdAndCompanyId(id, principal.companyId())) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
 
@@ -80,9 +80,11 @@ public class ProjectBomController {
 		boolean added;
 		try {
 			added = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-				Project project = projectRepository.findById(id)
+				Project project = projectRepository.findByIdAndCompanyId(id, principal.companyId())
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-				Part part = partRepository.findById(parsedPartId).filter(Part::isActive).orElse(null);
+				Part part = partRepository.findByIdAndCompanyId(parsedPartId, principal.companyId())
+					.filter(Part::isActive)
+					.orElse(null);
 				if (part == null) {
 					return false;
 				}
@@ -118,7 +120,7 @@ public class ProjectBomController {
 			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		transactionTemplate.executeWithoutResult(status -> findLine(id, lineId));
+		transactionTemplate.executeWithoutResult(status -> findLine(id, principal.companyId(), lineId));
 
 		String quantityError = validateQuantity(quantityPerUnit, locale);
 		if (quantityError != null) {
@@ -129,7 +131,7 @@ public class ProjectBomController {
 
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
-				BomLine line = findLine(id, lineId);
+				BomLine line = findLine(id, principal.companyId(), lineId);
 				line.setQuantityPerUnit(parsedQuantity);
 				projectRepository.saveAndFlush(line.getProject());
 			});
@@ -144,9 +146,10 @@ public class ProjectBomController {
 
 	@PostMapping("/projects/{id}/bom/{lineId}/delete")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String removeLine(@PathVariable Long id, @PathVariable Long lineId) {
+	public String removeLine(@PathVariable Long id, @PathVariable Long lineId,
+			@AuthenticationPrincipal CompanyUser principal) {
 		transactionTemplate.executeWithoutResult(status -> {
-			BomLine line = findLine(id, lineId);
+			BomLine line = findLine(id, principal.companyId(), lineId);
 			Project project = line.getProject();
 			project.removeBomLine(line);
 			projectRepository.saveAndFlush(project);
@@ -155,12 +158,13 @@ public class ProjectBomController {
 	}
 
 	/**
-	 * Loads the line {@code lineId} of project {@code projectId} inside the
-	 * caller's transaction. Unknown project, unknown line, or a line of
-	 * another project is 404.
+	 * Loads the line {@code lineId} of company {@code companyId}'s project
+	 * {@code projectId} inside the caller's transaction. Unknown project,
+	 * another company's project, unknown line, or a line of another project
+	 * is 404.
 	 */
-	private BomLine findLine(Long projectId, Long lineId) {
-		Project project = projectRepository.findById(projectId)
+	private BomLine findLine(Long projectId, Long companyId, Long lineId) {
+		Project project = projectRepository.findByIdAndCompanyId(projectId, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		return project.getBomLines().stream()
 			.filter(line -> line.getId().equals(lineId))

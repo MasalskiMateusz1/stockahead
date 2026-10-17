@@ -129,7 +129,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** S-07, S-08, S-09, S-10
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** The allocation rule is the core of the product; the frame found it already separates by part, but its row locks and allocation queries read all open orders, so they must be scoped explicitly — companies must never compete for stock or wait on each other's locks. Existing concurrency tests have to pass unchanged per company.
+- **Risk:** The allocation rule is the core of the product; the frame found it already separates by part, but its row locks and allocation queries read all open orders, so they must be scoped explicitly — companies must never compete for stock or wait on each other's locks. Existing concurrency tests have to pass unchanged per company. `projects_id_company_key (id, company_id)` exists, so `orders.project_id` can become a composite FK once `orders` carries `company_id`, and S-02 already scoped the project lookup and picker in `OrderController.create`.
 - **Status:** proposed
 
 ### S-04: Technicians pick and complete only their company's orders

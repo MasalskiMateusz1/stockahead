@@ -19,6 +19,7 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -38,6 +39,7 @@ import pl.regavio.stockahead.parts.PartRepository;
 import pl.regavio.stockahead.projects.BomLine;
 import pl.regavio.stockahead.projects.Project;
 import pl.regavio.stockahead.projects.ProjectRepository;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Manager-only order creation: a form picking an active project, a unit
@@ -495,8 +497,8 @@ public class OrderController {
 
 	@GetMapping("/orders/new")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String newForm(Model model) {
-		populateFormModel(model);
+	public String newForm(@AuthenticationPrincipal CompanyUser principal, Model model) {
+		populateFormModel(model, principal.companyId());
 		return "orders-new";
 	}
 
@@ -508,31 +510,32 @@ public class OrderController {
 			@RequestParam(required = false) String priority,
 			@RequestParam(required = false) String requiredDate,
 			@RequestParam(required = false) String assigneeId,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
 		FormValues form = new FormValues(projectId, quantityUnits, priority, requiredDate, assigneeId);
 		String quantityError = validateQuantityUnits(quantityUnits, locale);
 		if (quantityError != null) {
-			return renderNewOrderError(model, quantityError, form);
+			return renderNewOrderError(model, principal.companyId(), quantityError, form);
 		}
 		int parsedQuantityUnits = Integer.parseInt(quantityUnits.trim());
 
 		String dateError = validateRequiredDate(requiredDate, locale);
 		if (dateError != null) {
-			return renderNewOrderError(model, dateError, form);
+			return renderNewOrderError(model, principal.companyId(), dateError, form);
 		}
 		LocalDate parsedRequiredDate = LocalDate.parse(requiredDate.trim());
 
 		Long parsedProjectId = parseProjectId(projectId);
 		if (parsedProjectId == null) {
-			return renderNewOrderError(model,
+			return renderNewOrderError(model, principal.companyId(),
 					messageSource.getMessage("orders.error.projectUnavailable", null, locale), form);
 		}
 
 		boolean assigned = assigneeId != null && !assigneeId.isBlank();
 		Long parsedAssigneeId = assigned ? parseId(assigneeId) : null;
 		if (assigned && parsedAssigneeId == null) {
-			return renderNewOrderError(model,
+			return renderNewOrderError(model, principal.companyId(),
 					messageSource.getMessage("orders.error.assigneeUnavailable", null, locale), form);
 		}
 
@@ -541,7 +544,9 @@ public class OrderController {
 		CreateOutcome outcome;
 		try {
 			outcome = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-				Project project = projectRepository.findById(parsedProjectId).filter(Project::isActive).orElse(null);
+				Project project = projectRepository.findByIdAndCompanyId(parsedProjectId, principal.companyId())
+					.filter(Project::isActive)
+					.orElse(null);
 				if (project == null) {
 					return CreateOutcome.error("orders.error.projectUnavailable");
 				}
@@ -577,12 +582,13 @@ public class OrderController {
 			}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
-			return renderNewOrderError(model, messageSource.getMessage("orders.error.saveFailed", null, locale),
-					form);
+			return renderNewOrderError(model, principal.companyId(),
+					messageSource.getMessage("orders.error.saveFailed", null, locale), form);
 		}
 
 		if (outcome.errorKey() != null) {
-			return renderNewOrderError(model, messageSource.getMessage(outcome.errorKey(), null, locale), form);
+			return renderNewOrderError(model, principal.companyId(),
+					messageSource.getMessage(outcome.errorKey(), null, locale), form);
 		}
 
 		return "redirect:/orders/" + outcome.orderId();
@@ -722,14 +728,14 @@ public class OrderController {
 		}
 	}
 
-	private void populateFormModel(Model model) {
-		model.addAttribute("activeProjects", projectRepository.list(false));
+	private void populateFormModel(Model model, Long companyId) {
+		model.addAttribute("activeProjects", projectRepository.list(companyId, false));
 		model.addAttribute("today", LocalDate.now().toString());
 		model.addAttribute("assignableAccounts", accountRepository.findAssignable());
 	}
 
-	private String renderNewOrderError(Model model, String error, FormValues form) {
-		populateFormModel(model);
+	private String renderNewOrderError(Model model, Long companyId, String error, FormValues form) {
+		populateFormModel(model, companyId);
 		model.addAttribute("error", error);
 		model.addAttribute("projectId", form.projectId());
 		model.addAttribute("quantityUnits", form.quantityUnits());

@@ -62,11 +62,12 @@ public class ProjectController {
 	public String list(
 			@RequestParam(name = "showInactive", required = false, defaultValue = "false") boolean showInactive,
 			Authentication authentication,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model) {
 		boolean isManager = isManager(authentication);
 		boolean effectiveShowInactive = isManager && showInactive;
 
-		model.addAttribute("projects", projectRepository.list(effectiveShowInactive));
+		model.addAttribute("projects", projectRepository.list(principal.companyId(), effectiveShowInactive));
 		model.addAttribute("showInactive", effectiveShowInactive);
 		model.addAttribute("isManager", isManager);
 		return "projects-list";
@@ -117,7 +118,7 @@ public class ProjectController {
 	@PreAuthorize("hasRole('MANAGER')")
 	public String rename(@PathVariable Long id, @RequestParam String name,
 			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale) {
-		if (!projectRepository.existsById(id)) {
+		if (!projectRepository.existsByIdAndCompanyId(id, principal.companyId())) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
 
@@ -129,7 +130,7 @@ public class ProjectController {
 
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
-				Project project = projectRepository.findById(id)
+				Project project = projectRepository.findByIdAndCompanyId(id, principal.companyId())
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				project.setName(trimmedName);
 				projectRepository.saveAndFlush(project);
@@ -145,21 +146,21 @@ public class ProjectController {
 
 	@PostMapping("/projects/{id}/deactivate")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String deactivate(@PathVariable Long id) {
-		setActive(id, false);
+	public String deactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
+		setActive(id, principal.companyId(), false);
 		return "redirect:/projects";
 	}
 
 	@PostMapping("/projects/{id}/reactivate")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String reactivate(@PathVariable Long id) {
-		setActive(id, true);
+	public String reactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
+		setActive(id, principal.companyId(), true);
 		return "redirect:/projects?showInactive=true";
 	}
 
-	private void setActive(Long id, boolean active) {
+	private void setActive(Long id, Long companyId, boolean active) {
 		transactionTemplate.executeWithoutResult(status -> {
-			Project project = projectRepository.findById(id)
+			Project project = projectRepository.findByIdAndCompanyId(id, companyId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 			project.setActive(active);
 			projectRepository.saveAndFlush(project);

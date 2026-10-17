@@ -3,7 +3,7 @@ change_id: company-scoped-projects
 title: Company scoped projects
 status: implementing
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-10-17
 ---
 
 ## Notes

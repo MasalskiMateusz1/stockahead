@@ -44,9 +44,10 @@ class ProjectDetailModel {
 	}
 
 	/**
-	 * Populates the detail page for {@code projectId}. An unknown project is
-	 * 404; an inactive project is 404 unless {@code isManager}. The add-line
-	 * part picker lists only company {@code companyId}'s active parts.
+	 * Populates the detail page for {@code projectId}. An unknown project, or
+	 * one of another company than {@code companyId}, is 404; an inactive
+	 * project is 404 unless {@code isManager}. The add-line part picker lists
+	 * only company {@code companyId}'s active parts.
 	 * @return the {@code project-detail} view name
 	 */
 	String render(Model model, Long projectId, Long companyId, boolean isManager) {
@@ -71,7 +72,7 @@ class ProjectDetailModel {
 	}
 
 	private DetailData load(Long projectId, Long companyId, boolean isManager) {
-		Project project = projectRepository.findById(projectId)
+		Project project = projectRepository.findByIdAndCompanyId(projectId, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		if (!project.isActive() && !isManager) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
