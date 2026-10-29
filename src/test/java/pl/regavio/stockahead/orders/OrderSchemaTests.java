@@ -21,7 +21,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Proves the V17 company constraints on orders and their lines hold at the
  * PostgreSQL level, independently of any controller check: an order never
  * links its company to another company's project or assignee, and a line
- * never links its order's company to another company's part or order.
+ * never links its order's company to another company's part or order. The V18
+ * constraint likewise keeps an order's completion reporter in its company.
  * Deliberately not {@code @Transactional}: every {@code JdbcTemplate} call
  * runs as its own auto-committed statement so the constraint fires for real.
  */
@@ -100,6 +101,24 @@ class OrderSchemaTests {
 			lineCompanyId, orderId, partId);
 	}
 
+	private long insertTakenOrder(Long orderCompanyId, long projectId) {
+		return jdbcTemplate.queryForObject(
+			"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, taken_at) "
+					+ "VALUES (?, ?, 1, 'NORMAL', CURRENT_DATE, now()) RETURNING id",
+			Long.class, orderCompanyId, projectId);
+	}
+
+	private void reportCompletion(long orderId, Long reporterId) {
+		jdbcTemplate.update(
+			"UPDATE orders SET completion_reported_at = now(), completion_reported_by = ? WHERE id = ?",
+			reporterId, orderId);
+	}
+
+	private Long completionReportedByOf(long orderId) {
+		return jdbcTemplate.queryForObject("SELECT completion_reported_by FROM orders WHERE id = ?", Long.class,
+			orderId);
+	}
+
 	private int count(String table) {
 		return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
 	}
@@ -138,6 +157,26 @@ class OrderSchemaTests {
 		insertOrder(companyAId, projectAId, assigneeAId);
 
 		assertThat(count("orders")).isEqualTo(1);
+	}
+
+	@Test
+	void completionReportedByAnotherCompanysAccountIsRejected() {
+		long projectAId = insertProject(companyAId, "Board A");
+		long orderAId = insertTakenOrder(companyAId, projectAId);
+
+		assertThatThrownBy(() -> reportCompletion(orderAId, assigneeBId))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThat(completionReportedByOf(orderAId)).isNull();
+	}
+
+	@Test
+	void completionReportedByOwnCompanysAccountIsAccepted() {
+		long projectAId = insertProject(companyAId, "Board A");
+		long orderAId = insertTakenOrder(companyAId, projectAId);
+
+		reportCompletion(orderAId, assigneeAId);
+
+		assertThat(completionReportedByOf(orderAId)).isEqualTo(assigneeAId);
 	}
 
 	@Test
