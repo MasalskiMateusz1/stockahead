@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * the roadmap's {@code F-01} call for, which didn't exist anywhere in this
  * codebase before this test. Two threads race to insert a competing order
  * for the same scarce part and each call
- * {@link ReservationAllocator#reallocateForParts(Set)} inside its own
+ * {@link ReservationAllocator#reallocateForParts(Long, Set)} inside its own
  * transaction (mirroring the shape {@code OrderController}'s eventual
  * {@code POST /orders} handler will use, per {@code ProjectBomController
  * .addLine}), genuinely exercising
@@ -106,7 +106,7 @@ class ReservationConcurrencyTests {
 				jdbcTemplate.update(
 						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)", companyId, orderId,
 						partId, 5);
-				reservationAllocator.reallocateForParts(Set.of(partId));
+				reservationAllocator.reallocateForParts(companyId, Set.of(partId));
 			});
 			return null;
 		};
@@ -158,7 +158,7 @@ class ReservationConcurrencyTests {
 				jdbcTemplate.update(
 						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)", companyId, orderId,
 						partBId, 5);
-				reservationAllocator.reallocateForParts(Set.of(partAId, partBId));
+				reservationAllocator.reallocateForParts(companyId, Set.of(partAId, partBId));
 			});
 			return null;
 		};

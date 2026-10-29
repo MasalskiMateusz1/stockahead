@@ -134,14 +134,14 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ### S-04: Technicians pick and complete only their company's orders
 
-- **Outcome:** Technician sees the picking list, picks parts and reports completion (full or partial) only for their company's orders; an order can be assigned only to a technician of the same company; the manager confirms completion only within the company.
+- **Outcome:** Technician sees the picking list, picks parts and reports completion (full or partial) only for their company's orders; the manager confirms completion only within the company. (Assigning an order only to an account of the same company is owned by S-03.)
 - **Change ID:** company-scoped-picking-completion
 - **PRD refs:** US-01, FR-028, Success Criteria › Guardrails
 - **Prerequisites:** S-03
 - **Parallel with:** S-05, S-06, S-07, S-08, S-09, S-10, S-11, S-12
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Picking is the technician-facing half of the order lifecycle, split from S-03 so each slice has one primary user. The assignee field (V13) is a cross-company reference that form validation alone won't catch.
+- **Risk:** Picking is the technician-facing half of the order lifecycle, split from S-03 so each slice has one primary user. S-03 already scoped the picking list itself (`PickingController.list`'s order queries and assignee filter) and the assignee reference (composite FK plus scoped lookup and pickers), but left these by-id lookups bare on purpose for S-04: `PickingDetailModel`'s `findByIdWithDetails(id)`; `PickingController`'s `findPartIdsForOrder(orderId)`, `orderRepository.findById` and the part lock in `pick`; and `OrderLineRepository.reservedQuantitiesByOpenOrder` (all companies' open orders). Another company's order id still reaches the picking detail, pick and report-completion routes.
 - **Status:** proposed
 
 ### S-05: Deliveries, corrections and CSV import touch only one company's stock
@@ -153,7 +153,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Parallel with:** S-04, S-06, S-07, S-08, S-09, S-10, S-11, S-12
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** CSV import matches parts by name, so with names now unique only per company an unscoped match would add stock to another company's part. Columns of the import file must not change (prd-v2 § Constraints). S-01 scoped import matching, shelf locks and the delivery form's lists, but left these part lookups bare on purpose: `DeliveryController.applyReceipt`'s `findByIdInForUpdate(partIds)` with posted part ids, and `StockCorrectionController`'s `findByIdInForUpdate(Set.of(id))` and `findById(id)` (`StockCorrectionController.java:226`, `:300`) — another company's part id still reaches them. Scoping the posted ids in `applyReceipt` also fixes its shelf resolution: shelf spellings and lock keys come from the receiver's company, so a foreign part id gets its shelf resolved against the wrong company's spellings and can end up with a second spelling of one shelf (found in company-scoped-parts impl review F1).
+- **Risk:** CSV import matches parts by name, so with names now unique only per company an unscoped match would add stock to another company's part. Columns of the import file must not change (prd-v2 § Constraints). S-01 scoped import matching, shelf locks and the delivery form's lists, but left these part lookups bare on purpose: `DeliveryController.applyReceipt`'s `findByIdInForUpdate(partIds)` with posted part ids, and `StockCorrectionController`'s `findByIdInForUpdate(Set.of(id))` and `findById(id)` (`StockCorrectionController.java:226`, `:300`) — another company's part id still reaches them. Scoping the posted ids in `applyReceipt` also fixes its shelf resolution: shelf spellings and lock keys come from the receiver's company, so a foreign part id gets its shelf resolved against the wrong company's spellings and can end up with a second spelling of one shelf (found in company-scoped-parts impl review F1). Since S-03 the allocator takes a company and ignores other companies' part ids: `StockCorrectionController` passes the locked part's company (not the principal's) to `reallocateForParts`, so a still-unscoped foreign correction reconciles the owning company and never leaves it over-reserved; once S-05 scopes its part lookup it must switch to `principal.companyId()`. `DeliveryController` and `PartImportController` pass the principal's company, so until S-05 a delivery with a foreign part id raises that part's stock without reallocating it: the owner's short open orders on that part (taken or not) miss the units until the next event on that part. That is never over-reservation.
 - **Status:** proposed
 
 ### S-06: Shopping list per company
@@ -226,7 +226,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Outcome:** Operator approves a pending company, after which its manager reaches the full warehouse; or rejects it, after which login fails with a generic message, the registration stays on record, and its email can register again.
 - **Change ID:** operator-approves-companies
 - **PRD refs:** US-01, FR-026, FR-024, FR-025, Business Logic Changes (company lifecycle)
-- **Prerequisites:** S-03, S-08, S-09 (S-03 is a release gate: until it scopes the order assignee lookup and picker by company, a second approved company could assign orders to — and see — another company's accounts; found in company-boundary-harness impl review F1)
+- **Prerequisites:** S-03, S-08, S-09 (S-03 is a release gate: until it scopes the order assignee lookup and picker by company, a second approved company could assign orders to — and see — another company's accounts; found in company-boundary-harness impl review F1. The assignee gate is met: S-03 scoped the assignee lookup in `OrderController.create`/`assign`, the create-form, reassign and picking-filter pickers, and added the `orders_assignee_company_fkey` composite FK.)
 - **Parallel with:** S-04, S-05, S-06, S-07, S-10
 - **Blockers:** —
 - **Unknowns:**

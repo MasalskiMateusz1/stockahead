@@ -57,9 +57,23 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Long> {
 	@Query("SELECT ol.part.id FROM OrderLine ol WHERE ol.order.id = :orderId")
 	List<Long> findPartIdsForOrder(@Param("orderId") Long orderId);
 
+	/**
+	 * {@link #findPartIdsForOrder(Long)} scoped to company {@code companyId}:
+	 * empty when the order doesn't exist, has no lines, or belongs to another
+	 * company.
+	 */
+	@Query("SELECT ol.part.id FROM OrderLine ol WHERE ol.order.id = :orderId AND ol.companyId = :companyId")
+	List<Long> findPartIdsForOrder(@Param("orderId") Long orderId, @Param("companyId") Long companyId);
+
+	/**
+	 * Company {@code companyId}'s lines of OPEN orders on the given parts;
+	 * another company's lines are never read.
+	 */
 	@Query("SELECT ol FROM OrderLine ol JOIN FETCH ol.order JOIN FETCH ol.part "
-			+ "WHERE ol.order.status = pl.regavio.stockahead.orders.OrderStatus.OPEN AND ol.part.id IN :partIds")
-	List<OrderLine> findOpenLinesForParts(@Param("partIds") Collection<Long> partIds);
+			+ "WHERE ol.order.status = pl.regavio.stockahead.orders.OrderStatus.OPEN AND ol.companyId = :companyId "
+			+ "AND ol.part.id IN :partIds")
+	List<OrderLine> findOpenLinesForParts(@Param("companyId") Long companyId,
+			@Param("partIds") Collection<Long> partIds);
 
 	@Query("SELECT ol FROM OrderLine ol JOIN FETCH ol.order o JOIN FETCH o.project JOIN FETCH ol.part "
 			+ "WHERE o.status = pl.regavio.stockahead.orders.OrderStatus.OPEN "

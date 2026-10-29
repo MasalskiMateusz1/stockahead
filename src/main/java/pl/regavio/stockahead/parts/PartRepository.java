@@ -35,6 +35,18 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	List<Part> findByIdInForUpdate(@Param("ids") Collection<Long> ids);
 
 	/**
+	 * Locks the parts among {@code ids} that belong to company
+	 * {@code companyId}, in id order; a part of another company is neither
+	 * returned nor locked (a {@code FOR UPDATE} only locks, and waits on, rows
+	 * that pass its {@code WHERE}), so one company never waits on another's
+	 * part locks. See {@link pl.regavio.stockahead.orders.ReservationAllocator}.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT p FROM Part p WHERE p.id IN :ids AND p.company.id = :companyId ORDER BY p.id")
+	List<Part> findByIdInAndCompanyIdForUpdate(@Param("ids") Collection<Long> ids,
+			@Param("companyId") Long companyId);
+
+	/**
 	 * Every distinct location in use across company {@code companyId}'s parts,
 	 * as plain strings (no {@link Part} hydrated).
 	 */
@@ -91,11 +103,12 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	 * the lock was acquired), a second full-entity query for the same id
 	 * would just hand back that already-managed (and potentially stale)
 	 * instance, not the DB's current row. Call this only after locking the
-	 * same ids via {@code findByIdInForUpdate}, so the values read here are
-	 * guaranteed current as of that lock.
+	 * same ids via {@code findByIdInAndCompanyIdForUpdate}, so the values
+	 * read here are guaranteed current as of that lock. Only parts of company
+	 * {@code companyId} are read; another company's ids are skipped.
 	 */
-	@Query("SELECT p.id, p.quantity FROM Part p WHERE p.id IN :ids")
-	List<Object[]> findCurrentQuantities(@Param("ids") Collection<Long> ids);
+	@Query("SELECT p.id, p.quantity FROM Part p WHERE p.id IN :ids AND p.company.id = :companyId")
+	List<Object[]> findCurrentQuantities(@Param("companyId") Long companyId, @Param("ids") Collection<Long> ids);
 
 	/**
 	 * Every {@code (id, name)} pair of company {@code companyId}'s parts as a

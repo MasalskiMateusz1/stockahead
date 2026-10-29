@@ -345,7 +345,7 @@ public class PartImportController {
 		// Flush BEFORE reallocating: the allocator reads stock with a scalar query.
 		// New parts are left out, since no order can reference them yet.
 		partRepository.flush();
-		reservationAllocator.reallocateForParts(raisedIds);
+		reservationAllocator.reallocateForParts(companyId, raisedIds);
 		return Outcome.APPLIED;
 	}
 

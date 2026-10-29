@@ -26,7 +26,9 @@ import pl.regavio.stockahead.parts.PartRepository;
  * reusing the caller's entities — same shape as
  * {@code ProjectDetailModel}. Order routes are manager-only for every caller
  * that reaches them, so unlike {@code ProjectDetailModel} there is no
- * {@code isManager} branch.
+ * {@code isManager} branch. Every read is scoped to the caller's company:
+ * another company's order id is 404, exactly like a missing one, and the
+ * reassign picker lists only that company's assignable accounts.
  */
 @Component
 class OrderDetailModel {
@@ -57,31 +59,34 @@ class OrderDetailModel {
 	}
 
 	/**
-	 * Populates the detail page for {@code orderId}. An unknown order is 404.
+	 * Populates the detail page for company {@code companyId}'s order
+	 * {@code orderId}. An unknown order, or one of another company, is 404.
 	 * @return the {@code orders-detail} view name
 	 */
-	String render(Model model, Long orderId) {
-		return render(model, orderId, null);
+	String render(Model model, Long companyId, Long orderId) {
+		return render(model, companyId, orderId, null);
 	}
 
 	/**
-	 * Same as {@link #render(Model, Long)}, with a page-level error message
-	 * shown at the top of the page ({@code null} for none) — used by a failed
-	 * confirm/reject's re-render.
+	 * Same as {@link #render(Model, Long, Long)}, with a page-level error
+	 * message shown at the top of the page ({@code null} for none) — used by a
+	 * failed confirm/reject's re-render.
 	 */
-	String render(Model model, Long orderId, String error) {
-		return render(model, orderId, error, null, null);
+	String render(Model model, Long companyId, Long orderId, String error) {
+		return render(model, companyId, orderId, error, null, null);
 	}
 
 	/**
-	 * Same as {@link #render(Model, Long, String)}, keeping the priority and
-	 * required date a failed change submitted in the change form ({@code null}
-	 * for the order's current values). The reassign picker lists the
-	 * assignable accounts with the current assignee preselected; a deactivated
-	 * assignee is not listed, so nothing is preselected for one.
+	 * Same as {@link #render(Model, Long, Long, String)}, keeping the priority
+	 * and required date a failed change submitted in the change form
+	 * ({@code null} for the order's current values). The reassign picker lists
+	 * company {@code companyId}'s assignable accounts with the current assignee
+	 * preselected; a deactivated assignee is not listed, so nothing is
+	 * preselected for one.
 	 */
-	String render(Model model, Long orderId, String error, String submittedPriority, String submittedRequiredDate) {
-		DetailData data = readTransaction.execute(status -> load(orderId));
+	String render(Model model, Long companyId, Long orderId, String error, String submittedPriority,
+			String submittedRequiredDate) {
+		DetailData data = readTransaction.execute(status -> load(companyId, orderId));
 		OrderView order = data.order();
 		model.addAttribute("orderId", orderId);
 		model.addAttribute("order", order);
@@ -93,7 +98,7 @@ class OrderDetailModel {
 		LocalDate today = LocalDate.now();
 		model.addAttribute("changeMinDate",
 				(order.requiredDate().isBefore(today) ? order.requiredDate() : today).toString());
-		model.addAttribute("assignableAccounts", accountRepository.findAssignable());
+		model.addAttribute("assignableAccounts", accountRepository.findAssignable(companyId));
 		model.addAttribute("assigneeId", data.assigneeId());
 		model.addAttribute("lines", data.lines());
 		model.addAttribute("unmetLines", data.lines().stream()
@@ -105,8 +110,8 @@ class OrderDetailModel {
 		return VIEW;
 	}
 
-	private DetailData load(Long orderId) {
-		Order order = orderRepository.findByIdWithDetails(orderId)
+	private DetailData load(Long companyId, Long orderId) {
+		Order order = orderRepository.findByIdWithDetails(orderId, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		List<LineView> lines = order.getLines().stream()
 			.map(line -> new LineView(line.getPart().getName(), line.getRequiredQuantity(),
@@ -129,12 +134,13 @@ class OrderDetailModel {
 	}
 
 	/**
-	 * Loads the cancel page's data for {@code orderId} in its own read-only
-	 * transaction. An unknown order is 404.
+	 * Loads the cancel page's data for company {@code companyId}'s order
+	 * {@code orderId} in its own read-only transaction. An unknown order, or
+	 * one of another company, is 404.
 	 */
-	CancelPage loadCancel(Long orderId) {
+	CancelPage loadCancel(Long companyId, Long orderId) {
 		return readTransaction.execute(status -> {
-			Order order = orderRepository.findByIdWithDetails(orderId)
+			Order order = orderRepository.findByIdWithDetails(orderId, companyId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 			List<OrderLine> picked = order.getLines().stream().filter(line -> line.getPickedQuantity() > 0).toList();
 			// Order.lines and Part.locations are both bags, which Hibernate cannot fetch in one query;
@@ -151,7 +157,8 @@ class OrderDetailModel {
 	}
 
 	/**
-	 * Populates the cancel page for {@code orderId}, re-read fresh, with a
+	 * Populates the cancel page for company {@code companyId}'s order
+	 * {@code orderId} (404 for another company's), re-read fresh, with a
 	 * page-level error ({@code null} for none). Each shown line's return field
 	 * keeps the raw value a failed cancel submitted for it (by line id), or is
 	 * prefilled with the line's picked amount; the hidden seen-picked value is
@@ -159,13 +166,15 @@ class OrderDetailModel {
 	 * compares against what the page now shows.
 	 * @return the {@code orders-cancel} view name
 	 */
-	String renderCancel(Model model, Long orderId, String error, Map<Long, String> submittedReturns) {
-		return renderCancel(model, orderId, loadCancel(orderId), error, submittedReturns);
+	String renderCancel(Model model, Long companyId, Long orderId, String error,
+			Map<Long, String> submittedReturns) {
+		return renderCancel(model, orderId, loadCancel(companyId, orderId), error, submittedReturns);
 	}
 
 	/**
-	 * Same as {@link #renderCancel(Model, Long, String, Map)}, with the page
-	 * data already loaded by {@link #loadCancel(Long)}.
+	 * Same as {@link #renderCancel(Model, Long, Long, String, Map)}, with the
+	 * page data already loaded (company-scoped) by
+	 * {@link #loadCancel(Long, Long)}.
 	 */
 	String renderCancel(Model model, Long orderId, CancelPage page, String error,
 			Map<Long, String> submittedReturns) {

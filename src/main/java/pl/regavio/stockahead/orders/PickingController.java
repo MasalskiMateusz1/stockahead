@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -30,6 +31,7 @@ import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Picking screen for both MANAGER and TECHNICIAN: the OPEN-order list, a
@@ -94,10 +96,10 @@ public class PickingController {
 	}
 
 	/**
-	 * The OPEN-order list, per viewer. A technician sees only the orders
-	 * assigned to them. The manager sees every open order, optionally
-	 * narrowed by {@code assignee}: an assignable account's id (see
-	 * {@link AccountRepository#findAssignable()}), or {@value #UNASSIGNED_FILTER}
+	 * The OPEN-order list, per viewer, limited to the viewer's company. A
+	 * technician sees only the orders assigned to them. The manager sees every
+	 * open order of the company, optionally narrowed by {@code assignee}: an
+	 * assignable account's id (see {@link AccountRepository#findAssignable(Long)}), or {@value #UNASSIGNED_FILTER}
 	 * for orders with no assignee or an inactive one. It is only a view
 	 * filter, so a malformed value or an id that isn't assignable falls back
 	 * to every open order instead of an error page.
@@ -105,23 +107,24 @@ public class PickingController {
 	@GetMapping("/picking")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
 	public String list(@RequestParam(name = "assignee", required = false) String assignee,
-			Authentication authentication, Model model) {
+			Authentication authentication, @AuthenticationPrincipal CompanyUser principal, Model model) {
+		Long companyId = principal.companyId();
 		boolean isManager = authentication.getAuthorities().stream()
 			.map(GrantedAuthority::getAuthority)
 			.anyMatch("ROLE_MANAGER"::equals);
 
 		List<Order> orders;
 		if (isManager) {
-			List<Account> assignableAccounts = accountRepository.findAssignable();
+			List<Account> assignableAccounts = accountRepository.findAssignable(companyId);
 			String selectedAssignee = resolveAssigneeFilter(assignee, assignableAccounts);
 			if (selectedAssignee == null) {
-				orders = orderRepository.findByStatusWithProject(OrderStatus.OPEN);
+				orders = orderRepository.findByStatusWithProject(companyId, OrderStatus.OPEN);
 			}
 			else if (UNASSIGNED_FILTER.equals(selectedAssignee)) {
-				orders = orderRepository.findByStatusUnassignedWithProject(OrderStatus.OPEN);
+				orders = orderRepository.findByStatusUnassignedWithProject(companyId, OrderStatus.OPEN);
 			}
 			else {
-				orders = orderRepository.findByStatusAndAssigneeWithProject(OrderStatus.OPEN,
+				orders = orderRepository.findByStatusAndAssigneeWithProject(companyId, OrderStatus.OPEN,
 						Long.valueOf(selectedAssignee));
 			}
 			model.addAttribute("assignableAccounts", assignableAccounts);
@@ -130,7 +133,7 @@ public class PickingController {
 		else {
 			Account self = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
-			orders = orderRepository.findByStatusAndAssigneeWithProject(OrderStatus.OPEN, self.getId());
+			orders = orderRepository.findByStatusAndAssigneeWithProject(companyId, OrderStatus.OPEN, self.getId());
 		}
 		model.addAttribute("isManager", isManager);
 		model.addAttribute("orders", orders.stream()

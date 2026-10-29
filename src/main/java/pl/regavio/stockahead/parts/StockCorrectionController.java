@@ -44,7 +44,7 @@ import pl.regavio.stockahead.orders.ReservationAllocator;
  * {@link LockRetry}, locks the part row ({@code findByIdInForUpdate}),
  * computes and checks the new stock against the locked quantity, sets it,
  * inserts the {@link StockCorrection} row, flushes and only then calls
- * {@link ReservationAllocator#reallocateForParts(Set)}. Any rejection rolls
+ * {@link ReservationAllocator#reallocateForParts(Long, Set)}. Any rejection rolls
  * back, writes nothing and re-renders the page with the typed inputs kept.
  */
 @Controller
@@ -250,7 +250,8 @@ public class StockCorrectionController {
 		// Flush BEFORE reallocating: the allocator reads stock with a scalar query,
 		// so an unflushed correction would be invisible to it.
 		partRepository.flush();
-		reservationAllocator.reallocateForParts(Set.of(id));
+		// The locked part's company, not the principal's, until S-05 scopes the part lookup.
+		reservationAllocator.reallocateForParts(part.getCompany().getId(), Set.of(id));
 		return new Outcome(null, part.getName(), before, after);
 	}
 

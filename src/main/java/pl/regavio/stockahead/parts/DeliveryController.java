@@ -46,7 +46,7 @@ import pl.regavio.stockahead.security.CompanyUser;
  * part rows are locked ({@code findByIdInForUpdate}), every id and every new
  * stock total is checked before anything is mutated, then stock is raised,
  * missing locations are added, the persistence context is flushed and only
- * then {@link ReservationAllocator#reallocateForParts(Set)} runs, so the
+ * then {@link ReservationAllocator#reallocateForParts(Long, Set)} runs, so the
  * allocator seeds its pool with the delivered stock. Inactive parts are
  * accepted as-is.
  */
@@ -201,7 +201,7 @@ public class DeliveryController {
 		// Flush BEFORE reallocating: the allocator reads stock with a scalar query,
 		// so unflushed increments would leave the delivered units unallocated.
 		partRepository.flush();
-		reservationAllocator.reallocateForParts(new LinkedHashSet<>(partIds));
+		reservationAllocator.reallocateForParts(companyId, new LinkedHashSet<>(partIds));
 		return null;
 	}
 

@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Proves {@link ReservationAllocator#reallocateForParts(Set)} against
+ * Proves {@link ReservationAllocator#reallocateForParts(Long, Set)} against
  * {@code context/foundation/prd.md} §Business Logic and US-01's own
  * acceptance example, without going through HTTP. Orders/parts are seeded
  * directly via {@link JdbcTemplate}, matching
@@ -199,14 +199,15 @@ class ReservationAllocatorTests {
 	}
 
 	/**
-	 * {@link ReservationAllocator#reallocateForParts(Set)} locks the given
+	 * {@link ReservationAllocator#reallocateForParts(Long, Set)} locks the given
 	 * parts via {@code PESSIMISTIC_WRITE}, which requires an active
 	 * transaction — the same contract its real caller (a future
 	 * {@code OrderController}) will satisfy via its own
 	 * {@code TransactionTemplate} block.
 	 */
 	private void reallocate(Set<Long> partIds) {
-		transactionTemplate.executeWithoutResult(status -> reservationAllocator.reallocateForParts(partIds));
+		transactionTemplate
+			.executeWithoutResult(status -> reservationAllocator.reallocateForParts(company().getId(), partIds));
 	}
 
 	// ---- tests ----------------------------------------------------------
