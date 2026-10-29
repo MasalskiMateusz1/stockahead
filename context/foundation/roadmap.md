@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 2
 status: draft
 created: 2026-10-05
-updated: 2026-10-17
+updated: 2026-10-29
 prd_version: 2
 main_goal: quality
 top_blocker: capacity
@@ -44,7 +44,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | F-01 | company-boundary-harness          | (foundation) every account belongs to a company, the logged-in user carries it, two-company test pattern exists | —                | FR-028, FR-029, Success Criteria › Guardrails, Access Control Changes (company isolation)                                       | done     |
 | S-01 | company-scoped-parts              | Manager of each company sees, searches and edits only their company's parts and locations                       | F-01             | US-01, FR-028, Success Criteria › Guardrails                                                                                    | done     |
 | S-02 | company-scoped-projects           | Manager keeps projects, BOMs and links visible only within their company                                        | S-01             | US-01, FR-028                                                                                                                   | done     |
-| S-03 | company-scoped-orders             | Manager orders production; reservations draw only on their company's parts and orders                           | S-02             | US-01, FR-028, Business Logic Changes (modified rule), Success Criteria › Guardrails (stock/reservation guarantees per company) | in-progress |
+| S-03 | company-scoped-orders             | Manager orders production; reservations draw only on their company's parts and orders                           | S-02             | US-01, FR-028, Business Logic Changes (modified rule), Success Criteria › Guardrails (stock/reservation guarantees per company) | done |
 | S-04 | company-scoped-picking-completion | Technician picks and reports completion only for their company's orders                                         | S-03             | US-01, FR-028, Success Criteria › Guardrails                                                                                    | proposed |
 | S-05 | company-scoped-stock-movements    | Users receive deliveries, correct stock and import CSV only into their company's catalog                        | S-01, S-03       | FR-028, Business Logic Changes, Constraints (CSV formats unchanged)                                                             | proposed |
 | S-06 | company-scoped-shopping-list      | Manager sees and exports a shopping list built only from their company's shortages                              | S-03             | US-01, FR-028, Constraints (CSV formats unchanged)                                                                              | proposed |
@@ -130,7 +130,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** The allocation rule is the core of the product; the frame found it already separates by part, but its row locks and allocation queries read all open orders, so they must be scoped explicitly — companies must never compete for stock or wait on each other's locks. Existing concurrency tests have to pass unchanged per company. `projects_id_company_key (id, company_id)` exists, so `orders.project_id` can become a composite FK once `orders` carries `company_id`, and S-02 already scoped the project lookup and picker in `OrderController.create`.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-04: Technicians pick and complete only their company's orders
 
@@ -289,3 +289,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **F-01: (foundation) a company record exists, every account belongs to one company, the logged-in user carries its company id, the one-manager-per-database rule becomes one-or-more-managers-per-company, and the repository has a two-company test pattern asserting that company B's user gets 404 for company A's record id.** — Archived 2026-10-06 → `context/archive/2026-10-05-company-boundary-harness/`. Lesson: —.
 - **S-01: Manager of company A adds, edits and searches parts and their locations; manager of company B sees none of them, gets 404 on A's part ids, and may reuse the same part names and shelf spellings.** — Archived 2026-10-06 → `context/archive/2026-10-06-company-scoped-parts/`. Lesson: —.
 - **S-02: Manager creates, edits and deletes projects with their BOM and documentation links; another company sees none of them, gets 404 on their ids, may reuse project names, and a BOM line can reference only the manager's own company's parts.** — Archived 2026-10-17 → `context/archive/2026-10-08-company-scoped-projects/`. Lesson: —.
+- **S-03: Manager orders production of N units of a project, changes or cancels the order; reservations are allocated by priority → deadline → age across only that company's open orders and parts, and another company sees none of these orders.** — Archived 2026-10-29 → `context/archive/2026-10-17-company-scoped-orders/`. Lesson: —.
