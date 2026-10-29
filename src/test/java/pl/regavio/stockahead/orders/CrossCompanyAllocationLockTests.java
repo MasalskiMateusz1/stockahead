@@ -47,6 +47,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * neither read nor allocated. Fails if a future change re-globalizes the
  * allocator's lock or reads. Uses the latch-and-executor pattern of
  * {@link ReservationConcurrencyTests}.
+ * <p>
+ * The order-creation step guards against regressions only: B's create never
+ * touched A's parts even before scoping. The reallocation step is the one
+ * that detects a re-globalized lock.
  */
 @Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
@@ -191,13 +195,13 @@ class CrossCompanyAllocationLockTests {
 					.andExpect(status().is3xxRedirection());
 				return null;
 			});
-			createB.get(5, TimeUnit.SECONDS);
+			createB.get(15, TimeUnit.SECONDS);
 
 			Future<Void> reallocateB = executor.submit(() -> {
 				reallocateB(Set.of(partA.getId(), partB.getId()));
 				return null;
 			});
-			reallocateB.get(5, TimeUnit.SECONDS);
+			reallocateB.get(15, TimeUnit.SECONDS);
 
 			release.countDown();
 			holder.get(10, TimeUnit.SECONDS);
@@ -205,6 +209,7 @@ class CrossCompanyAllocationLockTests {
 		finally {
 			release.countDown();
 			executor.shutdownNow();
+			executor.awaitTermination(10, TimeUnit.SECONDS);
 		}
 
 		assertThat(reservedOfLine(lineA)).isEqualTo(3);

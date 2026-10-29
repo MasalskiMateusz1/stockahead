@@ -104,8 +104,8 @@ class ReservationConcurrencyTests {
 								+ "VALUES (?, ?, 1, 'NORMAL', ?) RETURNING id",
 						Long.class, companyId, projectId, LocalDate.now().plusDays(1));
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)", companyId, orderId,
-						partId, 5);
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)",
+						companyId, orderId, partId, 5);
 				reservationAllocator.reallocateForParts(companyId, Set.of(partId));
 			});
 			return null;
@@ -153,11 +153,11 @@ class ReservationConcurrencyTests {
 								+ "VALUES (?, ?, 1, 'NORMAL', ?) RETURNING id",
 						Long.class, companyId, projectId, LocalDate.now().plusDays(1));
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)", companyId, orderId,
-						partAId, 5);
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)",
+						companyId, orderId, partAId, 5);
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)", companyId, orderId,
-						partBId, 5);
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)",
+						companyId, orderId, partBId, 5);
 				reservationAllocator.reallocateForParts(companyId, Set.of(partAId, partBId));
 			});
 			return null;

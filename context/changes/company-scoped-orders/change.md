@@ -1,7 +1,7 @@
 ---
 change_id: company-scoped-orders
 title: Company scoped orders
-status: implemented
+status: impl_reviewed
 created: 2026-10-17
 updated: 2026-10-29
 ---

@@ -289,6 +289,9 @@ class OrdersCompanyIsolationIntegrationTests {
 		assertThat(orderIdsIn(managerPicking, "orders")).containsExactly(orderB)
 			.doesNotContain(reportedA, untakenA);
 
+		// Smoke check: a technician only sees orders assigned to them, and V17's
+		// composite FK forbids assigning A's order to B's technician; the
+		// manager check above carries the isolation proof.
 		ModelAndView technicianPicking = getModel("/picking", loginAs(TECHNICIAN_B_EMAIL));
 		assertThat(orderIdsIn(technicianPicking, "orders")).containsExactly(orderB);
 	}

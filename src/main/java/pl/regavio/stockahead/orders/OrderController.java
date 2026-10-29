@@ -486,7 +486,7 @@ public class OrderController {
 		try {
 			businessError = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
 				if (!partIds.isEmpty()) {
-					partRepository.findByIdInForUpdate(partIds);
+					partRepository.findByIdInAndCompanyIdForUpdate(partIds, companyId);
 				}
 				// An order with no lines has no part rows to serialize on, so lock its own row instead.
 				Order order = (partIds.isEmpty() ? orderRepository.findByIdForUpdate(orderId, companyId)
