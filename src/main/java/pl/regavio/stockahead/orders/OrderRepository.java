@@ -29,12 +29,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	List<Order> findByStatusUnassignedWithProject(@Param("companyId") Long companyId,
 			@Param("status") OrderStatus status);
 
-	@Query("SELECT DISTINCT o FROM Order o JOIN FETCH o.project LEFT JOIN FETCH o.lines l LEFT JOIN FETCH l.part WHERE o.id = :id")
-	Optional<Order> findByIdWithDetails(@Param("id") Long id);
-
 	/**
-	 * {@link #findByIdWithDetails(Long)} scoped to company {@code companyId}:
-	 * empty for another company's order, exactly like a missing id.
+	 * Order {@code id} with its project, lines and their parts, scoped to
+	 * company {@code companyId}: empty for another company's order, exactly
+	 * like a missing id.
 	 */
 	@Query("SELECT DISTINCT o FROM Order o JOIN FETCH o.project LEFT JOIN FETCH o.lines l LEFT JOIN FETCH l.part WHERE o.id = :id AND o.companyId = :companyId")
 	Optional<Order> findByIdWithDetails(@Param("id") Long id, @Param("companyId") Long companyId);

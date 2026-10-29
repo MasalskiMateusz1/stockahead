@@ -225,24 +225,24 @@ V18 only swaps an FK. It fails if any existing row has a cross-company reporter.
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes, including Flyway applying V18 on a fresh Testcontainers Postgres
-- [x] 1.2 `OrderSchemaTests` passes with the two new reporter-FK tests
-- [x] 1.3 `OrderCompletionSchemaTests`, `OrderCompletionIntegrationTests` and `OrderCompletionConcurrencyTests` pass unchanged
+- [x] 1.1 `./mvnw verify` passes, including Flyway applying V18 on a fresh Testcontainers Postgres — 4d766c6
+- [x] 1.2 `OrderSchemaTests` passes with the two new reporter-FK tests — 4d766c6
+- [x] 1.3 `OrderCompletionSchemaTests`, `OrderCompletionIntegrationTests` and `OrderCompletionConcurrencyTests` pass unchanged — 4d766c6
 
 #### Manual
 
-- [x] 1.4 `\d orders` shows `orders_completion_reporter_company_fkey` and no `orders_completion_reported_by_fkey`
+- [x] 1.4 `\d orders` shows `orders_completion_reporter_company_fkey` and no `orders_completion_reported_by_fkey` — 4d766c6
 
 ### Phase 2: Scoped picking routes and two-company tests
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 `PickingCompanyIsolationIntegrationTests` passes all six tests
-- [ ] 2.3 Existing picking, completion and order-isolation suites pass with only call-site signature changes
-- [ ] 2.4 Grep check finds no bare lookups in `Picking*.java`
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 `PickingCompanyIsolationIntegrationTests` passes all six tests
+- [x] 2.3 Existing picking, completion and order-isolation suites pass with only call-site signature changes
+- [x] 2.4 Grep check finds no bare lookups in `Picking*.java`
 
 #### Manual
 
-- [ ] 2.5 As company B, pasting A's `/picking/{id}` URL shows the 404 page while A picks normally
-- [ ] 2.6 B's `/picking` list shows correct "to pick" numbers for B's own orders only
+- [x] 2.5 As company B, pasting A's `/picking/{id}` URL shows the 404 page while A picks normally
+- [x] 2.6 B's `/picking` list shows correct "to pick" numbers for B's own orders only
