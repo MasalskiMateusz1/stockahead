@@ -237,12 +237,12 @@ V18 only swaps an FK. It fails if any existing row has a cross-company reporter.
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 `PickingCompanyIsolationIntegrationTests` passes all six tests
-- [x] 2.3 Existing picking, completion and order-isolation suites pass with only call-site signature changes
-- [x] 2.4 Grep check finds no bare lookups in `Picking*.java`
+- [x] 2.1 `./mvnw verify` passes — 21b20f8
+- [x] 2.2 `PickingCompanyIsolationIntegrationTests` passes all six tests — 21b20f8
+- [x] 2.3 Existing picking, completion and order-isolation suites pass with only call-site signature changes — 21b20f8
+- [x] 2.4 Grep check finds no bare lookups in `Picking*.java` — 21b20f8
 
 #### Manual
 
-- [x] 2.5 As company B, pasting A's `/picking/{id}` URL shows the 404 page while A picks normally
-- [x] 2.6 B's `/picking` list shows correct "to pick" numbers for B's own orders only
+- [x] 2.5 As company B, pasting A's `/picking/{id}` URL shows the 404 page while A picks normally — 21b20f8
+- [x] 2.6 B's `/picking` list shows correct "to pick" numbers for B's own orders only — 21b20f8
