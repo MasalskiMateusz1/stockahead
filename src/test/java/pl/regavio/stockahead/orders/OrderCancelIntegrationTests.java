@@ -194,17 +194,17 @@ class OrderCancelIntegrationTests {
 	/** As above, assigned to {@code assigneeId} ({@code null} leaves it unassigned). */
 	private Long seedOrder(Long orderProjectId, Priority priority, Instant createdAt, Long assigneeId) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id) "
-						+ "VALUES (?, 1, ?, ?, ?, ?) RETURNING id",
-				Long.class, orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt),
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, assignee_id) "
+						+ "VALUES (?, ?, 1, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt),
 				assigneeId));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, ?, ?) RETURNING id",
-				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
@@ -689,9 +689,9 @@ class OrderCancelIntegrationTests {
 		Long partId = seedPart("Schema Return Part", 10);
 		Long orderId = seedOrder(projectId, Priority.NORMAL, Instant.now());
 		Long lineId = jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity, picked_quantity) "
-						+ "VALUES (?, ?, 5, 0, 2) RETURNING id",
-				Long.class, orderId, partId);
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity, picked_quantity) "
+						+ "VALUES (?, ?, ?, 5, 0, 2) RETURNING id",
+				Long.class, company().getId(), orderId, partId);
 
 		assertThatThrownBy(() -> jdbcTemplate.update("UPDATE order_lines SET returned_quantity = 3 WHERE id = ?",
 				lineId))

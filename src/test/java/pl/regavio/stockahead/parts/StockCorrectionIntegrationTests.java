@@ -155,9 +155,9 @@ class StockCorrectionIntegrationTests {
 
 	private Long seedOpenOrder(Long projectId) {
 		return jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
-				Long.class, projectId, Priority.NORMAL.name(), LocalDate.now().plusDays(7),
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, 1, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), projectId, Priority.NORMAL.name(), LocalDate.now().plusDays(7),
 				Timestamp.from(Instant.now()));
 	}
 
@@ -171,9 +171,9 @@ class StockCorrectionIntegrationTests {
 	private void seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity,
 			int pickedQuantity) {
 		jdbcTemplate.update(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity, picked_quantity) "
-						+ "VALUES (?, ?, ?, ?, ?)",
-				orderId, partId, requiredQuantity, reservedQuantity, pickedQuantity);
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity, picked_quantity) "
+						+ "VALUES (?, ?, ?, ?, ?, ?)",
+				company().getId(), orderId, partId, requiredQuantity, reservedQuantity, pickedQuantity);
 	}
 
 	private void seedCorrection(Long partId, Long accountId, int before, int after, String reason,
@@ -186,9 +186,9 @@ class StockCorrectionIntegrationTests {
 
 	private Long seedLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		return jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, ?, ?) RETURNING id",
-				Long.class, orderId, partId, requiredQuantity, reservedQuantity);
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderId, partId, requiredQuantity, reservedQuantity);
 	}
 
 	private int stockOf(Long partId) {

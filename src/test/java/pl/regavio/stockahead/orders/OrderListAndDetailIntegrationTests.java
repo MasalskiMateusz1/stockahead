@@ -164,20 +164,20 @@ class OrderListAndDetailIntegrationTests {
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at)
-				VALUES (?, ?, ?, ?, now())
+				INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at)
+				VALUES (?, ?, ?, ?, ?, now())
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, priority, requiredDate));
+				Long.class, company().getId(), projectId, quantityUnits, priority, requiredDate));
 	}
 
 	private void seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
 				"""
-				INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity)
-				VALUES (?, ?, ?, ?)
+				INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity)
+				VALUES (?, ?, ?, ?, ?)
 				""",
-				orderId, partId, requiredQuantity, reservedQuantity));
+				company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	/**
@@ -190,12 +190,12 @@ class OrderListAndDetailIntegrationTests {
 		Long reporterId = accountRepository.findByEmail(reporterEmail).orElseThrow().getId();
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, taken_at,
+				INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, taken_at,
 					completion_reported_at, completion_reported_by, built_units, status, completed_at)
-				VALUES (?, ?, 'NORMAL', ?, now(), now(), now(), ?, ?, ?, ?)
+				VALUES (?, ?, ?, 'NORMAL', ?, now(), now(), now(), ?, ?, ?, ?)
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, LocalDate.now().plusDays(7), reporterId, builtUnits,
+				Long.class, company().getId(), projectId, quantityUnits, LocalDate.now().plusDays(7), reporterId, builtUnits,
 				completed ? "COMPLETED" : "OPEN", completed ? Timestamp.from(Instant.now()) : null));
 	}
 

@@ -116,15 +116,15 @@ class ReservationAllocatorTests {
 	private Long seedOrder(Long projectId, int quantityUnits, Priority priority, LocalDate requiredDate,
 			Instant createdAt) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
-				Long.class, projectId, quantityUnits, priority.name(), requiredDate, Timestamp.from(createdAt)));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), projectId, quantityUnits, priority.name(), requiredDate, Timestamp.from(createdAt)));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?) RETURNING id",
-				Long.class, orderId, partId, requiredQuantity));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderId, partId, requiredQuantity));
 	}
 
 	private int reservedQuantityOf(Long lineId) {

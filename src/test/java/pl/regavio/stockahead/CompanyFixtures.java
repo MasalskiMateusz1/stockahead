@@ -30,10 +30,11 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * The shared way tests create companies, accounts, parts, projects and BOM
  * lines in them. Every write commits in its own transaction, so MockMvc
  * requests and other threads see it. {@link #cleanUp()} removes what this
- * fixture created: the companies' projects (their BOM lines and links
- * cascade), parts, accounts and then companies (FK order); call it after
- * the test's own deletes of rows that reference projects, parts or accounts
- * (orders and their lines, stock corrections).
+ * fixture created: the companies' orders (their lines cascade), accounts,
+ * projects (their BOM lines and links cascade), parts and then the
+ * companies, in the order {@link #cleanUp()} documents; call it after the
+ * test's own deletes of other rows that reference projects, parts or
+ * accounts (stock corrections).
  *
  * <p>Not picked up by component scanning: {@code @Import} it explicitly,
  * next to {@link TestcontainersConfiguration}.
@@ -152,17 +153,21 @@ public class CompanyFixtures {
 	}
 
 	/**
-	 * Deletes the projects left in a company this fixture created (their BOM
-	 * lines and links cascade), then the parts left in it, then the accounts
-	 * this fixture created (by email), any other account left in a company it
-	 * created (e.g. a technician created through the UI), and then those
-	 * companies. Orders still reference projects with {@code RESTRICT}, so
-	 * the test deletes its orders first.
+	 * Deletes the orders left in a company this fixture created (their lines
+	 * cascade) first, since an order references its assignee, canceller and
+	 * completion reporter accounts with {@code RESTRICT}; then the accounts
+	 * this fixture created (by email), the projects left in a company it
+	 * created (their BOM lines and links cascade), the parts left in it, any
+	 * other account left in it (e.g. a technician created through the UI),
+	 * and then those companies.
 	 */
 	public void cleanUp() {
 		List<String> createdEmails = new ArrayList<>(emails);
 		List<Long> createdCompanyIds = new ArrayList<>(companyIds);
 		transactionTemplate.executeWithoutResult(status -> {
+			for (Long companyId : createdCompanyIds) {
+				jdbcTemplate.update("DELETE FROM orders WHERE company_id = ?", companyId);
+			}
 			for (String email : createdEmails) {
 				jdbcTemplate.update("DELETE FROM accounts WHERE lower(btrim(email)) = lower(btrim(?))", email);
 			}

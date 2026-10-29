@@ -27,6 +27,16 @@ public class OrderLine {
 	@JoinColumn(name = "part_id", nullable = false)
 	private Part part;
 
+	/**
+	 * The order's company, set by {@link Order#addLine}. A plain column:
+	 * {@link #order} and {@link #part} stay the only writers of
+	 * {@code order_id}/{@code part_id}, and the composite
+	 * {@code (order_id, company_id)} and {@code (part_id, company_id)}
+	 * foreign keys keep the three in step.
+	 */
+	@Column(name = "company_id", nullable = false)
+	private Long companyId;
+
 	@Column(name = "required_quantity", nullable = false)
 	private int requiredQuantity;
 
@@ -61,6 +71,14 @@ public class OrderLine {
 
 	public void setPart(Part part) {
 		this.part = part;
+	}
+
+	public Long getCompanyId() {
+		return companyId;
+	}
+
+	void setCompanyId(Long companyId) {
+		this.companyId = companyId;
 	}
 
 	public int getRequiredQuantity() {

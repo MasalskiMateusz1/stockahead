@@ -188,11 +188,11 @@ class OrderCompletionConcurrencyTests {
 	private Long seedUntakenOrderLine(Long partId, int required, int reserved) {
 		return transactionTemplate.execute(status -> {
 			Long orderId = jdbcTemplate.queryForObject(
-					"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-							+ "VALUES (?, 1, 'HIGH', ?, ?) RETURNING id",
-					Long.class, projectId, LocalDate.now().plusDays(3), Timestamp.from(Instant.now()));
-			jdbcTemplate.update("INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-					+ "VALUES (?, ?, ?, ?)", orderId, partId, required, reserved);
+					"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+							+ "VALUES (?, ?, 1, 'HIGH', ?, ?) RETURNING id",
+					Long.class, company().getId(), projectId, LocalDate.now().plusDays(3), Timestamp.from(Instant.now()));
+			jdbcTemplate.update("INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+					+ "VALUES (?, ?, ?, ?, ?)", company().getId(), orderId, partId, required, reserved);
 			return orderId;
 		});
 	}
@@ -201,11 +201,11 @@ class OrderCompletionConcurrencyTests {
 	private Long seedOrderLine(Long partId, Priority priority, Instant createdAt, int required, int reserved) {
 		return transactionTemplate.execute(status -> {
 			Long orderId = jdbcTemplate.queryForObject(
-					"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-							+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
-					Long.class, projectId, priority.name(), LocalDate.now().plusDays(3), Timestamp.from(createdAt));
-			jdbcTemplate.update("INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-					+ "VALUES (?, ?, ?, ?)", orderId, partId, required, reserved);
+					"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+							+ "VALUES (?, ?, 1, ?, ?, ?) RETURNING id",
+					Long.class, company().getId(), projectId, priority.name(), LocalDate.now().plusDays(3), Timestamp.from(createdAt));
+			jdbcTemplate.update("INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+					+ "VALUES (?, ?, ?, ?, ?)", company().getId(), orderId, partId, required, reserved);
 			return orderId;
 		});
 	}

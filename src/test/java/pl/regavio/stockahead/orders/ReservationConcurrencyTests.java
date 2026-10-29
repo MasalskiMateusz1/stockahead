@@ -100,11 +100,11 @@ class ReservationConcurrencyTests {
 			TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 			transactionTemplate.executeWithoutResult(status -> {
 				Long orderId = jdbcTemplate.queryForObject(
-						"INSERT INTO orders (project_id, quantity_units, priority, required_date) "
-								+ "VALUES (?, 1, 'NORMAL', ?) RETURNING id",
-						Long.class, projectId, LocalDate.now().plusDays(1));
+						"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date) "
+								+ "VALUES (?, ?, 1, 'NORMAL', ?) RETURNING id",
+						Long.class, companyId, projectId, LocalDate.now().plusDays(1));
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)", companyId, orderId,
 						partId, 5);
 				reservationAllocator.reallocateForParts(Set.of(partId));
 			});
@@ -149,14 +149,14 @@ class ReservationConcurrencyTests {
 			TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 			transactionTemplate.executeWithoutResult(status -> {
 				Long orderId = jdbcTemplate.queryForObject(
-						"INSERT INTO orders (project_id, quantity_units, priority, required_date) "
-								+ "VALUES (?, 1, 'NORMAL', ?) RETURNING id",
-						Long.class, projectId, LocalDate.now().plusDays(1));
+						"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date) "
+								+ "VALUES (?, ?, 1, 'NORMAL', ?) RETURNING id",
+						Long.class, companyId, projectId, LocalDate.now().plusDays(1));
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)", companyId, orderId,
 						partAId, 5);
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)", companyId, orderId,
 						partBId, 5);
 				reservationAllocator.reallocateForParts(Set.of(partAId, partBId));
 			});

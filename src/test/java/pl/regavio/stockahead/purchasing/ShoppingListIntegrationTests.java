@@ -148,21 +148,21 @@ class ShoppingListIntegrationTests {
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
 		return transactionTemplate.execute(txStatus -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at)
-				VALUES (?, ?, ?, ?, now())
+				INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at)
+				VALUES (?, ?, ?, ?, ?, now())
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, priority, requiredDate));
+				Long.class, company().getId(), projectId, quantityUnits, priority, requiredDate));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity)
-				VALUES (?, ?, ?, ?)
+				INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity)
+				VALUES (?, ?, ?, ?, ?)
 				RETURNING id
 				""",
-				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
+				Long.class, company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	// ---- /purchasing (HTML) aggregation ---------------------------------

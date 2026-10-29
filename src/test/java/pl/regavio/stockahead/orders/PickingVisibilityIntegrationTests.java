@@ -166,9 +166,9 @@ class PickingVisibilityIntegrationTests {
 			Long projectId = jdbcTemplate.queryForObject(
 					"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class, projectName, company().getId());
 			return jdbcTemplate.queryForObject(
-					"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id) "
-							+ "VALUES (?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
-					Long.class, projectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId);
+					"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, assignee_id) "
+							+ "VALUES (?, ?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
+					Long.class, company().getId(), projectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId);
 		});
 	}
 
@@ -283,9 +283,9 @@ class PickingVisibilityIntegrationTests {
 						+ "VALUES ('Visibility Handover Resistor', 10, true, ?) RETURNING id",
 				Long.class, company().getId()));
 		Long lineId = transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, 5, 5) RETURNING id",
-				Long.class, orderA, partId));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, 5, 5) RETURNING id",
+				Long.class, company().getId(), orderA, partId));
 		MockHttpSession manager = loginAs(MANAGER_EMAIL);
 		MockHttpSession technicianA = loginAs(TECHNICIAN_A_EMAIL);
 		MockHttpSession technicianB = loginAs(TECHNICIAN_B_EMAIL);

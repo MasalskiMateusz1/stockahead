@@ -208,17 +208,17 @@ class OrderCompletionIntegrationTests {
 	/** An OPEN order assigned to {@code assigneeId} ({@code null} leaves it unassigned). */
 	private Long seedOrder(Long orderProjectId, Long assigneeId) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id) "
-						+ "VALUES (?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
-				Long.class, orderProjectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, assignee_id) "
+						+ "VALUES (?, ?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderProjectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId));
 	}
 
 	/** An OPEN order for {@code quantityUnits} units of the default project. */
 	private Long seedOrderWithUnits(int quantityUnits) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, ?, 'NORMAL', ?, ?) RETURNING id",
-				Long.class, projectId, quantityUnits, LocalDate.now().plusDays(7), Timestamp.from(Instant.now())));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, ?, 'NORMAL', ?, ?) RETURNING id",
+				Long.class, company().getId(), projectId, quantityUnits, LocalDate.now().plusDays(7), Timestamp.from(Instant.now())));
 	}
 
 	/**
@@ -227,16 +227,16 @@ class OrderCompletionIntegrationTests {
 	 */
 	private Long seedOrder(Long orderProjectId, Priority priority, Instant createdAt) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
-				Long.class, orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt)));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, 1, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt)));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, ?, ?) RETURNING id",
-				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {

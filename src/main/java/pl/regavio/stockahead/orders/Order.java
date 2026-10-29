@@ -34,6 +34,16 @@ public class Order {
 	@JoinColumn(name = "project_id", nullable = false)
 	private Project project;
 
+	/**
+	 * The project's company, set by {@link #setProject}. A plain column:
+	 * {@link #project} and {@link #assignee} stay the only writers of
+	 * {@code project_id}/{@code assignee_id}, and the composite
+	 * {@code (project_id, company_id)} and {@code (assignee_id, company_id)}
+	 * foreign keys keep them in step.
+	 */
+	@Column(name = "company_id", nullable = false)
+	private Long companyId;
+
 	@Column(name = "quantity_units", nullable = false)
 	private int quantityUnits;
 
@@ -93,8 +103,20 @@ public class Order {
 		return project;
 	}
 
+	/**
+	 * Sets the project and takes its company; lines already added take it
+	 * too, since a line always carries its order's company.
+	 */
 	public void setProject(Project project) {
 		this.project = project;
+		this.companyId = project == null || project.getCompany() == null ? null : project.getCompany().getId();
+		for (OrderLine line : lines) {
+			line.setCompanyId(companyId);
+		}
+	}
+
+	public Long getCompanyId() {
+		return companyId;
 	}
 
 	public int getQuantityUnits() {
@@ -232,6 +254,7 @@ public class Order {
 	public void addLine(OrderLine line) {
 		lines.add(line);
 		line.setOrder(this);
+		line.setCompanyId(companyId);
 	}
 
 	public void removeLine(OrderLine line) {

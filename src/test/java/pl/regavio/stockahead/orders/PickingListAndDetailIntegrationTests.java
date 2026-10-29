@@ -152,11 +152,11 @@ class PickingListAndDetailIntegrationTests {
 			Long assigneeId) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id)
-				VALUES (?, ?, ?, ?, now(), ?)
+				INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, assignee_id)
+				VALUES (?, ?, ?, ?, ?, now(), ?)
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, priority, requiredDate, assigneeId));
+				Long.class, company().getId(), projectId, quantityUnits, priority, requiredDate, assigneeId));
 	}
 
 	private Long accountIdOf(String email) {
@@ -167,10 +167,10 @@ class PickingListAndDetailIntegrationTests {
 			int pickedQuantity) {
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
 				"""
-				INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity, picked_quantity)
-				VALUES (?, ?, ?, ?, ?)
+				INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity, picked_quantity)
+				VALUES (?, ?, ?, ?, ?, ?)
 				""",
-				orderId, partId, requiredQuantity, reservedQuantity, pickedQuantity));
+				company().getId(), orderId, partId, requiredQuantity, reservedQuantity, pickedQuantity));
 	}
 
 	// ---- detail rendering -------------------------------------------------
