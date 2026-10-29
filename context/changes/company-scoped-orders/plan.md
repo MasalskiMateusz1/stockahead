@@ -339,13 +339,13 @@ V17 assumes `orders` and `order_lines` are empty. That holds because V14's guard
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes
-- [x] 1.2 `OrderSchemaTests` passes: all four cross-company inserts are rejected, and the unassigned order is accepted
-- [x] 1.3 `grep -rn "INSERT INTO orders\|INSERT INTO order_lines" src/test | grep -v company_id` returns nothing (multi-line inserts checked by reading the 22 files)
+- [x] 1.1 `./mvnw verify` passes — d68b233
+- [x] 1.2 `OrderSchemaTests` passes: all four cross-company inserts are rejected, and the unassigned order is accepted — d68b233
+- [x] 1.3 `grep -rn "INSERT INTO orders\|INSERT INTO order_lines" src/test | grep -v company_id` returns nothing (multi-line inserts checked by reading the 22 files) — d68b233
 
 #### Manual
 
-- [x] 1.4 With `./mvnw spring-boot:test-run`, a manager creates an order for a project with a BOM. The order shows its reservations, and `orders.company_id` and `order_lines.company_id` equal the manager's company in the DB
+- [x] 1.4 With `./mvnw spring-boot:test-run`, a manager creates an order for a project with a BOM. The order shows its reservations, and `orders.company_id` and `order_lines.company_id` equal the manager's company in the DB — d68b233
 
 ### Phase 2: Scoped allocator, routes and two-company tests
 
