@@ -351,14 +351,14 @@ V17 assumes `orders` and `order_lines` are empty. That holds because V14's guard
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 `OrdersCompanyIsolationIntegrationTests` passes: B gets 404 on all eight `/orders/{id}…` routes with A's orders unchanged, the lists and assignee pickers show only B's own company, a foreign assignee is `assigneeUnavailable`, and the companies' same-named parts don't compete
-- [x] 2.3 `CrossCompanyAllocationLockTests` passes: B's order creation and B's reallocation complete while A's part rows are locked, A's reservations are unchanged, and a short A line passed to B's reallocation stays short
-- [x] 2.4 All existing concurrency tests pass without changes other than the Phase 1 fixture columns and the allocator's `companyId` argument
-- [x] 2.5 The bare-lookup grep over `OrderController.java` and `OrderDetailModel.java` returns nothing
+- [x] 2.1 `./mvnw verify` passes — befb82b
+- [x] 2.2 `OrdersCompanyIsolationIntegrationTests` passes: B gets 404 on all eight `/orders/{id}…` routes with A's orders unchanged, the lists and assignee pickers show only B's own company, a foreign assignee is `assigneeUnavailable`, and the companies' same-named parts don't compete — befb82b
+- [x] 2.3 `CrossCompanyAllocationLockTests` passes: B's order creation and B's reallocation complete while A's part rows are locked, A's reservations are unchanged, and a short A line passed to B's reallocation stays short — befb82b
+- [x] 2.4 All existing concurrency tests pass without changes other than the Phase 1 fixture columns and the allocator's `companyId` argument — befb82b
+- [x] 2.5 The bare-lookup grep over `OrderController.java` and `OrderDetailModel.java` returns nothing — befb82b
 
 #### Manual
 
-- [x] 2.6 With `spring-boot:test-run`, companies A and B each create part "R1" (stock 5), project "Board X" and an order for 5 units. Both orders are fully reserved, and each manager's `/orders` list shows only their own order
-- [x] 2.7 Pasting A's order id into `/orders/{id}` and `/orders/{id}/cancel` as B shows the 404 page
-- [x] 2.8 B's new-order form and order detail page offer only B's accounts as assignees
+- [x] 2.6 With `spring-boot:test-run`, companies A and B each create part "R1" (stock 5), project "Board X" and an order for 5 units. Both orders are fully reserved, and each manager's `/orders` list shows only their own order — befb82b
+- [x] 2.7 Pasting A's order id into `/orders/{id}` and `/orders/{id}/cancel` as B shows the 404 page — befb82b
+- [x] 2.8 B's new-order form and order detail page offer only B's accounts as assignees — befb82b
