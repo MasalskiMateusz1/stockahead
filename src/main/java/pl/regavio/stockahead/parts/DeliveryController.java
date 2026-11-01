@@ -43,7 +43,8 @@ import pl.regavio.stockahead.security.CompanyUser;
  * (add-rows and validation errors), none of which go on to write.
  * <p>
  * A valid receipt is merged per part and written in one transaction: the
- * part rows are locked ({@code findByIdInForUpdate}), every id and every new
+ * part rows of the receiver's company are locked
+ * ({@code findByIdInAndCompanyIdForUpdate}), every id and every new
  * stock total is checked before anything is mutated, then stock is raised,
  * missing locations are added, the persistence context is flushed and only
  * then {@link ReservationAllocator#reallocateForParts(Long, Set)} runs, so the
@@ -160,7 +161,9 @@ public class DeliveryController {
 		// Shelf locks always come before part-row locks (see LocationSpellings#lockShelves).
 		LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, companyId,
 				lines.values().stream().flatMap(line -> line.locations().stream()).toList());
-		List<Part> lockedParts = partRepository.findByIdInForUpdate(partIds);
+		// Only the receiver's company's parts: another company's id is neither locked
+		// nor returned, so it falls into the partNotFound branch below.
+		List<Part> lockedParts = partRepository.findByIdInAndCompanyIdForUpdate(partIds, companyId);
 		if (lockedParts.size() != partIds.size()) {
 			return messageSource.getMessage("deliveries.error.partNotFound", null, locale);
 		}

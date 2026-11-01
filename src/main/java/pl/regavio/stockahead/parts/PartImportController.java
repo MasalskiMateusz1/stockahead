@@ -257,7 +257,7 @@ public class PartImportController {
 			}
 		}
 		Map<Long, Part> lockedById = matchedIds.isEmpty() ? Map.of()
-				: partRepository.findByIdInForUpdate(matchedIds)
+				: partRepository.findByIdInAndCompanyIdForUpdate(matchedIds, companyId)
 					.stream()
 					.collect(Collectors.toMap(Part::getId, Function.identity()));
 		if (!matchedIds.isEmpty()) {

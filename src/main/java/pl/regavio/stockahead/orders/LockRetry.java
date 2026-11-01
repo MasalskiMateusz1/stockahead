@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
  * lock-timeout translation), with no backoff between attempts. Re-throws the
  * last failure once attempts are exhausted. Extracted from
  * {@code OrderController} so {@code PickingController} can share the same
- * retry behavior around its own {@code PartRepository.findByIdInForUpdate}
+ * retry behavior around its own {@code PartRepository.findByIdInAndCompanyIdForUpdate}
  * lock instead of duplicating the loop. Public so the delivery receipt
  * ({@code parts.DeliveryController}) can wrap its part-row-locking stock
  * write in the same retry.

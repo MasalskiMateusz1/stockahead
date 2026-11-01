@@ -173,7 +173,7 @@ class CrossCompanyAllocationLockTests {
 		try {
 			Future<Void> holder = executor.submit(() -> {
 				new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-					partRepository.findByIdInForUpdate(Set.of(partA.getId()));
+					partRepository.findByIdInAndCompanyIdForUpdate(Set.of(partA.getId()), companyA.getId());
 					locked.countDown();
 					try {
 						release.await(30, TimeUnit.SECONDS);

@@ -229,25 +229,25 @@ V19 backfills `stock_corrections.company_id` from `parts.company_id` before sett
 
 #### Automated
 
-- [x] 1.1 Migration applies and Hibernate validates the schema: `./mvnw test -Dtest=StockaheadApplicationTests`
-- [x] 1.2 New and existing schema tests pass: `./mvnw test -Dtest='PartCompanySchemaTests,OrderSchemaTests'`
-- [x] 1.3 Correction and cancel suites pass unchanged in behavior: `./mvnw test -Dtest='StockCorrection*Tests,OrderCancel*Tests'`
+- [x] 1.1 Migration applies and Hibernate validates the schema: `./mvnw test -Dtest=StockaheadApplicationTests` — 307fcfa
+- [x] 1.2 New and existing schema tests pass: `./mvnw test -Dtest='PartCompanySchemaTests,OrderSchemaTests'` — 307fcfa
+- [x] 1.3 Correction and cancel suites pass unchanged in behavior: `./mvnw test -Dtest='StockCorrection*Tests,OrderCancel*Tests'` — 307fcfa
 
 #### Manual
 
-- [x] 1.4 On a local database with existing data, the app starts after V19 and `stock_corrections.company_id` equals each row's part's company
+- [x] 1.4 On a local database with existing data, the app starts after V19 and `stock_corrections.company_id` equals each row's part's company — 307fcfa
 
 ### Phase 2: Scoped stock routes and two-company tests
 
 #### Automated
 
-- [ ] 2.1 New isolation suite passes: `./mvnw test -Dtest=StockMovementsCompanyIsolationIntegrationTests`
-- [ ] 2.2 Stock-movement and allocation suites pass: `./mvnw test -Dtest='Delivery*Tests,StockCorrection*Tests,PartImport*Tests,CrossCompanyAllocationLockTests,Reservation*Tests'`
-- [ ] 2.3 No bare part lock remains: `grep -rn "findByIdInForUpdate(" src/` returns nothing
-- [ ] 2.4 Full build passes: `./mvnw verify`
+- [x] 2.1 New isolation suite passes: `./mvnw test -Dtest=StockMovementsCompanyIsolationIntegrationTests`
+- [x] 2.2 Stock-movement and allocation suites pass: `./mvnw test -Dtest='Delivery*Tests,StockCorrection*Tests,PartImport*Tests,CrossCompanyAllocationLockTests,Reservation*Tests'`
+- [x] 2.3 No bare part lock remains: `grep -rn "findByIdInForUpdate(" src/` returns nothing
+- [x] 2.4 Full build passes: `./mvnw verify`
 
 #### Manual
 
-- [ ] 2.5 With two companies seeded, B's manager opening `/parts/{A's id}/correction` in the browser gets a 404 page
-- [ ] 2.6 As A's technician, receive a delivery for a part an open order is short on; the order's reservation rises at once
-- [ ] 2.7 As A's manager, correct a part's stock up and down; both succeed, the history lists both with your account, and the reservations follow
+- [x] 2.5 With two companies seeded, B's manager opening `/parts/{A's id}/correction` in the browser gets a 404 page
+- [x] 2.6 As A's technician, receive a delivery for a part an open order is short on; the order's reservation rises at once
+- [x] 2.7 As A's manager, correct a part's stock up and down; both succeed, the history lists both with your account, and the reservations follow

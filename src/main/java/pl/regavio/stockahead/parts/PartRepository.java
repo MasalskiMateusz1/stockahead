@@ -30,10 +30,6 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	List<Part> search(@Param("companyId") Long companyId, @Param("q") String q,
 			@Param("showInactive") boolean showInactive);
 
-	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("SELECT p FROM Part p WHERE p.id IN :ids ORDER BY p.id")
-	List<Part> findByIdInForUpdate(@Param("ids") Collection<Long> ids);
-
 	/**
 	 * Locks the parts among {@code ids} that belong to company
 	 * {@code companyId}, in id order; a part of another company is neither
@@ -96,7 +92,7 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	/**
 	 * Current {@code (id, quantity)} pairs for the given parts, as a plain
 	 * scalar projection rather than hydrated {@link Part} entities. Unlike
-	 * {@link #findByIdInForUpdate(Collection)}, a scalar row never goes
+	 * {@link #findByIdInAndCompanyIdForUpdate(Collection, Long)}, a scalar row never goes
 	 * through Hibernate's first-level-cache reconciliation — if the caller's
 	 * transaction already has one of these {@code Part}s managed from an
 	 * earlier, unrelated read (e.g. a lazy {@code @ManyToOne} touched before

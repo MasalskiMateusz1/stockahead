@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * transaction (mirroring the shape {@code OrderController}'s eventual
  * {@code POST /orders} handler will use, per {@code ProjectBomController
  * .addLine}), genuinely exercising
- * {@code PartRepository.findByIdInForUpdate(ids)}'s {@code PESSIMISTIC_WRITE}
+ * {@code PartRepository.findByIdInAndCompanyIdForUpdate(ids, companyId)}'s {@code PESSIMISTIC_WRITE}
  * row lock on Postgres, scoped to just the given part ids. The HTTP-level
  * version of "two concurrent order-creation POSTs" is naturally re-covered
  * once {@code OrderController} exists (Phase 3).

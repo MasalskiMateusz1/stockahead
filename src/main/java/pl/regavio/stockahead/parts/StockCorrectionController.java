@@ -41,7 +41,8 @@ import pl.regavio.stockahead.security.CompanyUser;
  * are validated first without loading a {@link Part} (with
  * {@code spring.jpa.open-in-view} a part hydrated before the part-row lock
  * would be served stale afterwards), then one transaction, wrapped in
- * {@link LockRetry}, locks the part row ({@code findByIdInForUpdate}),
+ * {@link LockRetry}, locks the part row
+ * ({@code findByIdInAndCompanyIdForUpdate}, the manager's company only),
  * computes and checks the new stock against the locked quantity, sets it,
  * inserts the {@link StockCorrection} row, flushes and only then calls
  * {@link ReservationAllocator#reallocateForParts(Long, Set)}. Any rejection rolls
@@ -91,8 +92,8 @@ public class StockCorrectionController {
 
 	@GetMapping("/parts/{id}/correction")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String form(@PathVariable Long id, Model model) {
-		return renderForm(model, id, FormInput.BLANK, null);
+	public String form(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal, Model model) {
+		return renderForm(model, principal.companyId(), id, FormInput.BLANK, null);
 	}
 
 	/**
@@ -113,18 +114,18 @@ public class StockCorrectionController {
 			parsed = new BigInteger(input.newQuantity().trim());
 		}
 		catch (NumberFormatException ex) {
-			return renderForm(model, id, input, message("corrections.error.newQuantityNotInteger", locale));
+			return renderForm(model, principal.companyId(), id, input, message("corrections.error.newQuantityNotInteger", locale));
 		}
 		if (parsed.signum() < 0) {
-			return renderForm(model, id, input, message("corrections.error.newQuantityNegative", locale));
+			return renderForm(model, principal.companyId(), id, input, message("corrections.error.newQuantityNegative", locale));
 		}
 		if (parsed.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
-			return renderForm(model, id, input,
+			return renderForm(model, principal.companyId(), id, input,
 					message("corrections.error.newQuantityTooLarge", locale, Integer.MAX_VALUE));
 		}
 		String reasonError = validateReason(input.setReason(), locale);
 		if (reasonError != null) {
-			return renderForm(model, id, input, reasonError);
+			return renderForm(model, principal.companyId(), id, input, reasonError);
 		}
 
 		int target = parsed.intValueExact();
@@ -157,17 +158,17 @@ public class StockCorrectionController {
 			parsed = new BigInteger(input.delta().trim());
 		}
 		catch (NumberFormatException ex) {
-			return renderForm(model, id, input, message("corrections.error.deltaNotInteger", locale));
+			return renderForm(model, principal.companyId(), id, input, message("corrections.error.deltaNotInteger", locale));
 		}
 		if (parsed.signum() == 0) {
-			return renderForm(model, id, input, message("corrections.error.deltaZero", locale));
+			return renderForm(model, principal.companyId(), id, input, message("corrections.error.deltaZero", locale));
 		}
 		if (parsed.abs().compareTo(BigInteger.valueOf(MAX_DELTA)) > 0) {
-			return renderForm(model, id, input, message("corrections.error.deltaTooLarge", locale, MAX_DELTA));
+			return renderForm(model, principal.companyId(), id, input, message("corrections.error.deltaTooLarge", locale, MAX_DELTA));
 		}
 		String reasonError = validateReason(input.adjustReason(), locale);
 		if (reasonError != null) {
-			return renderForm(model, id, input, reasonError);
+			return renderForm(model, principal.companyId(), id, input, reasonError);
 		}
 
 		int change = parsed.intValueExact();
@@ -205,10 +206,10 @@ public class StockCorrectionController {
 			}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
-			return renderForm(model, id, input, message("corrections.error.saveFailed", locale));
+			return renderForm(model, principal.companyId(), id, input, message("corrections.error.saveFailed", locale));
 		}
 		if (outcome.error() != null) {
-			return renderForm(model, id, input, outcome.error());
+			return renderForm(model, principal.companyId(), id, input, outcome.error());
 		}
 
 		redirectAttributes.addFlashAttribute("stockCorrected", message("corrections.applied", locale,
@@ -218,13 +219,13 @@ public class StockCorrectionController {
 
 	/**
 	 * Runs inside the write transaction: locks the part row (404 for an
-	 * unknown part), lets {@code rule} check the locked stock and compute the
+	 * unknown part or one of another company), lets {@code rule} check the locked stock and compute the
 	 * new one, then sets it, inserts the correction row, flushes and
 	 * reallocates the part. Returns the outcome; on a rejection nothing has
 	 * been mutated.
 	 */
 	private Outcome applyCorrection(Long id, String reason, CompanyUser principal, IntFunction<Target> rule) {
-		List<Part> locked = partRepository.findByIdInForUpdate(Set.of(id));
+		List<Part> locked = partRepository.findByIdInAndCompanyIdForUpdate(Set.of(id), principal.companyId());
 		if (locked.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
@@ -251,8 +252,7 @@ public class StockCorrectionController {
 		// Flush BEFORE reallocating: the allocator reads stock with a scalar query,
 		// so an unflushed correction would be invisible to it.
 		partRepository.flush();
-		// The locked part's company, not the principal's, until S-05 scopes the part lookup.
-		reservationAllocator.reallocateForParts(part.getCompany().getId(), Set.of(id));
+		reservationAllocator.reallocateForParts(principal.companyId(), Set.of(id));
 		return new Outcome(null, part.getName(), before, after);
 	}
 
@@ -294,12 +294,13 @@ public class StockCorrectionController {
 
 	/**
 	 * Fills the model from the part's current state and re-renders the given
-	 * raw inputs; 404 for an unknown part. The hidden {@code expectedQuantity}
+	 * raw inputs; 404 for an unknown part or one of another company than
+	 * {@code companyId}, exactly like a missing id. The hidden {@code expectedQuantity}
 	 * always carries the stock read here, so a re-render after a stale
 	 * submission offers the fresh value.
 	 */
-	private String renderForm(Model model, Long id, FormInput input, String error) {
-		Part part = partRepository.findById(id)
+	private String renderForm(Model model, Long companyId, Long id, FormInput input, String error) {
+		Part part = partRepository.findByIdAndCompanyId(id, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		int quantity = part.getQuantity();
 		int reserved = Math.toIntExact(orderLineRepository.reservedQuantityForPart(id));
