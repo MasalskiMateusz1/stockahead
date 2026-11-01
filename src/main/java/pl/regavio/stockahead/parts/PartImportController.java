@@ -264,7 +264,7 @@ public class PartImportController {
 			// Initializes the locked parts' locations in one query, so adding
 			// missing locations below doesn't run one lazy load per part while
 			// every lock is held. The managed instances stay the locked ones.
-			partRepository.findWithLocationsByIdIn(matchedIds);
+			partRepository.findWithLocationsByIdInAndCompanyId(matchedIds, companyId);
 		}
 		for (int i = 0; i < lines.size(); i++) {
 			Long matchedId = matchedIdPerLine[i];

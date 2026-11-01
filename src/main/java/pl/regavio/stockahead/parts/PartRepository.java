@@ -86,8 +86,13 @@ public interface PartRepository extends JpaRepository<Part, Long> {
 	@Query(value = "SELECT 1 FROM pg_advisory_xact_lock(:namespace, :key)", nativeQuery = true)
 	Integer lockShelf(@Param("namespace") int namespace, @Param("key") int key);
 
-	@Query("SELECT DISTINCT p FROM Part p LEFT JOIN FETCH p.locations WHERE p.id IN :ids")
-	List<Part> findWithLocationsByIdIn(@Param("ids") Collection<Long> ids);
+	/**
+	 * The parts among {@code ids} that belong to company {@code companyId},
+	 * with their locations fetched; a part of another company is not returned.
+	 */
+	@Query("SELECT DISTINCT p FROM Part p LEFT JOIN FETCH p.locations WHERE p.id IN :ids AND p.company.id = :companyId")
+	List<Part> findWithLocationsByIdInAndCompanyId(@Param("ids") Collection<Long> ids,
+			@Param("companyId") Long companyId);
 
 	/**
 	 * Current {@code (id, quantity)} pairs for the given parts, as a plain

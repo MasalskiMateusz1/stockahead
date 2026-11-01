@@ -145,7 +145,8 @@ class OrderDetailModel {
 			List<OrderLine> picked = order.getLines().stream().filter(line -> line.getPickedQuantity() > 0).toList();
 			// Order.lines and Part.locations are both bags, which Hibernate cannot fetch in one query;
 			// one extra query fills every shown part's locations instead of one lazy load per line.
-			partRepository.findWithLocationsByIdIn(picked.stream().map(line -> line.getPart().getId()).toList());
+			partRepository.findWithLocationsByIdInAndCompanyId(picked.stream().map(line -> line.getPart().getId()).toList(),
+					companyId);
 			List<CancelLineView> lines = picked.stream()
 				.map(line -> new CancelLineView(line.getId(), line.getPart().getName(),
 						joinLocations(line.getPart()), line.getPickedQuantity(),

@@ -78,7 +78,7 @@ final class ImportPreview {
 			}
 		}
 		Map<Long, Part> partsById = matchedIds.isEmpty() ? Map.of()
-				: partRepository.findWithLocationsByIdIn(matchedIds)
+				: partRepository.findWithLocationsByIdInAndCompanyId(matchedIds, companyId)
 					.stream()
 					.collect(Collectors.toMap(Part::getId, Function.identity()));
 

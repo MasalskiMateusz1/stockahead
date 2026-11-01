@@ -2,6 +2,7 @@ package pl.regavio.stockahead.parts;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -390,11 +391,15 @@ class StockMovementsCompanyIsolationIntegrationTests {
 				.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8));
 			assertThat(deliveryB.get(15, TimeUnit.SECONDS)).contains(PART_NOT_FOUND);
 
+			long correctionStart = System.nanoTime();
 			Future<Void> correctionB = executor.submit(() -> {
 				mockMvc.perform(adjustBy(managerB, partA.getId(), "1")).andExpect(status().isNotFound());
 				return null;
 			});
 			correctionB.get(15, TimeUnit.SECONDS);
+			// A 404 alone would also come from a lock timeout re-rendering through the
+			// scoped form, so also prove the request never waited on A's lock.
+			assertThat(Duration.ofNanos(System.nanoTime() - correctionStart)).isLessThan(Duration.ofSeconds(5));
 
 			release.countDown();
 			holder.get(10, TimeUnit.SECONDS);

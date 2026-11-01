@@ -1,7 +1,7 @@
 ---
 change_id: company-scoped-stock-movements
 title: Company scoped stock movements
-status: implemented
+status: impl_reviewed
 created: 2026-11-01
 updated: 2026-11-01
 ---

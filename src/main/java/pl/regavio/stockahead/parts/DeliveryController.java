@@ -167,6 +167,10 @@ public class DeliveryController {
 		if (lockedParts.size() != partIds.size()) {
 			return messageSource.getMessage("deliveries.error.partNotFound", null, locale);
 		}
+		// Initializes the locked parts' locations in one query, so the location
+		// check below doesn't run one lazy load per part while every lock is held.
+		// The managed instances stay the locked ones.
+		partRepository.findWithLocationsByIdInAndCompanyId(partIds, companyId);
 
 		Map<Long, Integer> newQuantities = new HashMap<>();
 		for (Part part : lockedParts) {
