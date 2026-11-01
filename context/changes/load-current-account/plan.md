@@ -238,12 +238,12 @@ There is no schema change. After deploying, every user signs in again. That alre
 
 #### Automated
 
-- [x] 2.1 `grep -rln findByCanonicalEmail src/main/java` lists exactly `AccountRepository.java` and `AccountUserDetailsService.java`
-- [x] 2.2 `AccountLookupConventionTests` passes: `./mvnw test -Dtest=AccountLookupConventionTests`
-- [x] 2.3 Picking, cancel and correction suites pass: `./mvnw test -Dtest='Picking*Tests,OrderCancel*Tests,StockCorrection*Tests'`
-- [x] 2.4 Full build passes: `./mvnw verify`
+- [x] 2.1 `grep -rln findByCanonicalEmail src/main/java` lists exactly `AccountRepository.java` and `AccountUserDetailsService.java` — 2ead9cb
+- [x] 2.2 `AccountLookupConventionTests` passes: `./mvnw test -Dtest=AccountLookupConventionTests` — 2ead9cb
+- [x] 2.3 Picking, cancel and correction suites pass: `./mvnw test -Dtest='Picking*Tests,OrderCancel*Tests,StockCorrection*Tests'` — 2ead9cb
+- [x] 2.4 Full build passes: `./mvnw verify` — 2ead9cb
 
 #### Manual
 
-- [x] 2.5 In `./mvnw spring-boot:test-run`, as a technician, `/picking` lists only orders assigned to you. Report completion on a taken order and confirm the order detail shows you as the reporter.
-- [x] 2.6 As a manager, cancel an order and apply one stock correction. The cancellation and the correction both record your account.
+- [x] 2.5 In `./mvnw spring-boot:test-run`, as a technician, `/picking` lists only orders assigned to you. Report completion on a taken order and confirm the order detail shows you as the reporter. — 2ead9cb
+- [x] 2.6 As a manager, cancel an order and apply one stock correction. The cancellation and the correction both record your account. — 2ead9cb

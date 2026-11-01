@@ -1,9 +1,9 @@
 ---
 change_id: load-current-account
 title: Load current account
-status: implementing
+status: implemented
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-11-01
 archived_at: null
 ---
 
