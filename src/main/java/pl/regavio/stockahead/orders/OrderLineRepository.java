@@ -71,9 +71,14 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Long> {
 	List<OrderLine> findOpenLinesForParts(@Param("companyId") Long companyId,
 			@Param("partIds") Collection<Long> partIds);
 
+	/**
+	 * Company {@code companyId}'s lines of OPEN orders that are short
+	 * (required exceeds reserved plus picked), with order, project and part
+	 * fetched; other companies' lines are never read.
+	 */
 	@Query("SELECT ol FROM OrderLine ol JOIN FETCH ol.order o JOIN FETCH o.project JOIN FETCH ol.part "
-			+ "WHERE o.status = pl.regavio.stockahead.orders.OrderStatus.OPEN "
+			+ "WHERE o.status = pl.regavio.stockahead.orders.OrderStatus.OPEN AND ol.companyId = :companyId "
 			+ "AND ol.requiredQuantity > ol.reservedQuantity + ol.pickedQuantity")
-	List<OrderLine> findOpenLinesWithShortage();
+	List<OrderLine> findOpenLinesWithShortage(@Param("companyId") Long companyId);
 
 }
