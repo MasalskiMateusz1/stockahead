@@ -112,6 +112,7 @@ class PurchasingCompanyIsolationIntegrationTests {
 	 * Seeds an open order of {@code project} with one line on {@code part},
 	 * {@code required} units required and all of the part's stock reserved, as
 	 * the allocator would leave a sole order short on that part.
+	 * No BOM line is seeded: the shopping list reads only order lines.
 	 * @return the order id
 	 */
 	private Long seedShortOrder(Company company, Project project, Part part, int required, LocalDate requiredDate) {

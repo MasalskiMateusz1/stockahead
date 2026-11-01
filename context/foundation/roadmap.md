@@ -47,7 +47,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | S-03 | company-scoped-orders             | Manager orders production; reservations draw only on their company's parts and orders                           | S-02             | US-01, FR-028, Business Logic Changes (modified rule), Success Criteria › Guardrails (stock/reservation guarantees per company) | done |
 | S-04 | company-scoped-picking-completion | Technician picks and reports completion only for their company's orders                                         | S-03             | US-01, FR-028, Success Criteria › Guardrails                                                                                    | done |
 | S-05 | company-scoped-stock-movements    | Users receive deliveries, correct stock and import CSV only into their company's catalog                        | S-01, S-03       | FR-028, Business Logic Changes, Constraints (CSV formats unchanged)                                                             | done |
-| S-06 | company-scoped-shopping-list      | Manager sees and exports a shopping list built only from their company's shortages                              | S-03             | US-01, FR-028, Constraints (CSV formats unchanged)                                                                              | proposed |
+| S-06 | company-scoped-shopping-list      | Manager sees and exports a shopping list built only from their company's shortages                              | S-03             | US-01, FR-028, Constraints (CSV formats unchanged)                                                                              | in-progress |
 | S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company                        | F-01             | FR-030, FR-032, FR-029, FR-028                                                                                                  | proposed |
 | S-08 | operator-setup-and-company-list   | Setup creates the operator, who sees the list of companies and nothing else                                     | F-01             | FR-033, FR-025, FR-029, Success Criteria › Guardrails (operator has no path to company data)                                    | proposed |
 | S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                                     | F-01             | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle)                                                       | proposed |
@@ -166,7 +166,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** The shortage query aggregates across all open order lines today — the easiest leak in the system because it's a read-only page nobody suspects. Last item of US-01's flow.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-07: Accounts managed within one company
 
