@@ -1,7 +1,7 @@
 ---
 change_id: company-scoped-picking-completion
 title: Company scoped picking completion
-status: implemented
+status: impl_reviewed
 created: 2026-10-29
 updated: 2026-10-29
 ---

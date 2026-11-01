@@ -61,8 +61,11 @@ import pl.regavio.stockahead.security.CompanyUser;
  * <p>
  * Every by-id lookup and lock (detail, pick, report-completion) is scoped to
  * the principal's company: another company's order or line is 404, exactly
- * like an unknown id, and that 404 comes from the first scoped lookup,
- * before any validation output, lock or write.
+ * like an unknown id, before any lock, write or rendered output. On detail
+ * and pick the first scoped lookup is that 404; on report-completion a
+ * foreign order yields no part ids, so nothing is locked, and the 404 comes
+ * from the scoped order load (or the scoped error re-render when
+ * {@code builtUnits} is invalid).
  */
 @Controller
 public class PickingController {
@@ -238,7 +241,8 @@ public class PickingController {
 	 * scoped to the principal's company. An empty part-id list (unknown or
 	 * another company's order, or an order without lines — which can't be
 	 * taken, and so can't race a pick) skips the lock; an unknown or foreign
-	 * order is then 404 from the in-transaction {@code findByIdAndCompanyId},
+	 * order is then 404 from the in-transaction {@code findByIdAndCompanyId}
+	 * or, when {@code builtUnits} is invalid, from the scoped error re-render,
 	 * before anything is written. The reported built count
 	 * ({@code builtUnits}) must parse to an integer of at least 0 before any
 	 * lock is taken; its upper bound ({@code quantityUnits}) is checked under

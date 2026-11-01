@@ -233,9 +233,15 @@ class PickingCompanyIsolationIntegrationTests {
 		Map<String, Object> before = snapshotOf(orderA);
 
 		for (String email : OTHER_COMPANY_USERS) {
-			mockMvc.perform(post("/picking/{orderId}/report-completion", orderA).session(loginAs(email))
+			MockHttpSession session = loginAs(email);
+			mockMvc.perform(post("/picking/{orderId}/report-completion", orderA).session(session)
 					.with(csrf())
 					.param("builtUnits", "1"))
+				.andExpect(status().isNotFound());
+			// A bad builtUnits fails validation first; the scoped error re-render is still 404.
+			mockMvc.perform(post("/picking/{orderId}/report-completion", orderA).session(session)
+					.with(csrf())
+					.param("builtUnits", "abc"))
 				.andExpect(status().isNotFound());
 		}
 
