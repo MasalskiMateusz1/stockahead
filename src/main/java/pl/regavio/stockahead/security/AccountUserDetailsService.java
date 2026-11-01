@@ -29,7 +29,7 @@ public class AccountUserDetailsService implements UserDetailsService {
 			.orElseThrow(() -> new UsernameNotFoundException("No account with email " + email));
 
 		return new CompanyUser(account.getEmail(), account.getPasswordHash(), account.isActive(),
-				authoritiesFor(account.getRole()), account.getCompany().getId());
+				authoritiesFor(account.getRole()), account.getId(), account.getCompany().getId());
 	}
 
 	private List<GrantedAuthority> authoritiesFor(Role role) {

@@ -89,6 +89,27 @@ class AccountUserDetailsServiceTest {
 	}
 
 	@Test
+	void principalCarriesTheAccountsId() {
+		Account technician = new Account();
+		technician.setId(15L);
+		technician.setEmail("technician@example.com");
+		technician.setPasswordHash("hashed-password");
+		technician.setRole(Role.TECHNICIAN);
+		technician.setActive(true);
+		technician.setCreatedAt(Instant.now());
+		technician.setCompany(company(7L));
+
+		when(accountRepository.findByCanonicalEmail("technician@example.com")).thenReturn(Optional.of(technician));
+
+		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
+		UserDetails userDetails = service.loadUserByUsername("technician@example.com");
+
+		assertThat(userDetails).isInstanceOf(CompanyUser.class);
+		assertThat(((CompanyUser) userDetails).accountId()).isEqualTo(15L);
+		assertThat(((CompanyUser) userDetails).companyId()).isEqualTo(7L);
+	}
+
+	@Test
 	void unknownEmailThrowsUsernameNotFoundException() {
 		when(accountRepository.findByCanonicalEmail("missing@example.com")).thenReturn(Optional.empty());
 

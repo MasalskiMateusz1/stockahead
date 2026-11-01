@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import pl.regavio.stockahead.account.AccountRepository;
-import pl.regavio.stockahead.account.Emails;
 
 public class AccountActivityFilter extends OncePerRequestFilter {
 
@@ -29,8 +28,7 @@ public class AccountActivityFilter extends OncePerRequestFilter {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication != null && authentication.isAuthenticated()
 				&& !(authentication instanceof AnonymousAuthenticationToken)
-				&& accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
-					.filter(account -> account.isActive()).isEmpty()) {
+				&& !isActiveAccount(authentication.getPrincipal())) {
 			SecurityContextHolder.clearContext();
 			HttpSession session = request.getSession(false);
 			if (session != null) {
@@ -40,6 +38,15 @@ public class AccountActivityFilter extends OncePerRequestFilter {
 			return;
 		}
 		filterChain.doFilter(request, response);
+	}
+
+	private boolean isActiveAccount(Object principal) {
+		if (!(principal instanceof CompanyUser user) || user.accountId() == null || user.companyId() == null) {
+			return false;
+		}
+		return accountRepository.findByIdAndCompanyId(user.accountId(), user.companyId())
+			.filter(account -> account.isActive())
+			.isPresent();
 	}
 
 }
