@@ -22,7 +22,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * PostgreSQL level, independently of any controller check: an order never
  * links its company to another company's project or assignee, and a line
  * never links its order's company to another company's part or order. The V18
- * constraint likewise keeps an order's completion reporter in its company.
+ * constraint likewise keeps an order's completion reporter in its company,
+ * and the V19 constraint its canceller.
  * Deliberately not {@code @Transactional}: every {@code JdbcTemplate} call
  * runs as its own auto-committed statement so the constraint fires for real.
  */
@@ -119,6 +120,16 @@ class OrderSchemaTests {
 			orderId);
 	}
 
+	private void cancel(long orderId, Long cancellerId) {
+		jdbcTemplate.update(
+			"UPDATE orders SET status = 'CANCELLED', cancelled_at = now(), cancelled_by = ? WHERE id = ?",
+			cancellerId, orderId);
+	}
+
+	private Long cancelledByOf(long orderId) {
+		return jdbcTemplate.queryForObject("SELECT cancelled_by FROM orders WHERE id = ?", Long.class, orderId);
+	}
+
 	private int count(String table) {
 		return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
 	}
@@ -177,6 +188,26 @@ class OrderSchemaTests {
 		reportCompletion(orderAId, assigneeAId);
 
 		assertThat(completionReportedByOf(orderAId)).isEqualTo(assigneeAId);
+	}
+
+	@Test
+	void orderCancelledByAnotherCompanysAccountIsRejected() {
+		long projectAId = insertProject(companyAId, "Board A");
+		long orderAId = insertOrder(companyAId, projectAId, null);
+
+		assertThatThrownBy(() -> cancel(orderAId, assigneeBId))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThat(cancelledByOf(orderAId)).isNull();
+	}
+
+	@Test
+	void orderCancelledByOwnCompanysAccountIsAccepted() {
+		long projectAId = insertProject(companyAId, "Board A");
+		long orderAId = insertOrder(companyAId, projectAId, null);
+
+		cancel(orderAId, assigneeAId);
+
+		assertThat(cancelledByOf(orderAId)).isEqualTo(assigneeAId);
 	}
 
 	@Test

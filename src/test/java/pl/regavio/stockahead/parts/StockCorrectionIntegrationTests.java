@@ -179,9 +179,9 @@ class StockCorrectionIntegrationTests {
 	private void seedCorrection(Long partId, Long accountId, int before, int after, String reason,
 			Instant createdAt) {
 		jdbcTemplate.update(
-				"INSERT INTO stock_corrections (part_id, account_id, quantity_before, quantity_after, reason, created_at) "
-						+ "VALUES (?, ?, ?, ?, ?, ?)",
-				partId, accountId, before, after, reason, Timestamp.from(createdAt));
+				"INSERT INTO stock_corrections (part_id, account_id, quantity_before, quantity_after, reason, created_at, company_id) "
+						+ "VALUES (?, ?, ?, ?, ?, ?, (SELECT company_id FROM parts WHERE id = ?))",
+				partId, accountId, before, after, reason, Timestamp.from(createdAt), partId);
 	}
 
 	private Long seedLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
