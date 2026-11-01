@@ -13,7 +13,7 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -27,10 +27,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
-import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.orders.LockRetry;
 import pl.regavio.stockahead.orders.OrderLineRepository;
 import pl.regavio.stockahead.orders.ReservationAllocator;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Manager-only stock correction screen for one part, active or inactive:
@@ -104,7 +104,8 @@ public class StockCorrectionController {
 	@PreAuthorize("hasRole('MANAGER')")
 	public String set(@PathVariable Long id, @RequestParam(required = false) String newQuantity,
 			@RequestParam(required = false) String expectedQuantity, @RequestParam(required = false) String reason,
-			Authentication authentication, Model model, Locale locale, RedirectAttributes redirectAttributes) {
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale,
+			RedirectAttributes redirectAttributes) {
 		FormInput input = new FormInput(orEmpty(newQuantity), "", orEmpty(reason), "");
 
 		BigInteger parsed;
@@ -128,7 +129,7 @@ public class StockCorrectionController {
 
 		int target = parsed.intValueExact();
 		Integer expected = parseExpected(expectedQuantity);
-		return apply(id, input.setReason().strip(), authentication, model, input, locale, redirectAttributes,
+		return apply(id, input.setReason().strip(), principal, model, input, locale, redirectAttributes,
 				current -> {
 					if (expected == null || expected != current) {
 						return Target.rejected(message("corrections.error.stale", locale, current));
@@ -147,8 +148,8 @@ public class StockCorrectionController {
 	@PostMapping("/parts/{id}/correction/adjust")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String adjust(@PathVariable Long id, @RequestParam(required = false) String delta,
-			@RequestParam(required = false) String reason, Authentication authentication, Model model, Locale locale,
-			RedirectAttributes redirectAttributes) {
+			@RequestParam(required = false) String reason, @AuthenticationPrincipal CompanyUser principal,
+			Model model, Locale locale, RedirectAttributes redirectAttributes) {
 		FormInput input = new FormInput("", orEmpty(delta), "", orEmpty(reason));
 
 		BigInteger parsed;
@@ -170,7 +171,7 @@ public class StockCorrectionController {
 		}
 
 		int change = parsed.intValueExact();
-		return apply(id, input.adjustReason().strip(), authentication, model, input, locale, redirectAttributes,
+		return apply(id, input.adjustReason().strip(), principal, model, input, locale, redirectAttributes,
 				current -> {
 					int after;
 					try {
@@ -191,12 +192,12 @@ public class StockCorrectionController {
 	 * outcome into a redirect with the {@code stockCorrected} flash, or a
 	 * re-render of the page with the inputs kept.
 	 */
-	private String apply(Long id, String reason, Authentication authentication, Model model, FormInput input,
+	private String apply(Long id, String reason, CompanyUser principal, Model model, FormInput input,
 			Locale locale, RedirectAttributes redirectAttributes, IntFunction<Target> rule) {
 		Outcome outcome;
 		try {
 			outcome = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-				Outcome result = applyCorrection(id, reason, authentication, rule);
+				Outcome result = applyCorrection(id, reason, principal, rule);
 				if (result.error() != null) {
 					status.setRollbackOnly();
 				}
@@ -222,7 +223,7 @@ public class StockCorrectionController {
 	 * reallocates the part. Returns the outcome; on a rejection nothing has
 	 * been mutated.
 	 */
-	private Outcome applyCorrection(Long id, String reason, Authentication authentication, IntFunction<Target> rule) {
+	private Outcome applyCorrection(Long id, String reason, CompanyUser principal, IntFunction<Target> rule) {
 		List<Part> locked = partRepository.findByIdInForUpdate(Set.of(id));
 		if (locked.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
@@ -234,7 +235,7 @@ public class StockCorrectionController {
 			return Outcome.rejected(target.error());
 		}
 
-		Account author = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
+		Account author = accountRepository.findByIdAndCompanyId(principal.accountId(), principal.companyId())
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
 		int after = target.quantity();
 		part.setQuantity(after);

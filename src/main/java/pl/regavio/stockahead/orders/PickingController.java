@@ -28,7 +28,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
-import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
 import pl.regavio.stockahead.security.CompanyUser;
@@ -139,9 +138,8 @@ public class PickingController {
 			model.addAttribute("selectedAssignee", selectedAssignee);
 		}
 		else {
-			Account self = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
-			orders = orderRepository.findByStatusAndAssigneeWithProject(companyId, OrderStatus.OPEN, self.getId());
+			orders = orderRepository.findByStatusAndAssigneeWithProject(companyId, OrderStatus.OPEN,
+					principal.accountId());
 		}
 		model.addAttribute("isManager", isManager);
 		model.addAttribute("orders", orders.stream()
@@ -251,8 +249,8 @@ public class PickingController {
 	@PostMapping("/picking/{orderId}/report-completion")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
 	public String reportCompletion(@PathVariable Long orderId,
-			@RequestParam(required = false) String builtUnits, Authentication authentication,
-			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale) {
+			@RequestParam(required = false) String builtUnits, @AuthenticationPrincipal CompanyUser principal,
+			Model model, Locale locale) {
 		Long companyId = principal.companyId();
 		Set<Long> partIds = transactionTemplate
 			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId, companyId)));
@@ -286,7 +284,7 @@ public class PickingController {
 							new Object[] { order.getQuantityUnits() }, locale);
 				}
 
-				Account reporter = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
+				Account reporter = accountRepository.findByIdAndCompanyId(principal.accountId(), companyId)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
 				order.setCompletionReportedAt(Instant.now());
 				order.setCompletionReportedBy(reporter);

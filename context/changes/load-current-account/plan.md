@@ -226,24 +226,24 @@ There is no schema change. After deploying, every user signs in again. That alre
 
 #### Automated
 
-- [x] 1.1 `AccountUserDetailsServiceTest` passes, including `principalCarriesTheAccountsId`: `./mvnw test -Dtest=AccountUserDetailsServiceTest`
-- [x] 1.2 Deactivation tests pass: `./mvnw test -Dtest=TechnicianAccountIntegrationTests`
-- [x] 1.3 Full build passes: `./mvnw verify`
+- [x] 1.1 `AccountUserDetailsServiceTest` passes, including `principalCarriesTheAccountsId`: `./mvnw test -Dtest=AccountUserDetailsServiceTest` — d50ef94
+- [x] 1.2 Deactivation tests pass: `./mvnw test -Dtest=TechnicianAccountIntegrationTests` — d50ef94
+- [x] 1.3 Full build passes: `./mvnw verify` — d50ef94
 
 #### Manual
 
-- [x] 1.4 In `./mvnw spring-boot:test-run`, sign in as a technician, have the manager deactivate that account from another browser, then reload as the technician. It redirects to `/login?deactivated`.
+- [x] 1.4 In `./mvnw spring-boot:test-run`, sign in as a technician, have the manager deactivate that account from another browser, then reload as the technician. It redirects to `/login?deactivated`. — d50ef94
 
 ### Phase 2: Controllers resolve the current account from the principal
 
 #### Automated
 
-- [ ] 2.1 `grep -rln findByCanonicalEmail src/main/java` lists exactly `AccountRepository.java` and `AccountUserDetailsService.java`
-- [ ] 2.2 `AccountLookupConventionTests` passes: `./mvnw test -Dtest=AccountLookupConventionTests`
-- [ ] 2.3 Picking, cancel and correction suites pass: `./mvnw test -Dtest='Picking*Tests,OrderCancel*Tests,StockCorrection*Tests'`
-- [ ] 2.4 Full build passes: `./mvnw verify`
+- [x] 2.1 `grep -rln findByCanonicalEmail src/main/java` lists exactly `AccountRepository.java` and `AccountUserDetailsService.java`
+- [x] 2.2 `AccountLookupConventionTests` passes: `./mvnw test -Dtest=AccountLookupConventionTests`
+- [x] 2.3 Picking, cancel and correction suites pass: `./mvnw test -Dtest='Picking*Tests,OrderCancel*Tests,StockCorrection*Tests'`
+- [x] 2.4 Full build passes: `./mvnw verify`
 
 #### Manual
 
-- [ ] 2.5 In `./mvnw spring-boot:test-run`, as a technician, `/picking` lists only orders assigned to you. Report completion on a taken order and confirm the order detail shows you as the reporter.
-- [ ] 2.6 As a manager, cancel an order and apply one stock correction. The cancellation and the correction both record your account.
+- [x] 2.5 In `./mvnw spring-boot:test-run`, as a technician, `/picking` lists only orders assigned to you. Report completion on a taken order and confirm the order detail shows you as the reporter.
+- [x] 2.6 As a manager, cancel an order and apply one stock correction. The cancellation and the correction both record your account.

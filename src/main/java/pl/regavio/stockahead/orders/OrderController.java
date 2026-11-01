@@ -18,7 +18,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -32,7 +31,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
-import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.account.Role;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
@@ -335,8 +333,7 @@ public class OrderController {
 	@PostMapping("/orders/{id}/cancel")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String cancel(@PathVariable Long id, @RequestParam Map<String, String> params,
-			Authentication authentication, @AuthenticationPrincipal CompanyUser principal, Model model,
-			Locale locale) {
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale) {
 		Long companyId = principal.companyId();
 		Map<Long, String> rawReturns = paramsByLineId(params, RETURNED_PARAM_PREFIX);
 		Map<Long, String> rawSeenPicked = paramsByLineId(params, SEEN_PICKED_PARAM_PREFIX);
@@ -385,8 +382,7 @@ public class OrderController {
 						}
 					}
 
-					Account canceller = accountRepository
-						.findByCanonicalEmail(Emails.canonical(authentication.getName()))
+					Account canceller = accountRepository.findByIdAndCompanyId(principal.accountId(), companyId)
 						.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
 					for (OrderLine line : order.getLines()) {
 						int returned = returns.getOrDefault(line.getId(), 0);
