@@ -241,13 +241,13 @@ V19 backfills `stock_corrections.company_id` from `parts.company_id` before sett
 
 #### Automated
 
-- [x] 2.1 New isolation suite passes: `./mvnw test -Dtest=StockMovementsCompanyIsolationIntegrationTests`
-- [x] 2.2 Stock-movement and allocation suites pass: `./mvnw test -Dtest='Delivery*Tests,StockCorrection*Tests,PartImport*Tests,CrossCompanyAllocationLockTests,Reservation*Tests'`
-- [x] 2.3 No bare part lock remains: `grep -rn "findByIdInForUpdate(" src/` returns nothing
-- [x] 2.4 Full build passes: `./mvnw verify`
+- [x] 2.1 New isolation suite passes: `./mvnw test -Dtest=StockMovementsCompanyIsolationIntegrationTests` — 9e0cdce
+- [x] 2.2 Stock-movement and allocation suites pass: `./mvnw test -Dtest='Delivery*Tests,StockCorrection*Tests,PartImport*Tests,CrossCompanyAllocationLockTests,Reservation*Tests'` — 9e0cdce
+- [x] 2.3 No bare part lock remains: `grep -rn "findByIdInForUpdate(" src/` returns nothing — 9e0cdce
+- [x] 2.4 Full build passes: `./mvnw verify` — 9e0cdce
 
 #### Manual
 
-- [x] 2.5 With two companies seeded, B's manager opening `/parts/{A's id}/correction` in the browser gets a 404 page
-- [x] 2.6 As A's technician, receive a delivery for a part an open order is short on; the order's reservation rises at once
-- [x] 2.7 As A's manager, correct a part's stock up and down; both succeed, the history lists both with your account, and the reservations follow
+- [x] 2.5 With two companies seeded, B's manager opening `/parts/{A's id}/correction` in the browser gets a 404 page — 9e0cdce
+- [x] 2.6 As A's technician, receive a delivery for a part an open order is short on; the order's reservation rises at once — 9e0cdce
+- [x] 2.7 As A's manager, correct a part's stock up and down; both succeed, the history lists both with your account, and the reservations follow — 9e0cdce
