@@ -140,12 +140,12 @@ None. No schema change.
 
 #### Automated
 
-- [x] 1.1 Full build and test suite pass: `./mvnw verify`
-- [x] 1.2 `PurchasingCompanyIsolationIntegrationTests` passes, covering the same-name shortage in both companies, the empty-state company and the part that exists only in B
-- [x] 1.3 Existing `ShoppingListIntegrationTests` pass unchanged
-- [x] 1.4 No caller of the no-argument `findOpenLinesWithShortage()` remains: `grep -rn "findOpenLinesWithShortage()" src` returns nothing
+- [x] 1.1 Full build and test suite pass: `./mvnw verify` — 3a01adc
+- [x] 1.2 `PurchasingCompanyIsolationIntegrationTests` passes, covering the same-name shortage in both companies, the empty-state company and the part that exists only in B — 3a01adc
+- [x] 1.3 Existing `ShoppingListIntegrationTests` pass unchanged — 3a01adc
+- [x] 1.4 No caller of the no-argument `findOpenLinesWithShortage()` remains: `grep -rn "findOpenLinesWithShortage()" src` returns nothing — 3a01adc
 
 #### Manual
 
-- [x] 1.5 With two companies seeded in `./mvnw spring-boot:test-run`, each manager's `/purchasing` page lists only their own shortages and links only to their own orders
-- [x] 1.6 Each manager's CSV export opens in Excel with the unchanged columns and only their own rows
+- [x] 1.5 With two companies seeded in `./mvnw spring-boot:test-run`, each manager's `/purchasing` page lists only their own shortages and links only to their own orders — 3a01adc
+- [x] 1.6 Each manager's CSV export opens in Excel with the unchanged columns and only their own rows — 3a01adc
