@@ -1,9 +1,10 @@
 ---
 change_id: company-scoped-shopping-list
 title: Company scoped shopping list
-status: impl_reviewed
+status: archived
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-03
+archived_at: 2026-11-03T04:50:16Z
 ---
 
 ## Notes
