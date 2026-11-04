@@ -27,9 +27,10 @@ import pl.regavio.stockahead.security.CompanyUser;
  * The company accounts page: a manager lists, creates, deactivates,
  * reactivates and changes the role of the technician and manager accounts of
  * their own company. A
- * company always keeps at least one active manager; every transition that
- * could remove the last one runs under the company row lock
- * ({@link CompanyRepository#findByIdForUpdate(Long)}).
+ * company always keeps at least one active manager; every account write runs
+ * under the company row lock ({@link CompanyRepository#findByIdForUpdate(Long)})
+ * and re-checks the caller there, so transitions that could remove the last
+ * manager, or the caller's own rights, serialise.
  */
 @Controller
 public class CompanyAccountController {
@@ -114,7 +115,10 @@ public class CompanyAccountController {
 		account.setCreatedAt(Instant.now());
 		account.setCompany(companyRepository.getReferenceById(principal.companyId()));
 		try {
-			accountRepository.saveAndFlush(account);
+			transactionTemplate.executeWithoutResult(status -> {
+				lockCompanyAsActiveManager(principal);
+				accountRepository.saveAndFlush(account);
+			});
 		}
 		catch (DataIntegrityViolationException ex) {
 			return renderError(model, email, role, "accounts.error.duplicateEmail", null, locale);
@@ -126,9 +130,8 @@ public class CompanyAccountController {
 	@PreAuthorize("hasRole('MANAGER')")
 	public String deactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal,
 			RedirectAttributes redirectAttributes, Locale locale) {
-		Long companyId = principal.companyId();
 		boolean refused = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-			Account account = lockAndLoadGuarded(id, companyId, true);
+			Account account = lockAndLoadGuarded(id, principal, true);
 			if (account == null) {
 				return true;
 			}
@@ -163,9 +166,8 @@ public class CompanyAccountController {
 					messageSource.getMessage("accounts.error.roleInvalid", null, locale));
 			return LIST_REDIRECT;
 		}
-		Long companyId = principal.companyId();
 		boolean refused = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-			Account account = lockAndLoadGuarded(id, companyId, newRole == Role.TECHNICIAN);
+			Account account = lockAndLoadGuarded(id, principal, newRole == Role.TECHNICIAN);
 			if (account == null) {
 				return true;
 			}
@@ -187,6 +189,7 @@ public class CompanyAccountController {
 	public String reactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
 		Long companyId = principal.companyId();
 		transactionTemplate.executeWithoutResult(status -> {
+			lockCompanyAsActiveManager(principal);
 			Account account = accountRepository.findByIdAndCompanyId(id, companyId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 			if (!account.isActive()) {
@@ -207,15 +210,38 @@ public class CompanyAccountController {
 	 * transaction; the lock is taken before any read of the company's accounts
 	 * so concurrent transitions serialise.
 	 */
-	private Account lockAndLoadGuarded(Long id, Long companyId, boolean removesManager) {
-		companyRepository.findByIdForUpdate(companyId)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+	private Account lockAndLoadGuarded(Long id, CompanyUser principal, boolean removesManager) {
+		Long companyId = principal.companyId();
+		lockCompanyAsActiveManager(principal);
 		Account account = accountRepository.findByIdAndCompanyId(id, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		boolean lastActiveManager = removesManager && account.isActive() && account.getRole() == Role.MANAGER
 				&& accountRepository.countByCompanyIdAndRoleAndActiveTrueAndIdNot(companyId, Role.MANAGER,
 						account.getId()) == 0;
 		return lastActiveManager ? null : account;
+	}
+
+	/**
+	 * Locks the company row, then re-checks under that lock that the caller is
+	 * still an active manager (403 otherwise). {@code AccountActivityFilter}
+	 * checks the caller before the request reaches the controller; a manager
+	 * demoted or deactivated while their request waited on the lock would
+	 * otherwise still finish it with manager rights. Every account write takes
+	 * this lock first, so it serialises with the transition that removed the
+	 * caller's rights. Every write takes this one lock, always first, so no
+	 * lock-order deadlock is possible and {@code LockRetry} is not needed.
+	 * Must run inside a transaction.
+	 */
+	private void lockCompanyAsActiveManager(CompanyUser principal) {
+		Long companyId = principal.companyId();
+		companyRepository.findByIdForUpdate(companyId)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+		boolean callerIsActiveManager = accountRepository.findByIdAndCompanyId(principal.accountId(), companyId)
+			.filter(caller -> caller.isActive() && caller.getRole() == Role.MANAGER)
+			.isPresent();
+		if (!callerIsActiveManager) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+		}
 	}
 
 	private static Role parseRole(String role) {

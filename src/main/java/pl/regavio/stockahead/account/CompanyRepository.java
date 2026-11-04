@@ -13,7 +13,7 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
 
 	/**
 	 * Locks one company row for the rest of the transaction: the per-company
-	 * mutex for account transitions that could remove the last active manager.
+	 * mutex for account writes (the last-active-manager rule and the caller re-check).
 	 * On Postgres Hibernate emits {@code FOR NO KEY UPDATE}, which does not
 	 * block foreign-key inserts into company-scoped tables; do not replace it
 	 * with a native {@code SELECT … FOR UPDATE}.

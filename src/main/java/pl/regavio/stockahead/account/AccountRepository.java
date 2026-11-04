@@ -36,7 +36,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
 	/**
 	 * The accounts of company {@code companyId} an order may be assigned to:
-	 * active technicians and the manager, by email.
+	 * active technicians and managers, by email.
 	 */
 	@Query("SELECT a FROM Account a WHERE a.company.id = :companyId AND a.active = true AND a.role IN (pl.regavio.stockahead.account.Role.TECHNICIAN, pl.regavio.stockahead.account.Role.MANAGER) ORDER BY a.email")
 	List<Account> findAssignable(@Param("companyId") Long companyId);

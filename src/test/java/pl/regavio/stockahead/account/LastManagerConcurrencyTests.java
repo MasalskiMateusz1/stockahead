@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -108,11 +109,18 @@ class LastManagerConcurrencyTests {
 	 * A deactivation or role change succeeded when it redirected back to the
 	 * list without a flash error. A refusal carries the flash error; a caller
 	 * already deactivated or demoted by the other thread is sent to
-	 * {@code /login?deactivated} or {@code /login?roleChanged}.
+	 * {@code /login?deactivated} or {@code /login?roleChanged} by the filter,
+	 * or gets 403 from the controller's re-check under the company lock.
 	 */
 	private static boolean succeeded(MvcResult result) {
 		return "/manager/accounts".equals(result.getResponse().getHeader("Location"))
 				&& !result.getFlashMap().containsKey("error");
+	}
+
+	private static ResultMatcher redirectedOrForbidden() {
+		return result -> assertThat(result.getResponse().getStatus()).satisfiesAnyOf(
+				status -> assertThat(status).isBetween(300, 399),
+				status -> assertThat(status).isEqualTo(403));
 	}
 
 	@Test
@@ -133,14 +141,14 @@ class LastManagerConcurrencyTests {
 					start.await();
 					return mockMvc.perform(post("/manager/accounts/" + m2.getId() + "/deactivate")
 							.session(session1).with(csrf()))
-						.andExpect(status().is3xxRedirection())
+						.andExpect(redirectedOrForbidden())
 						.andReturn();
 				});
 				Future<MvcResult> second = executor.submit(() -> {
 					start.await();
 					return mockMvc.perform(post("/manager/accounts/" + m1.getId() + "/deactivate")
 							.session(session2).with(csrf()))
-						.andExpect(status().is3xxRedirection())
+						.andExpect(redirectedOrForbidden())
 						.andReturn();
 				});
 				start.countDown();
@@ -181,14 +189,14 @@ class LastManagerConcurrencyTests {
 					start.await();
 					return mockMvc.perform(post("/manager/accounts/" + m2.getId() + "/role")
 							.session(session1).with(csrf()).param("role", "TECHNICIAN"))
-						.andExpect(status().is3xxRedirection())
+						.andExpect(redirectedOrForbidden())
 						.andReturn();
 				});
 				Future<MvcResult> deactivate = executor.submit(() -> {
 					start.await();
 					return mockMvc.perform(post("/manager/accounts/" + m1.getId() + "/deactivate")
 							.session(session2).with(csrf()))
-						.andExpect(status().is3xxRedirection())
+						.andExpect(redirectedOrForbidden())
 						.andReturn();
 				});
 				start.countDown();
@@ -267,6 +275,96 @@ class LastManagerConcurrencyTests {
 		}
 
 		assertThat(isActive(technicianA)).isFalse();
+	}
+
+	/**
+	 * The company lock must be {@code FOR NO KEY UPDATE}, not {@code FOR
+	 * UPDATE}: inserts that reference the company row (parts, orders, …) take
+	 * {@code KEY SHARE} on it and must not wait behind an account transition.
+	 */
+	@Test
+	void heldCompanyLockDoesNotBlockInsertsReferencingTheSameCompany() throws Exception {
+		Company company = companyFixtures.company("LastManagerConcurrencyTests FK Co");
+		CountDownLatch locked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+
+		try {
+			Future<Void> holder = executor.submit(() -> {
+				new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+					companyRepository.findByIdForUpdate(company.getId()).orElseThrow();
+					locked.countDown();
+					try {
+						release.await(30, TimeUnit.SECONDS);
+					}
+					catch (InterruptedException ex) {
+						Thread.currentThread().interrupt();
+					}
+				});
+				return null;
+			});
+			assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+
+			Future<?> insert = executor.submit(() -> companyFixtures.part(company, "FK probe part", 1));
+			insert.get(5, TimeUnit.SECONDS);
+
+			release.countDown();
+			holder.get(10, TimeUnit.SECONDS);
+		}
+		finally {
+			release.countDown();
+			executor.shutdownNow();
+			executor.awaitTermination(10, TimeUnit.SECONDS);
+		}
+	}
+
+	@Test
+	void managerDemotedWhileTheirRequestWaitsOnTheLockCannotPromoteThemselfBack() throws Exception {
+		Company company = companyFixtures.company("LastManagerConcurrencyTests Caller Co");
+		companyFixtures.account(company, M1_EMAIL, PASSWORD, Role.MANAGER, true);
+		Account m2 = companyFixtures.account(company, M2_EMAIL, PASSWORD, Role.MANAGER, true);
+		MockHttpSession session2 = loginAs(M2_EMAIL);
+		CountDownLatch locked = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+
+		try {
+			// Holds the company lock and demotes M2 without committing yet, so
+			// M2's next request still passes the filter and then waits on the lock.
+			Future<Void> holder = executor.submit(() -> {
+				new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+					companyRepository.findByIdForUpdate(company.getId()).orElseThrow();
+					jdbcTemplate.update("UPDATE accounts SET role = 'TECHNICIAN' WHERE id = ?", m2.getId());
+					locked.countDown();
+					try {
+						release.await(30, TimeUnit.SECONDS);
+					}
+					catch (InterruptedException ex) {
+						Thread.currentThread().interrupt();
+					}
+				});
+				return null;
+			});
+			assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+
+			Future<MvcResult> promoteSelf = executor.submit(() -> mockMvc
+				.perform(post("/manager/accounts/" + m2.getId() + "/role")
+					.session(session2).with(csrf()).param("role", "MANAGER"))
+				.andReturn());
+			assertThatThrownBy(() -> promoteSelf.get(1, TimeUnit.SECONDS)).isInstanceOf(TimeoutException.class);
+
+			release.countDown();
+			holder.get(10, TimeUnit.SECONDS);
+			assertThat(promoteSelf.get(10, TimeUnit.SECONDS).getResponse().getStatus()).isEqualTo(403);
+		}
+		finally {
+			release.countDown();
+			executor.shutdownNow();
+			executor.awaitTermination(10, TimeUnit.SECONDS);
+		}
+
+		assertThat(jdbcTemplate.queryForObject("SELECT role FROM accounts WHERE id = ?", String.class, m2.getId()))
+			.isEqualTo("TECHNICIAN");
 	}
 
 }
