@@ -139,6 +139,18 @@ class MessagesBundleTests {
 	}
 
 	@Test
+	void accountsErrorRoleInvalid() {
+		assertThat(messageSource.getMessage("accounts.error.roleInvalid", null, PL))
+			.isEqualTo("Wybierz rolę konta.");
+	}
+
+	@Test
+	void accountsErrorLastActiveManager() {
+		assertThat(messageSource.getMessage("accounts.error.lastActiveManager", null, PL))
+			.isEqualTo("Nie można dezaktywować ani zmienić roli ostatniego aktywnego kierownika firmy.");
+	}
+
+	@Test
 	void projectsBomErrorQuantityNotInteger() {
 		assertThat(messageSource.getMessage("projects.bom.error.quantityNotInteger", null, PL))
 			.isEqualTo("Ilość na sztukę musi być liczbą całkowitą.");

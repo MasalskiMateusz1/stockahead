@@ -23,7 +23,14 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 	@Query(value = "SELECT 1 FROM pg_advisory_xact_lock(:namespace, :key)", nativeQuery = true)
 	Integer lockAdvisory(@Param("namespace") int namespace, @Param("key") int key);
 
-	List<Account> findByCompanyIdAndRoleOrderByEmailAsc(Long companyId, Role role);
+	List<Account> findByCompanyIdOrderByEmailAsc(Long companyId);
+
+	/**
+	 * Active accounts of {@code role} in company {@code companyId}, other than
+	 * {@code excludedId}. Read it under the company row lock
+	 * ({@link CompanyRepository#findByIdForUpdate(Long)}).
+	 */
+	long countByCompanyIdAndRoleAndActiveTrueAndIdNot(Long companyId, Role role, Long excludedId);
 
 	Optional<Account> findByIdAndCompanyId(Long id, Long companyId);
 
