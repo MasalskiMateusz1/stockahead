@@ -281,14 +281,14 @@ No schema change. Existing data is unaffected.
 
 #### Automated
 
-- [x] 2.1 Full build and test suite passes: `./mvnw verify`
-- [x] 2.2 Role-change tests pass: promote, demote, refused last-manager demotion (including self), invalid role, cross-company 404, technician 403
-- [x] 2.3 Stale-session tests pass: a changed-role account's old session redirects to `/login?roleChanged`
-- [x] 2.4 Concurrency test passes: concurrent demote + deactivate never leaves zero active managers
-- [x] 2.5 Assigned-order-survives-demotion test passes
+- [x] 2.1 Full build and test suite passes: `./mvnw verify` — f6441c0
+- [x] 2.2 Role-change tests pass: promote, demote, refused last-manager demotion (including self), invalid role, cross-company 404, technician 403 — f6441c0
+- [x] 2.3 Stale-session tests pass: a changed-role account's old session redirects to `/login?roleChanged` — f6441c0
+- [x] 2.4 Concurrency test passes: concurrent demote + deactivate never leaves zero active managers — f6441c0
+- [x] 2.5 Assigned-order-survives-demotion test passes — f6441c0
 
 #### Manual
 
-- [x] 2.6 Promote a technician to manager. Their open browser session is sent to login with the "role changed" message, and after logging in again they see the manager menu
-- [x] 2.7 Demote the second manager. Their session ends, and after logging in again they see only technician features
-- [x] 2.8 As the only active manager, try to demote yourself and see the error with the role unchanged
+- [x] 2.6 Promote a technician to manager. Their open browser session is sent to login with the "role changed" message, and after logging in again they see the manager menu — f6441c0
+- [x] 2.7 Demote the second manager. Their session ends, and after logging in again they see only technician features — f6441c0
+- [x] 2.8 As the only active manager, try to demote yourself and see the error with the role unchanged — f6441c0

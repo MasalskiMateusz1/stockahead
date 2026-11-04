@@ -1,7 +1,7 @@
 ---
 change_id: company-accounts
 title: Company accounts
-status: implementing
+status: implemented
 created: 2026-11-04
 updated: 2026-11-04
 ---
