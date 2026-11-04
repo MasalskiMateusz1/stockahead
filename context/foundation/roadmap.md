@@ -48,7 +48,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | S-04 | company-scoped-picking-completion | Technician picks and reports completion only for their company's orders                                         | S-03             | US-01, FR-028, Success Criteria › Guardrails                                                                                    | done |
 | S-05 | company-scoped-stock-movements    | Users receive deliveries, correct stock and import CSV only into their company's catalog                        | S-01, S-03       | FR-028, Business Logic Changes, Constraints (CSV formats unchanged)                                                             | done |
 | S-06 | company-scoped-shopping-list      | Manager sees and exports a shopping list built only from their company's shortages                              | S-03             | US-01, FR-028, Constraints (CSV formats unchanged)                                                                              | done |
-| S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company                        | F-01             | FR-030, FR-032, FR-029, FR-028                                                                                                  | in-progress |
+| S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company                        | F-01             | FR-030, FR-032, FR-029, FR-028                                                                                                  | done |
 | S-08 | operator-setup-and-company-list   | Setup creates the operator, who sees the list of companies and nothing else                                     | F-01             | FR-033, FR-025, FR-029, Success Criteria › Guardrails (operator has no path to company data)                                    | proposed |
 | S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                                     | F-01             | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle)                                                       | proposed |
 | S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction                | S-09             | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…"                                          | proposed |
@@ -178,7 +178,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** "Last active manager" is a "only one allowed"-style invariant: two managers deactivating each other at once can both pass a form check, so it needs the same lock-or-constraint discipline as stock. Deactivate, never delete, still holds.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-08: Setup creates the operator, who sees the company list
 
@@ -293,3 +293,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-04: Technician sees the picking list, picks parts and reports completion (full or partial) only for their company's orders; the manager confirms completion only within the company. (Assigning an order only to an account of the same company is owned by S-03.)** — Archived 2026-11-01 → `context/archive/2026-10-29-company-scoped-picking-completion/`. Lesson: —.
 - **S-05: Technician receives a delivery, manager corrects stock or imports parts from CSV — each affects only the user's company's parts, and reservations recompute only for that company's orders.** — Archived 2026-11-01 → `context/archive/2026-11-01-company-scoped-stock-movements/`. Lesson: —.
 - **S-06: Manager sees and exports to CSV a shopping list aggregating only their company's shortages and blocked orders.** — Archived 2026-11-03 → `context/archive/2026-11-01-company-scoped-shopping-list/`. Lesson: —.
+- **S-07: Manager creates and deactivates technician and manager accounts only in their own company; the last active manager cannot be deactivated; an email stays unique across the whole platform.** — Archived 2026-11-04 → `context/archive/2026-11-04-company-accounts/`. Lesson: —.

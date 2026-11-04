@@ -1,9 +1,10 @@
 ---
 change_id: company-accounts
 title: Company accounts
-status: impl_reviewed
+status: archived
 created: 2026-11-04
 updated: 2026-11-04
+archived_at: 2026-11-04T17:42:24Z
 ---
 
 ## Notes
