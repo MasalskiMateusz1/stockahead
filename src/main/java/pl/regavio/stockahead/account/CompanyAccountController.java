@@ -24,8 +24,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pl.regavio.stockahead.security.CompanyUser;
 
 /**
- * The company accounts page: a manager lists, creates, deactivates and
- * reactivates the technician and manager accounts of their own company. A
+ * The company accounts page: a manager lists, creates, deactivates,
+ * reactivates and changes the role of the technician and manager accounts of
+ * their own company. A
  * company always keeps at least one active manager; every transition that
  * could remove the last one runs under the company row lock
  * ({@link CompanyRepository#findByIdForUpdate(Long)}).
@@ -127,12 +128,49 @@ public class CompanyAccountController {
 			RedirectAttributes redirectAttributes, Locale locale) {
 		Long companyId = principal.companyId();
 		boolean refused = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-			Account account = lockCompanyAndLoad(id, companyId);
-			if (isLastActiveManager(account, companyId)) {
+			Account account = lockAndLoadGuarded(id, companyId, true);
+			if (account == null) {
 				return true;
 			}
 			if (account.isActive()) {
 				account.setActive(false);
+				accountRepository.saveAndFlush(account);
+			}
+			return false;
+		}));
+		if (refused) {
+			redirectAttributes.addFlashAttribute("error",
+					messageSource.getMessage("accounts.error.lastActiveManager", null, locale));
+		}
+		return LIST_REDIRECT;
+	}
+
+	/**
+	 * Promotes a technician to manager or demotes a manager to technician.
+	 * Demoting the company's last active manager is refused under the same
+	 * company row lock as deactivation, so the two transitions serialise. An
+	 * inactive account's role can be changed too: an inactive manager never
+	 * counts toward the rule. The changed account's existing sessions end on
+	 * their next request ({@code AccountActivityFilter}).
+	 */
+	@PostMapping("/manager/accounts/{id}/role")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String changeRole(@PathVariable Long id, @RequestParam(defaultValue = "") String role,
+			@AuthenticationPrincipal CompanyUser principal, RedirectAttributes redirectAttributes, Locale locale) {
+		Role newRole = parseRole(role);
+		if (newRole == null) {
+			redirectAttributes.addFlashAttribute("error",
+					messageSource.getMessage("accounts.error.roleInvalid", null, locale));
+			return LIST_REDIRECT;
+		}
+		Long companyId = principal.companyId();
+		boolean refused = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+			Account account = lockAndLoadGuarded(id, companyId, newRole == Role.TECHNICIAN);
+			if (account == null) {
+				return true;
+			}
+			if (account.getRole() != newRole) {
+				account.setRole(newRole);
 				accountRepository.saveAndFlush(account);
 			}
 			return false;
@@ -160,25 +198,24 @@ public class CompanyAccountController {
 	}
 
 	/**
-	 * Locks the company row, then loads the target account scoped to the
-	 * company (404 if absent). Must run inside a transaction, and before any
-	 * read of the company's accounts, so concurrent transitions serialise.
+	 * The single guard of the last-active-manager rule. Locks the company row,
+	 * then loads the target account scoped to the company (404 if absent) and,
+	 * when {@code removesManager} is set, checks whether the transition would
+	 * take away the company's last active manager: the target is an active
+	 * manager and no other account of the company is one. Returns the account,
+	 * or {@code null} when the transition must be refused. Must run inside a
+	 * transaction; the lock is taken before any read of the company's accounts
+	 * so concurrent transitions serialise.
 	 */
-	private Account lockCompanyAndLoad(Long id, Long companyId) {
+	private Account lockAndLoadGuarded(Long id, Long companyId, boolean removesManager) {
 		companyRepository.findByIdForUpdate(companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-		return accountRepository.findByIdAndCompanyId(id, companyId)
+		Account account = accountRepository.findByIdAndCompanyId(id, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-	}
-
-	/**
-	 * Whether {@code account} is an active manager and its company has no
-	 * other active manager. Call only under {@link #lockCompanyAndLoad}.
-	 */
-	private boolean isLastActiveManager(Account account, Long companyId) {
-		return account.isActive() && account.getRole() == Role.MANAGER
+		boolean lastActiveManager = removesManager && account.isActive() && account.getRole() == Role.MANAGER
 				&& accountRepository.countByCompanyIdAndRoleAndActiveTrueAndIdNot(companyId, Role.MANAGER,
 						account.getId()) == 0;
+		return lastActiveManager ? null : account;
 	}
 
 	private static Role parseRole(String role) {

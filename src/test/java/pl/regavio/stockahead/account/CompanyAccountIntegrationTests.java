@@ -1,6 +1,8 @@
 package pl.regavio.stockahead.account;
 
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,6 +53,10 @@ class CompanyAccountIntegrationTests {
 
 	private static final String OTHER_TECHNICIAN_EMAIL = "other-technician@company-accounts.example";
 
+	private static final String ROLE_INVALID_ERROR = "Wybierz rolę konta.";
+
+	private static final String ROLE_CHANGED_MESSAGE = "Twoja rola została zmieniona — zaloguj się ponownie.";
+
 	@Autowired
 	private MockMvc mockMvc;
 
@@ -66,6 +73,9 @@ class CompanyAccountIntegrationTests {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
 	@BeforeEach
 	void setUp() {
 		cleanUp();
@@ -77,6 +87,9 @@ class CompanyAccountIntegrationTests {
 	}
 
 	private void cleanUp() {
+		// Orders reference their assignee with RESTRICT, so they go before the accounts.
+		jdbcTemplate.update("DELETE FROM orders WHERE assignee_id IN "
+				+ "(SELECT id FROM accounts WHERE email LIKE '%@company-accounts.example')");
 		accountRepository.findAll().stream()
 			.filter(account -> account.getEmail().endsWith("@company-accounts.example"))
 			.forEach(accountRepository::delete);
@@ -233,7 +246,10 @@ class CompanyAccountIntegrationTests {
 				.session(session).with(csrf())).andExpect(status().isForbidden());
 		mockMvc.perform(post("/manager/accounts/" + technician.getId() + "/reactivate")
 				.session(session).with(csrf())).andExpect(status().isForbidden());
+		mockMvc.perform(post("/manager/accounts/" + technician.getId() + "/role")
+				.session(session).with(csrf()).param("role", "MANAGER")).andExpect(status().isForbidden());
 		assertThat(accountRepository.findById(technician.getId()).orElseThrow().isActive()).isTrue();
+		assertThat(accountRepository.findById(technician.getId()).orElseThrow().getRole()).isEqualTo(Role.TECHNICIAN);
 		assertThat(accountRepository.findByEmail("unauthorized@company-accounts.example")).isEmpty();
 	}
 
@@ -591,6 +607,233 @@ class CompanyAccountIntegrationTests {
 			.andExpect(status().is3xxRedirection())
 			.andExpect(flash().attribute("error", LAST_ACTIVE_MANAGER_ERROR));
 		assertThat(accountRepository.findById(manager.getId()).orElseThrow().isActive()).isTrue();
+	}
+
+	private Role roleOf(Account account) {
+		return accountRepository.findById(account.getId()).orElseThrow().getRole();
+	}
+
+	private MvcResult changeRole(MockHttpSession session, Account account, String role) throws Exception {
+		return mockMvc.perform(post("/manager/accounts/" + account.getId() + "/role")
+				.session(session).with(csrf()).param("role", role))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/manager/accounts"))
+			.andReturn();
+	}
+
+	@Test
+	void listOffersTheOppositeRoleForEachAccount() throws Exception {
+		Account manager = seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account technician = seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+
+		mockMvc.perform(get("/manager/accounts").session(loginAs(MANAGER_EMAIL)))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("/manager/accounts/" + manager.getId() + "/role")))
+			.andExpect(content().string(containsString("/manager/accounts/" + technician.getId() + "/role")))
+			.andExpect(content().string(containsString("Zmień na technika")))
+			.andExpect(content().string(containsString("Zmień na kierownika")))
+			.andExpect(content().string(containsString("name=\"role\" value=\"TECHNICIAN\"")))
+			.andExpect(content().string(containsString("name=\"role\" value=\"MANAGER\"")));
+	}
+
+	@Test
+	void promotedTechniciansOldSessionEndsAndNewLoginReachesManagerRoute() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account technician = seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		MockHttpSession managerSession = loginAs(MANAGER_EMAIL);
+		MockHttpSession technicianSession = loginAs(TECHNICIAN_EMAIL);
+		mockMvc.perform(get("/parts").session(technicianSession)).andExpect(status().isOk());
+
+		for (int attempt = 0; attempt < 2; attempt++) {
+			MvcResult result = changeRole(managerSession, technician, "MANAGER");
+			assertThat(result.getFlashMap().containsKey("error")).isFalse();
+			assertThat(roleOf(technician)).isEqualTo(Role.MANAGER);
+		}
+		assertThat(accountRepository.findById(technician.getId()).orElseThrow().isActive()).isTrue();
+
+		mockMvc.perform(get("/parts").session(technicianSession))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?roleChanged"));
+		assertThat(technicianSession.isInvalid()).isTrue();
+		mockMvc.perform(get("/manager/ping").session(loginAs(TECHNICIAN_EMAIL))).andExpect(status().isOk());
+		mockMvc.perform(get("/manager/accounts").session(managerSession)).andExpect(status().isOk());
+	}
+
+	@Test
+	void demotedManagerLosesManagerRoutesAfterSessionEnds() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account secondManager = seedAccount(SECOND_MANAGER_EMAIL, Role.MANAGER, true);
+		MockHttpSession managerSession = loginAs(MANAGER_EMAIL);
+		MockHttpSession secondSession = loginAs(SECOND_MANAGER_EMAIL);
+		mockMvc.perform(get("/manager/ping").session(secondSession)).andExpect(status().isOk());
+
+		for (int attempt = 0; attempt < 2; attempt++) {
+			MvcResult result = changeRole(managerSession, secondManager, "TECHNICIAN");
+			assertThat(result.getFlashMap().containsKey("error")).isFalse();
+			assertThat(roleOf(secondManager)).isEqualTo(Role.TECHNICIAN);
+		}
+
+		mockMvc.perform(get("/manager/ping").session(secondSession))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?roleChanged"));
+		assertThat(secondSession.isInvalid()).isTrue();
+		MockHttpSession newSession = loginAs(SECOND_MANAGER_EMAIL);
+		mockMvc.perform(get("/manager/ping").session(newSession)).andExpect(status().isForbidden());
+		mockMvc.perform(get("/manager/accounts").session(newSession)).andExpect(status().isForbidden());
+		mockMvc.perform(get("/parts").session(newSession)).andExpect(status().isOk());
+	}
+
+	@Test
+	void selfDemotionWithAnotherActiveManagerSucceedsAndEndsCallersSession() throws Exception {
+		Account manager = seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		seedAccount(SECOND_MANAGER_EMAIL, Role.MANAGER, true);
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		MvcResult result = changeRole(session, manager, "TECHNICIAN");
+		assertThat(result.getFlashMap().containsKey("error")).isFalse();
+		assertThat(roleOf(manager)).isEqualTo(Role.TECHNICIAN);
+
+		mockMvc.perform(get("/manager/accounts").session(session))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?roleChanged"));
+		assertThat(session.isInvalid()).isTrue();
+	}
+
+	@Test
+	void demotingTheOnlyActiveManagerIsRefusedIncludingSelfDemotion() throws Exception {
+		Account manager = seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account inactiveManager = seedAccount(SECOND_MANAGER_EMAIL, Role.MANAGER, false);
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		for (int attempt = 0; attempt < 2; attempt++) {
+			MvcResult result = mockMvc.perform(post("/manager/accounts/" + manager.getId() + "/role")
+					.session(session).with(csrf()).param("role", "TECHNICIAN"))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(header().string("Location", "/manager/accounts"))
+				.andExpect(flash().attribute("error", LAST_ACTIVE_MANAGER_ERROR))
+				.andReturn();
+			assertThat(roleOf(manager)).isEqualTo(Role.MANAGER);
+			mockMvc.perform(get("/manager/accounts").session(session).flashAttrs(result.getFlashMap()))
+				.andExpect(status().isOk())
+				.andExpect(content().string(containsString(LAST_ACTIVE_MANAGER_ERROR)));
+		}
+		mockMvc.perform(get("/manager/ping").session(session)).andExpect(status().isOk());
+
+		// An inactive manager never counts toward the rule, so it can be demoted freely.
+		MvcResult result = changeRole(session, inactiveManager, "TECHNICIAN");
+		assertThat(result.getFlashMap().containsKey("error")).isFalse();
+		assertThat(roleOf(inactiveManager)).isEqualTo(Role.TECHNICIAN);
+		assertThat(accountRepository.findById(inactiveManager.getId()).orElseThrow().isActive()).isFalse();
+	}
+
+	@Test
+	void managerDemotesTheOtherManagerThenRemainingOneCannotBeDemotedOrDeactivated() throws Exception {
+		Account manager = seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account secondManager = seedAccount(SECOND_MANAGER_EMAIL, Role.MANAGER, true);
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		changeRole(session, secondManager, "TECHNICIAN");
+		assertThat(roleOf(secondManager)).isEqualTo(Role.TECHNICIAN);
+
+		mockMvc.perform(post("/manager/accounts/" + manager.getId() + "/role")
+				.session(session).with(csrf()).param("role", "TECHNICIAN"))
+			.andExpect(flash().attribute("error", LAST_ACTIVE_MANAGER_ERROR));
+		mockMvc.perform(post("/manager/accounts/" + manager.getId() + "/deactivate")
+				.session(session).with(csrf()))
+			.andExpect(flash().attribute("error", LAST_ACTIVE_MANAGER_ERROR));
+		Account reloaded = accountRepository.findById(manager.getId()).orElseThrow();
+		assertThat(reloaded.getRole()).isEqualTo(Role.MANAGER);
+		assertThat(reloaded.isActive()).isTrue();
+	}
+
+	@Test
+	void invalidRoleIsRefusedWithoutChangingTheAccount() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account technician = seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		MockHttpSession session = loginAs(MANAGER_EMAIL);
+
+		for (String invalidRole : new String[] { "", "OPERATOR", "manager", "ADMIN" }) {
+			mockMvc.perform(post("/manager/accounts/" + technician.getId() + "/role")
+					.session(session).with(csrf()).param("role", invalidRole))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(header().string("Location", "/manager/accounts"))
+				.andExpect(flash().attribute("error", ROLE_INVALID_ERROR));
+		}
+		mockMvc.perform(post("/manager/accounts/" + technician.getId() + "/role")
+				.session(session).with(csrf()))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(flash().attribute("error", ROLE_INVALID_ERROR));
+		assertThat(roleOf(technician)).isEqualTo(Role.TECHNICIAN);
+	}
+
+	@Test
+	void otherCompanysManagerGets404OnRoleChangeAndMissingIdIs404() throws Exception {
+		Account manager = seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account secondManager = seedAccount(SECOND_MANAGER_EMAIL, Role.MANAGER, true);
+		Account technician = seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		seedOtherCompanyAccount(OTHER_MANAGER_EMAIL, Role.MANAGER, true);
+		MockHttpSession otherSession = loginAs(OTHER_MANAGER_EMAIL);
+
+		for (int attempt = 0; attempt < 2; attempt++) {
+			mockMvc.perform(post("/manager/accounts/" + technician.getId() + "/role")
+					.session(otherSession).with(csrf()).param("role", "MANAGER"))
+				.andExpect(status().isNotFound());
+			mockMvc.perform(post("/manager/accounts/" + secondManager.getId() + "/role")
+					.session(otherSession).with(csrf()).param("role", "TECHNICIAN"))
+				.andExpect(status().isNotFound());
+		}
+		mockMvc.perform(post("/manager/accounts/" + Long.MAX_VALUE + "/role")
+				.session(loginAs(MANAGER_EMAIL)).with(csrf()).param("role", "MANAGER"))
+			.andExpect(status().isNotFound());
+
+		assertThat(roleOf(technician)).isEqualTo(Role.TECHNICIAN);
+		assertThat(roleOf(secondManager)).isEqualTo(Role.MANAGER);
+		assertThat(roleOf(manager)).isEqualTo(Role.MANAGER);
+		mockMvc.perform(get("/parts").session(loginAs(TECHNICIAN_EMAIL))).andExpect(status().isOk());
+	}
+
+	@Test
+	void orderAssignedToDemotedManagerStaysAssignedAndVisibleToThemAsTechnician() throws Exception {
+		seedAccount(MANAGER_EMAIL, Role.MANAGER, true);
+		Account secondManager = seedAccount(SECOND_MANAGER_EMAIL, Role.MANAGER, true);
+		String projectName = "CompanyAccountIntegrationTests Demotion Board";
+		Long orderId = jdbcTemplate.queryForObject(
+				"WITH project AS (INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id) "
+						+ "INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, assignee_id) "
+						+ "SELECT ?, project.id, 1, 'NORMAL', ?, ?, ? FROM project RETURNING id",
+				Long.class, projectName, company().getId(), company().getId(), LocalDate.now().plusDays(7),
+				Timestamp.from(Instant.now()), secondManager.getId());
+
+		changeRole(loginAs(MANAGER_EMAIL), secondManager, "TECHNICIAN");
+		assertThat(roleOf(secondManager)).isEqualTo(Role.TECHNICIAN);
+
+		assertThat(jdbcTemplate.queryForObject("SELECT assignee_id FROM orders WHERE id = ?", Long.class, orderId))
+			.isEqualTo(secondManager.getId());
+		MockHttpSession demotedSession = loginAs(SECOND_MANAGER_EMAIL);
+		mockMvc.perform(get("/picking").session(demotedSession))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(projectName)));
+		mockMvc.perform(get("/picking/" + orderId).session(demotedSession))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void roleChangedMessageIsShownOnLoginPage() throws Exception {
+		mockMvc.perform(get("/login?roleChanged"))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(ROLE_CHANGED_MESSAGE)));
+	}
+
+	@Test
+	void accountBothInactiveAndRoleChangedGoesToDeactivated() throws Exception {
+		Account technician = seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN, true);
+		MockHttpSession session = loginAs(TECHNICIAN_EMAIL);
+		jdbcTemplate.update("UPDATE accounts SET role = 'MANAGER', active = false WHERE id = ?", technician.getId());
+
+		mockMvc.perform(get("/parts").session(session))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?deactivated"));
+		assertThat(session.isInvalid()).isTrue();
 	}
 
 	private void assertPreserved(Long id, boolean active, String hash, Instant createdAt) {

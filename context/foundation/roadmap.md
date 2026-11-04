@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 2
 status: draft
 created: 2026-10-05
-updated: 2026-11-03
+updated: 2026-11-04
 prd_version: 2
 main_goal: quality
 top_blocker: capacity
@@ -48,7 +48,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | S-04 | company-scoped-picking-completion | Technician picks and reports completion only for their company's orders                                         | S-03             | US-01, FR-028, Success Criteria › Guardrails                                                                                    | done |
 | S-05 | company-scoped-stock-movements    | Users receive deliveries, correct stock and import CSV only into their company's catalog                        | S-01, S-03       | FR-028, Business Logic Changes, Constraints (CSV formats unchanged)                                                             | done |
 | S-06 | company-scoped-shopping-list      | Manager sees and exports a shopping list built only from their company's shortages                              | S-03             | US-01, FR-028, Constraints (CSV formats unchanged)                                                                              | done |
-| S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company                        | F-01             | FR-030, FR-032, FR-029, FR-028                                                                                                  | proposed |
+| S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company                        | F-01             | FR-030, FR-032, FR-029, FR-028                                                                                                  | in-progress |
 | S-08 | operator-setup-and-company-list   | Setup creates the operator, who sees the list of companies and nothing else                                     | F-01             | FR-033, FR-025, FR-029, Success Criteria › Guardrails (operator has no path to company data)                                    | proposed |
 | S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                                     | F-01             | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle)                                                       | proposed |
 | S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction                | S-09             | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…"                                          | proposed |
@@ -178,7 +178,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** "Last active manager" is a "only one allowed"-style invariant: two managers deactivating each other at once can both pass a form check, so it needs the same lock-or-constraint discipline as stock. Deactivate, never delete, still holds.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-08: Setup creates the operator, who sees the company list
 

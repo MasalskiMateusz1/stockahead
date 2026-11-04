@@ -35,8 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Proves the last-active-manager rule under real row locks on real Postgres:
- * two managers deactivating each other at the same moment never leave their
- * company without an active manager, and one company's lock never delays
+ * two managers deactivating or demoting each other at the same moment never
+ * leave their company without an active manager, and one company's lock never delays
  * another company's account transition. Uses the latch-and-executor pattern
  * of {@code orders/CrossCompanyAllocationLockTests}.
  */
@@ -105,9 +105,10 @@ class LastManagerConcurrencyTests {
 	}
 
 	/**
-	 * A deactivation succeeded when it redirected back to the list without a
-	 * flash error. A refusal carries the flash error; a caller already
-	 * deactivated by the other thread is sent to {@code /login?deactivated}.
+	 * A deactivation or role change succeeded when it redirected back to the
+	 * list without a flash error. A refusal carries the flash error; a caller
+	 * already deactivated or demoted by the other thread is sent to
+	 * {@code /login?deactivated} or {@code /login?roleChanged}.
 	 */
 	private static boolean succeeded(MvcResult result) {
 		return "/manager/accounts".equals(result.getResponse().getHeader("Location"))
@@ -152,6 +153,53 @@ class LastManagerConcurrencyTests {
 					.isEqualTo(1);
 				assertThat(activeManagers(company)).as("iteration %d", iteration).isEqualTo(1);
 				assertThat(isActive(m1) != isActive(m2)).as("iteration %d", iteration).isTrue();
+			}
+		}
+		finally {
+			executor.shutdownNow();
+			executor.awaitTermination(10, TimeUnit.SECONDS);
+		}
+	}
+
+	@Test
+	void concurrentDemoteAndDeactivateOfTwoManagersLeavesOneActiveManager() throws Exception {
+		Company company = companyFixtures.company("LastManagerConcurrencyTests Demote Co");
+		Account m1 = companyFixtures.account(company, M1_EMAIL, PASSWORD, Role.MANAGER, true);
+		Account m2 = companyFixtures.account(company, M2_EMAIL, PASSWORD, Role.MANAGER, true);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+
+		try {
+			for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+				jdbcTemplate.update("UPDATE accounts SET active = true, role = 'MANAGER' WHERE id IN (?, ?)",
+						m1.getId(), m2.getId());
+				MockHttpSession session1 = loginAs(M1_EMAIL);
+				MockHttpSession session2 = loginAs(M2_EMAIL);
+				CountDownLatch start = new CountDownLatch(1);
+
+				// M1 demotes M2 while M2 deactivates M1.
+				Future<MvcResult> demote = executor.submit(() -> {
+					start.await();
+					return mockMvc.perform(post("/manager/accounts/" + m2.getId() + "/role")
+							.session(session1).with(csrf()).param("role", "TECHNICIAN"))
+						.andExpect(status().is3xxRedirection())
+						.andReturn();
+				});
+				Future<MvcResult> deactivate = executor.submit(() -> {
+					start.await();
+					return mockMvc.perform(post("/manager/accounts/" + m1.getId() + "/deactivate")
+							.session(session2).with(csrf()))
+						.andExpect(status().is3xxRedirection())
+						.andReturn();
+				});
+				start.countDown();
+				List<MvcResult> results = new ArrayList<>();
+				results.add(demote.get(15, TimeUnit.SECONDS));
+				results.add(deactivate.get(15, TimeUnit.SECONDS));
+
+				assertThat(results.stream().filter(LastManagerConcurrencyTests::succeeded).count())
+					.as("iteration %d", iteration)
+					.isEqualTo(1);
+				assertThat(activeManagers(company)).as("iteration %d", iteration).isEqualTo(1);
 			}
 		}
 		finally {

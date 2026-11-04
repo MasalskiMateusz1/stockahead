@@ -264,31 +264,31 @@ No schema change. Existing data is unaffected.
 
 #### Automated
 
-- [x] 1.1 Full build and test suite passes: `./mvnw verify`
-- [x] 1.2 `CompanyAccountIntegrationTests` covers manager creation, last-active-manager refusal (including self and inactive-manager cases), two-company 404s and technician 403 on every route
-- [x] 1.3 `LastManagerConcurrencyTests` passes: concurrent mutual deactivation leaves exactly one active manager, and one company's lock does not block another company
-- [x] 1.4 No references to `/manager/technicians` or `technicians.error.` remain: `grep -rn "manager/technicians\|technicians\.error" src AGENTS.md` returns nothing
-- [x] 1.5 `TemplateConventionTests` and `MessagesBundleTests` pass
+- [x] 1.1 Full build and test suite passes: `./mvnw verify` — 9ebe59a
+- [x] 1.2 `CompanyAccountIntegrationTests` covers manager creation, last-active-manager refusal (including self and inactive-manager cases), two-company 404s and technician 403 on every route — 9ebe59a
+- [x] 1.3 `LastManagerConcurrencyTests` passes: concurrent mutual deactivation leaves exactly one active manager, and one company's lock does not block another company — 9ebe59a
+- [x] 1.4 No references to `/manager/technicians` or `technicians.error.` remain: `grep -rn "manager/technicians\|technicians\.error" src AGENTS.md` returns nothing — 9ebe59a
+- [x] 1.5 `TemplateConventionTests` and `MessagesBundleTests` pass — 9ebe59a
 
 #### Manual
 
-- [x] 1.6 As the setup manager, open "Konta", create a second manager, log in as them in another browser and confirm the full manager menu
-- [x] 1.7 Deactivate the original manager from the second manager's session. Then try to deactivate yourself as the only remaining active manager and see the error with the account still active
-- [x] 1.8 Reactivate the original manager and confirm they can log in again
-- [x] 1.9 The page layout matches the other list pages (shared topbar, table style, alert style)
+- [x] 1.6 As the setup manager, open "Konta", create a second manager, log in as them in another browser and confirm the full manager menu — 9ebe59a
+- [x] 1.7 Deactivate the original manager from the second manager's session. Then try to deactivate yourself as the only remaining active manager and see the error with the account still active — 9ebe59a
+- [x] 1.8 Reactivate the original manager and confirm they can log in again — 9ebe59a
+- [x] 1.9 The page layout matches the other list pages (shared topbar, table style, alert style) — 9ebe59a
 
 ### Phase 2: Role change
 
 #### Automated
 
-- [ ] 2.1 Full build and test suite passes: `./mvnw verify`
-- [ ] 2.2 Role-change tests pass: promote, demote, refused last-manager demotion (including self), invalid role, cross-company 404, technician 403
-- [ ] 2.3 Stale-session tests pass: a changed-role account's old session redirects to `/login?roleChanged`
-- [ ] 2.4 Concurrency test passes: concurrent demote + deactivate never leaves zero active managers
-- [ ] 2.5 Assigned-order-survives-demotion test passes
+- [x] 2.1 Full build and test suite passes: `./mvnw verify`
+- [x] 2.2 Role-change tests pass: promote, demote, refused last-manager demotion (including self), invalid role, cross-company 404, technician 403
+- [x] 2.3 Stale-session tests pass: a changed-role account's old session redirects to `/login?roleChanged`
+- [x] 2.4 Concurrency test passes: concurrent demote + deactivate never leaves zero active managers
+- [x] 2.5 Assigned-order-survives-demotion test passes
 
 #### Manual
 
-- [ ] 2.6 Promote a technician to manager. Their open browser session is sent to login with the "role changed" message, and after logging in again they see the manager menu
-- [ ] 2.7 Demote the second manager. Their session ends, and after logging in again they see only technician features
-- [ ] 2.8 As the only active manager, try to demote yourself and see the error with the role unchanged
+- [x] 2.6 Promote a technician to manager. Their open browser session is sent to login with the "role changed" message, and after logging in again they see the manager menu
+- [x] 2.7 Demote the second manager. Their session ends, and after logging in again they see only technician features
+- [x] 2.8 As the only active manager, try to demote yourself and see the error with the role unchanged

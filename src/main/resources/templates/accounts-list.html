@@ -34,6 +34,10 @@
 								<form th:unless="${account.active}" th:action="@{/manager/accounts/{id}/reactivate(id=${account.id})}" method="post">
 									<button type="submit" class="btn btn-secondary">Reaktywuj</button>
 								</form>
+								<form th:action="@{/manager/accounts/{id}/role(id=${account.id})}" method="post">
+									<input type="hidden" name="role" th:value="${account.role.name() == 'MANAGER'} ? 'TECHNICIAN' : 'MANAGER'">
+									<button type="submit" class="btn btn-secondary" th:text="${account.role.name() == 'MANAGER'} ? 'Zmień na technika' : 'Zmień na kierownika'">Zmień rolę</button>
+								</form>
 							</div>
 						</td>
 					</tr>
