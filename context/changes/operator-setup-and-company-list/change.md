@@ -1,7 +1,7 @@
 ---
 change_id: operator-setup-and-company-list
 title: Operator setup and company list
-status: implementing
+status: implemented
 created: 2026-11-04
 updated: 2026-11-05
 archived_at: null

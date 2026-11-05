@@ -379,12 +379,12 @@ V20 is additive except for the replaced role CHECK. Existing manager/technician 
 
 #### Automated
 
-- [x] 3.1 `./mvnw verify` passes
-- [x] 3.2 `OperatorAccessIntegrationTests`: list content/ordering/first-created manager, operator→403 on every warehouse controller with no data changed, manager/technician→403 on `/operator/companies`
-- [x] 3.3 `TemplateConventionTests` passes for `operator-companies.html`
+- [x] 3.1 `./mvnw verify` passes — f1bab7f
+- [x] 3.2 `OperatorAccessIntegrationTests`: list content/ordering/first-created manager, operator→403 on every warehouse controller with no data changed, manager/technician→403 on `/operator/companies` — f1bab7f
+- [x] 3.3 `TemplateConventionTests` passes for `operator-companies.html` — f1bab7f
 
 #### Manual
 
-- [x] 3.4 Fresh `./mvnw spring-boot:test-run`: setup → operator login lands on the company list with only the "Firmy" link and "Operator" badge; empty state shown
-- [x] 3.5 After inserting a company + manager via SQL, the row shows name, manager email, date and "Aktywna"; typing `/parts` or `/manager/accounts` as the operator gives 403
-- [x] 3.6 Manager login still shows the full topbar and dashboard
+- [x] 3.4 Fresh `./mvnw spring-boot:test-run`: setup → operator login lands on the company list with only the "Firmy" link and "Operator" badge; empty state shown — f1bab7f
+- [x] 3.5 After inserting a company + manager via SQL, the row shows name, manager email, date and "Aktywna"; typing `/parts` or `/manager/accounts` as the operator gives 403 — f1bab7f
+- [x] 3.6 Manager login still shows the full topbar and dashboard — f1bab7f
