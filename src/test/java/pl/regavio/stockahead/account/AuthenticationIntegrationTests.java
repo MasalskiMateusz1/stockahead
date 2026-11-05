@@ -210,6 +210,22 @@ class AuthenticationIntegrationTests {
 	}
 
 	@Test
+	void setupWithEmailOfExistingAccountCreatesNothingAndKeepsEmail() throws Exception {
+		Account manager = seedAccount("taken@example.com", "irrelevant-password", Role.MANAGER, true);
+
+		mockMvc.perform(postSetup(" Taken@Example.com ", SETUP_TOKEN))
+			.andExpect(status().isOk())
+			.andExpect(view().name("setup"))
+			.andExpect(model().attribute("email", " Taken@Example.com "))
+			.andExpect(model().attribute("error", "Konto o tym adresie e-mail już istnieje."));
+
+		assertThat(operatorEmails()).isEmpty();
+		Account unchanged = accountRepository.findByEmail("taken@example.com").orElseThrow();
+		assertThat(unchanged.getId()).isEqualTo(manager.getId());
+		assertThat(unchanged.getRole()).isEqualTo(Role.MANAGER);
+	}
+
+	@Test
 	void operatorCanLogInAfterSetup() throws Exception {
 		mockMvc.perform(postSetup("login-operator@example.com", SETUP_TOKEN))
 			.andExpect(status().is3xxRedirection())

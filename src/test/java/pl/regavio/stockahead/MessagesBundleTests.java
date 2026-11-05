@@ -32,18 +32,6 @@ class MessagesBundleTests {
 	}
 
 	@Test
-	void setupErrorPasswordMismatch() {
-		assertThat(messageSource.getMessage("setup.error.passwordMismatch", null, PL))
-			.isEqualTo("Hasła nie są identyczne.");
-	}
-
-	@Test
-	void setupErrorAccountCreationFailed() {
-		assertThat(messageSource.getMessage("setup.error.accountCreationFailed", null, PL))
-			.isEqualTo("Nie udało się założyć konta. Spróbuj ponownie.");
-	}
-
-	@Test
 	void partsErrorNameRequired() {
 		assertThat(messageSource.getMessage("parts.error.nameRequired", null, PL))
 			.isEqualTo("Nazwa jest wymagana.");

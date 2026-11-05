@@ -104,7 +104,9 @@ public class SetupController {
 			}));
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderError(model, email, "setup.error.accountCreationFailed", null, locale);
+			// No operator exists under the lock, so the only unique index that can
+			// fire is the canonical-email one: the email belongs to a company account.
+			return renderError(model, email, "accounts.error.duplicateEmail", null, locale);
 		}
 
 		if (!created) {
