@@ -75,10 +75,15 @@ public class CompanyFixtures {
 
 	/** Creates and commits an {@code ACTIVE} company. */
 	public Company company(String name) {
+		return company(name, CompanyStatus.ACTIVE);
+	}
+
+	/** Creates and commits a company with the given {@code companyStatus}. */
+	public Company company(String name, CompanyStatus companyStatus) {
 		Company saved = transactionTemplate.execute(status -> {
 			Company company = new Company();
 			company.setName(name);
-			company.setStatus(CompanyStatus.ACTIVE);
+			company.setStatus(companyStatus);
 			company.setCreatedAt(Instant.now());
 			return companyRepository.save(company);
 		});

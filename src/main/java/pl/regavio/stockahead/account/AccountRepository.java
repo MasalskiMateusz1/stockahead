@@ -35,6 +35,14 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 	Optional<Account> findByIdAndCompanyId(Long id, Long companyId);
 
 	/**
+	 * {@link #findByIdAndCompanyId(Long, Long)} with the account's company
+	 * fetched in the same query, so its status can be read outside a
+	 * persistence session (the account-activity filter's company gate).
+	 */
+	@Query("SELECT a FROM Account a JOIN FETCH a.company c WHERE a.id = :id AND c.id = :companyId")
+	Optional<Account> findWithCompanyByIdAndCompanyId(@Param("id") Long id, @Param("companyId") Long companyId);
+
+	/**
 	 * The operator's counterpart of {@link #findByIdAndCompanyId(Long, Long)}:
 	 * loads account {@code id} only if it belongs to no company. Only the
 	 * {@link Role#OPERATOR} account has no company.

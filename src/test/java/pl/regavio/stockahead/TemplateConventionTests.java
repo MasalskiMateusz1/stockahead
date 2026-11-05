@@ -17,13 +17,17 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Guards the shared-template convention: every view pulls its {@code <head>}
  * from {@code fragments :: head(...)}, authenticated views also render
  * {@code fragments :: topbar}, and no template carries inline styling — all
- * styling lives in {@code static/css/app.css}.
+ * styling lives in {@code static/css/app.css}. The views without a topbar are
+ * the unauthenticated ones and {@code awaiting-approval.html}, which is
+ * authenticated but deliberately shows no navigation (a user of a company
+ * that is not active can reach nothing else).
  */
 class TemplateConventionTests {
 
 	private static final Path TEMPLATES_DIR = Path.of("src/main/resources/templates");
 
-	private static final Set<String> UNAUTHENTICATED_VIEWS = Set.of("login.html", "setup.html");
+	private static final Set<String> VIEWS_WITHOUT_TOPBAR = Set.of("login.html", "setup.html",
+			"awaiting-approval.html");
 
 	private static List<Path> templates() throws IOException {
 		try (Stream<Path> files = Files.list(TEMPLATES_DIR)) {
@@ -47,7 +51,7 @@ class TemplateConventionTests {
 			if (!content.contains("fragments :: head(")) {
 				violations.add(name + ": missing `fragments :: head(`");
 			}
-			if (!UNAUTHENTICATED_VIEWS.contains(name) && !content.contains("fragments :: topbar")) {
+			if (!VIEWS_WITHOUT_TOPBAR.contains(name) && !content.contains("fragments :: topbar")) {
 				violations.add(name + ": missing `fragments :: topbar`");
 			}
 			if (content.contains("<style")) {
