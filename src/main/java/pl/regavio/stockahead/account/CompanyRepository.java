@@ -1,5 +1,6 @@
 package pl.regavio.stockahead.account;
 
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
@@ -21,5 +22,24 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("SELECT c FROM Company c WHERE c.id = :id")
 	Optional<Company> findByIdForUpdate(@Param("id") Long id);
+
+	/**
+	 * Every company with the email of its first-created manager (smallest
+	 * {@code (created_at, id)}, active or not; {@code null} when the company
+	 * has no manager), newest company first. This is the intentional
+	 * cross-company read behind the operator's company list
+	 * ({@link OperatorCompanyController}); never use it from a company-scoped
+	 * route.
+	 */
+	@Query("""
+			SELECT new pl.regavio.stockahead.account.CompanyListRow(c.name,
+				(SELECT a.email FROM Account a
+					WHERE a.company = c AND a.role = pl.regavio.stockahead.account.Role.MANAGER
+					ORDER BY a.createdAt, a.id LIMIT 1),
+				c.createdAt, c.status)
+			FROM Company c
+			ORDER BY c.createdAt DESC, c.id DESC
+			""")
+	List<CompanyListRow> findAllForOperatorList();
 
 }

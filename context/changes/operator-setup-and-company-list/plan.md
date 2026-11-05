@@ -367,24 +367,24 @@ V20 is additive except for the replaced role CHECK. Existing manager/technician 
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 Setup tests: operator created without company, concurrent race yields exactly one operator, validation failures create nothing
-- [x] 2.3 `CompanyAccountIntegrationTests` passes unchanged after the validation extraction
+- [x] 2.1 `./mvnw verify` passes — aad6a22
+- [x] 2.2 Setup tests: operator created without company, concurrent race yields exactly one operator, validation failures create nothing — aad6a22
+- [x] 2.3 `CompanyAccountIntegrationTests` passes unchanged after the validation extraction — aad6a22
 
 #### Manual
 
-- [x] 2.4 Fresh `./mvnw spring-boot:test-run`: `/setup` shows email/password/token only, creates the operator, then `/setup` redirects to login
+- [x] 2.4 Fresh `./mvnw spring-boot:test-run`: `/setup` shows email/password/token only, creates the operator, then `/setup` redirects to login — aad6a22
 
 ### Phase 3: Operator company list, home routing and guardrail tests
 
 #### Automated
 
-- [ ] 3.1 `./mvnw verify` passes
-- [ ] 3.2 `OperatorAccessIntegrationTests`: list content/ordering/first-created manager, operator→403 on every warehouse controller with no data changed, manager/technician→403 on `/operator/companies`
-- [ ] 3.3 `TemplateConventionTests` passes for `operator-companies.html`
+- [x] 3.1 `./mvnw verify` passes
+- [x] 3.2 `OperatorAccessIntegrationTests`: list content/ordering/first-created manager, operator→403 on every warehouse controller with no data changed, manager/technician→403 on `/operator/companies`
+- [x] 3.3 `TemplateConventionTests` passes for `operator-companies.html`
 
 #### Manual
 
-- [ ] 3.4 Fresh `./mvnw spring-boot:test-run`: setup → operator login lands on the company list with only the "Firmy" link and "Operator" badge; empty state shown
-- [ ] 3.5 After inserting a company + manager via SQL, the row shows name, manager email, date and "Aktywna"; typing `/parts` or `/manager/accounts` as the operator gives 403
-- [ ] 3.6 Manager login still shows the full topbar and dashboard
+- [x] 3.4 Fresh `./mvnw spring-boot:test-run`: setup → operator login lands on the company list with only the "Firmy" link and "Operator" badge; empty state shown
+- [x] 3.5 After inserting a company + manager via SQL, the row shows name, manager email, date and "Aktywna"; typing `/parts` or `/manager/accounts` as the operator gives 403
+- [x] 3.6 Manager login still shows the full topbar and dashboard

@@ -12,6 +12,7 @@
 	<header class="topbar" th:fragment="topbar">
 		<a class="brand" th:href="@{/}">Stockahead</a>
 		<nav aria-label="Nawigacja główna">
+			<th:block sec:authorize="hasAnyRole('MANAGER','TECHNICIAN')">
 			<a th:href="@{/parts}">Kartoteka części</a>
 			<a sec:authorize="hasRole('MANAGER')" th:href="@{/parts/import}">Importuj części z CSV</a>
 			<a th:href="@{/deliveries/new}">Przyjmij dostawę</a>
@@ -20,11 +21,14 @@
 			<a th:href="@{/picking}">Lista kompletacyjna</a>
 			<a sec:authorize="hasRole('MANAGER')" th:href="@{/purchasing}">Lista zakupów</a>
 			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/accounts}">Konta</a>
+			</th:block>
+			<a sec:authorize="hasRole('OPERATOR')" th:href="@{/operator/companies}">Firmy</a>
 		</nav>
 		<div class="session">
 			<span sec:authentication="name"></span>
 			<span class="badge badge-muted" sec:authorize="hasRole('MANAGER')">Kierownik</span>
-			<span class="badge badge-muted" sec:authorize="!hasRole('MANAGER')">Technik</span>
+			<span class="badge badge-muted" sec:authorize="hasRole('TECHNICIAN') and !hasRole('MANAGER')">Technik</span>
+			<span class="badge badge-muted" sec:authorize="hasRole('OPERATOR')">Operator</span>
 			<button type="button" class="btn btn-secondary btn-icon" data-theme-toggle data-mode="auto" aria-label="Motyw: Auto" title="Motyw: Auto" hidden>
 				<svg class="icon-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
 				<svg class="icon-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>

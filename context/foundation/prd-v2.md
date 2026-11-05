@@ -199,6 +199,6 @@ setup; the manager creates and deactivates technician accounts (never deletes).
 
 ## Open Questions
 
-1. **FR-033 setup race** — on a fresh deploy, whoever reaches the setup screen first with the token creates the operator; is the token alone enough protection? Owner: user.
+1. ~~**FR-033 setup race** — on a fresh deploy, whoever reaches the setup screen first with the token creates the operator; is the token alone enough protection? Owner: user.~~ **Resolved 2026-11-04:** the token is enough — constant-time token compare, an advisory lock so exactly one operator is created, and setup closes itself once the operator exists (operator-setup-and-company-list).
 2. **Email features** — email verification, password reset and approval/rejection
    notifications are neither in scope nor ruled out. Owner: user.
