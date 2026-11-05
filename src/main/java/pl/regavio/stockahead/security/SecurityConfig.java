@@ -13,8 +13,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 
+import jakarta.servlet.DispatcherType;
 import pl.regavio.stockahead.account.AccountRepository;
 
+/**
+ * Denies by default: outside the public pages ({@code /login},
+ * {@code /setup/**}, health, static resources), {@code /} and the error page
+ * (including the error dispatch) need any authenticated account,
+ * {@code /operator/**} needs the operator, and every other route needs a
+ * manager or technician, so a warehouse route that forgets its
+ * {@code @PreAuthorize} still refuses the operator.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -25,7 +34,10 @@ public class SecurityConfig {
 		http.authorizeHttpRequests(authorize -> authorize
 				.requestMatchers("/login", "/setup/**", "/actuator/health/**").permitAll()
 				.requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
-				.anyRequest().authenticated())
+				.dispatcherTypeMatchers(DispatcherType.ERROR).authenticated()
+				.requestMatchers("/", "/error").authenticated()
+				.requestMatchers("/operator/**").hasRole("OPERATOR")
+				.anyRequest().hasAnyRole("MANAGER", "TECHNICIAN"))
 			.formLogin(formLogin -> formLogin
 				.loginPage("/login")
 				.defaultSuccessUrl("/", true)

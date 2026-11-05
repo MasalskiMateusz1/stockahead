@@ -10,7 +10,8 @@ import org.springframework.security.core.userdetails.User;
  * carries the id of the account and of the account's company. Controllers
  * take the current company and the current account only from here
  * ({@code @AuthenticationPrincipal CompanyUser}), never from a request
- * parameter or form field.
+ * parameter or form field. {@link #companyId()} is {@code null} only for the
+ * operator, which belongs to no company.
  */
 public class CompanyUser extends User {
 
@@ -31,6 +32,7 @@ public class CompanyUser extends User {
 		return accountId;
 	}
 
+	/** The account's company id; {@code null} only for the operator. */
 	public Long companyId() {
 		return companyId;
 	}

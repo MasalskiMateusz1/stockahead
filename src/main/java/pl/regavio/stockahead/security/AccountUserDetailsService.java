@@ -28,12 +28,21 @@ public class AccountUserDetailsService implements UserDetailsService {
 		Account account = accountRepository.findByCanonicalEmail(Emails.canonical(email))
 			.orElseThrow(() -> new UsernameNotFoundException("No account with email " + email));
 
+		Long companyId = account.getCompany() == null ? null : account.getCompany().getId();
 		return new CompanyUser(account.getEmail(), account.getPasswordHash(), account.isActive(),
-				authoritiesFor(account.getRole()), account.getId(), account.getCompany().getId());
+				authoritiesFor(account.getRole()), account.getId(), companyId);
 	}
 
-	private List<GrantedAuthority> authoritiesFor(Role role) {
+	/**
+	 * The authorities a session of an account with {@code role} carries: the
+	 * operator gets {@code ROLE_OPERATOR} only, a manager gets
+	 * {@code ROLE_MANAGER} and {@code ROLE_TECHNICIAN}, a technician gets
+	 * {@code ROLE_TECHNICIAN}. {@link AccountActivityFilter} compares a
+	 * session against the same mapping.
+	 */
+	public static List<GrantedAuthority> authoritiesFor(Role role) {
 		return switch (role) {
+			case OPERATOR -> List.of(new SimpleGrantedAuthority("ROLE_OPERATOR"));
 			case MANAGER -> List.of(new SimpleGrantedAuthority("ROLE_MANAGER"),
 					new SimpleGrantedAuthority("ROLE_TECHNICIAN"));
 			case TECHNICIAN -> List.of(new SimpleGrantedAuthority("ROLE_TECHNICIAN"));

@@ -21,7 +21,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Pins V14: it refuses to run while any application table has rows, and the
  * {@code companies} table and {@code accounts.company_id} enforce the status
- * default, the status check, a non-null company and several managers.
+ * default, the status check, a non-null company and several managers. The
+ * non-null company is pinned at V14 itself: V20 lets the operator have none
+ * (see {@link V20MigrationTests}).
  */
 class V14MigrationTests {
 
@@ -66,7 +68,7 @@ class V14MigrationTests {
 			postgres.start();
 			migrate(postgres, "13");
 
-			migrate(postgres, null);
+			migrate(postgres, "14");
 
 			assertThat(strings(postgres,
 					"SELECT is_nullable FROM information_schema.columns WHERE table_name = 'accounts' AND column_name = 'company_id'"))
@@ -104,7 +106,7 @@ class V14MigrationTests {
 	void accountWithoutCompanyIsRejected() throws Exception {
 		try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:18"))) {
 			postgres.start();
-			migrate(postgres, null);
+			migrate(postgres, "14");
 
 			assertRejected(() -> execute(postgres,
 					"INSERT INTO accounts (email, password_hash, role) VALUES ('orphan@example.com', 'hash', 'TECHNICIAN')"),

@@ -35,6 +35,13 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 	Optional<Account> findByIdAndCompanyId(Long id, Long companyId);
 
 	/**
+	 * The operator's counterpart of {@link #findByIdAndCompanyId(Long, Long)}:
+	 * loads account {@code id} only if it belongs to no company. Only the
+	 * {@link Role#OPERATOR} account has no company.
+	 */
+	Optional<Account> findByIdAndCompanyIdIsNull(Long id);
+
+	/**
 	 * The accounts of company {@code companyId} an order may be assigned to:
 	 * active technicians and managers, by email.
 	 */

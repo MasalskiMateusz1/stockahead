@@ -110,6 +110,29 @@ class AccountUserDetailsServiceTest {
 	}
 
 	@Test
+	void operatorAccountGetsOnlyOperatorAuthorityAndNoCompany() {
+		Account operator = new Account();
+		operator.setId(3L);
+		operator.setEmail("operator@example.com");
+		operator.setPasswordHash("hashed-password");
+		operator.setRole(Role.OPERATOR);
+		operator.setActive(true);
+		operator.setCreatedAt(Instant.now());
+
+		when(accountRepository.findByCanonicalEmail("operator@example.com")).thenReturn(Optional.of(operator));
+
+		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
+		UserDetails userDetails = service.loadUserByUsername("operator@example.com");
+
+		assertThat(userDetails).isInstanceOf(CompanyUser.class);
+		assertThat(((CompanyUser) userDetails).accountId()).isEqualTo(3L);
+		assertThat(((CompanyUser) userDetails).companyId()).isNull();
+		assertThat(userDetails.getAuthorities())
+			.extracting(Object::toString)
+			.containsExactly("ROLE_OPERATOR");
+	}
+
+	@Test
 	void unknownEmailThrowsUsernameNotFoundException() {
 		when(accountRepository.findByCanonicalEmail("missing@example.com")).thenReturn(Optional.empty());
 

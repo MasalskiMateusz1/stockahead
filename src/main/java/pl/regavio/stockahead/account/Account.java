@@ -38,8 +38,9 @@ public class Account {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "company_id", nullable = false)
+	/** The account's company; {@code null} only for the {@link Role#OPERATOR}. */
+	@ManyToOne(fetch = FetchType.LAZY, optional = true)
+	@JoinColumn(name = "company_id", nullable = true)
 	private Company company;
 
 	public Long getId() {

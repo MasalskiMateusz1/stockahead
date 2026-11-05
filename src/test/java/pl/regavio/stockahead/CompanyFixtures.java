@@ -28,7 +28,7 @@ import pl.regavio.stockahead.projects.ProjectRepository;
 
 /**
  * The shared way tests create companies, accounts, parts, projects and BOM
- * lines in them. Every write commits in its own transaction, so MockMvc
+ * lines in them, and the company-less operator account. Every write commits in its own transaction, so MockMvc
  * requests and other threads see it. {@link #cleanUp()} removes what this
  * fixture created: the companies' orders (their lines cascade), accounts,
  * projects (their BOM lines and links cascade), parts and then the
@@ -105,6 +105,24 @@ public class CompanyFixtures {
 	}
 
 	/**
+	 * Creates and commits the operator account: role {@code OPERATOR}, no
+	 * company, with the password encoded as the login form expects. The
+	 * database allows only one operator.
+	 */
+	public Account operator(String email, String rawPassword, boolean active) {
+		emails.add(email);
+		return transactionTemplate.execute(status -> {
+			Account account = new Account();
+			account.setEmail(email);
+			account.setPasswordHash(passwordEncoder.encode(rawPassword));
+			account.setRole(Role.OPERATOR);
+			account.setActive(active);
+			account.setCreatedAt(Instant.now());
+			return accountRepository.save(account);
+		});
+	}
+
+	/**
 	 * Creates and commits an active part of {@code company} with
 	 * {@code quantity} in stock and one location row per given location.
 	 */
@@ -159,7 +177,8 @@ public class CompanyFixtures {
 	 * this fixture created (by email), the projects left in a company it
 	 * created (their BOM lines and links cascade), the parts left in it, any
 	 * other account left in it (e.g. a technician created through the UI),
-	 * and then those companies.
+	 * and then those companies; finally any company-less account (the
+	 * operator, however it was created).
 	 */
 	public void cleanUp() {
 		List<String> createdEmails = new ArrayList<>(emails);
@@ -177,6 +196,7 @@ public class CompanyFixtures {
 				jdbcTemplate.update("DELETE FROM accounts WHERE company_id = ?", companyId);
 				jdbcTemplate.update("DELETE FROM companies WHERE id = ?", companyId);
 			}
+			jdbcTemplate.update("DELETE FROM accounts WHERE company_id IS NULL");
 		});
 		emails.removeAll(createdEmails);
 		companyIds.removeAll(createdCompanyIds);
