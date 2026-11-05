@@ -38,18 +38,6 @@ class MessagesBundleTests {
 	}
 
 	@Test
-	void setupErrorCompanyNameRequired() {
-		assertThat(messageSource.getMessage("setup.error.companyNameRequired", null, PL))
-			.isEqualTo("Podaj nazwę firmy.");
-	}
-
-	@Test
-	void setupErrorCompanyNameTooLong() {
-		assertThat(messageSource.getMessage("setup.error.companyNameTooLong", null, PL))
-			.isEqualTo("Nazwa firmy może mieć maksymalnie 255 znaków.");
-	}
-
-	@Test
 	void setupErrorAccountCreationFailed() {
 		assertThat(messageSource.getMessage("setup.error.accountCreationFailed", null, PL))
 			.isEqualTo("Nie udało się założyć konta. Spróbuj ponownie.");
@@ -133,9 +121,9 @@ class MessagesBundleTests {
 	}
 
 	@Test
-	void loginStatusManagerCreated() {
-		assertThat(messageSource.getMessage("login.status.managerCreated", null, PL))
-			.isEqualTo("Konto kierownika zostało założone. Zaloguj się.");
+	void loginStatusOperatorCreated() {
+		assertThat(messageSource.getMessage("login.status.operatorCreated", null, PL))
+			.isEqualTo("Konto operatora zostało założone. Zaloguj się.");
 	}
 
 	@Test

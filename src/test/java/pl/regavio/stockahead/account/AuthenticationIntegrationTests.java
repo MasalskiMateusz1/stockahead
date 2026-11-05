@@ -1,6 +1,7 @@
 package pl.regavio.stockahead.account;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -19,6 +20,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 /**
- * Covers the /setup bootstrap flow (company + first manager), form login,
+ * Covers the /setup bootstrap flow (the company-less operator), form login,
  * the principal's company and the /manager/ping role check, all against a
  * real Postgres via Testcontainers (per AGENTS.md). Deliberately not
  * {@code @Transactional}: setup must commit for real so two concurrent
@@ -55,22 +57,11 @@ class AuthenticationIntegrationTests {
 
 	private static final String SETUP_PASSWORD = "s3cret-password";
 
-	/**
-	 * Accounts created through {@code POST /setup}, which {@link CompanyFixtures}
-	 * does not track; cleanup deletes them and then their companies.
-	 */
-	private static final List<String> SETUP_EMAILS = List.of("new-manager@example.com", "rejected@example.com",
-			"blank-company@example.com", "long-company@example.com", "closed-setup@example.com",
-			"race-first@example.com", "race-second@example.com");
-
 	@Autowired
 	private MockMvc mockMvc;
 
 	@Autowired
 	private AccountRepository accountRepository;
-
-	@Autowired
-	private CompanyRepository companyRepository;
 
 	@Autowired
 	private CompanyFixtures companyFixtures;
@@ -82,10 +73,12 @@ class AuthenticationIntegrationTests {
 
 	@BeforeEach
 	void setUp() {
-		cleanUp();
-		assertThat(jdbcTemplate.queryForList("SELECT email FROM accounts WHERE role = 'MANAGER'", String.class))
-			.as("another test class leaked a MANAGER account; /setup would be closed")
+		// Checked before cleanUp(), which deletes every company-less account: an
+		// operator present here was leaked by another test class.
+		assertThat(jdbcTemplate.queryForList("SELECT email FROM accounts WHERE role = 'OPERATOR'", String.class))
+			.as("another test class leaked an OPERATOR account; /setup would be closed")
 			.isEmpty();
+		cleanUp();
 	}
 
 	@AfterEach
@@ -93,66 +86,56 @@ class AuthenticationIntegrationTests {
 		cleanUp();
 	}
 
+	/**
+	 * Accounts created through {@code POST /setup} are operators, which have no
+	 * company; {@link CompanyFixtures#cleanUp()} deletes every company-less
+	 * account along with what it created itself.
+	 */
 	private void cleanUp() {
-		for (String email : SETUP_EMAILS) {
-			List<Long> companyIds = jdbcTemplate.queryForList(
-					"DELETE FROM accounts WHERE email = ? RETURNING company_id", Long.class, email);
-			companyIds.forEach(companyId -> jdbcTemplate.update("DELETE FROM companies WHERE id = ?", companyId));
-		}
 		companyFixtures.cleanUp();
 	}
 
 	@Test
-	void setupFormIsAvailableWhenNoManagerExists() throws Exception {
+	void setupFormIsAvailableWhenNoOperatorExists() throws Exception {
 		mockMvc.perform(get("/setup"))
-			.andExpect(status().isOk());
+			.andExpect(status().isOk())
+			.andExpect(view().name("setup"));
 	}
 
 	@Test
-	void setupWithCorrectTokenCreatesActiveManagerInNewActiveCompany() throws Exception {
-		mockMvc.perform(postSetup(" Zakład Testowy ", " New-Manager@Example.COM ", SETUP_TOKEN))
+	void setupWithCorrectTokenCreatesActiveOperatorWithoutCompany() throws Exception {
+		int companiesBefore = companyCount();
+
+		mockMvc.perform(postSetup(" New-Operator@Example.COM ", SETUP_TOKEN))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/login?setup"));
 
-		Account created = accountRepository.findByEmail("new-manager@example.com").orElseThrow();
-		assertThat(created.getRole()).isEqualTo(Role.MANAGER);
+		Account created = accountRepository.findByEmail("new-operator@example.com").orElseThrow();
+		assertThat(created.getRole()).isEqualTo(Role.OPERATOR);
 		assertThat(created.isActive()).isTrue();
-		Company createdCompany = companyRepository.findById(created.getCompany().getId()).orElseThrow();
-		assertThat(createdCompany.getName()).isEqualTo("Zakład Testowy");
-		assertThat(createdCompany.getStatus()).isEqualTo(CompanyStatus.ACTIVE);
-		assertThat(companiesNamed("Zakład Testowy")).isEqualTo(1);
+		assertThat(created.getCompany()).isNull();
+		assertThat(operatorEmails()).containsExactly("new-operator@example.com");
+		assertThat(companyCount()).isEqualTo(companiesBefore);
 	}
 
 	@Test
-	void setupWithBlankCompanyNameCreatesNothingAndRerendersForm() throws Exception {
-		mockMvc.perform(postSetup("   ", "blank-company@example.com", SETUP_TOKEN))
-			.andExpect(status().isOk())
-			.andExpect(view().name("setup"))
-			.andExpect(model().attribute("email", "blank-company@example.com"))
-			.andExpect(model().attribute("companyName", "   "))
-			.andExpect(model().attribute("error", "Podaj nazwę firmy."));
-
-		assertThat(accountRepository.findByEmail("blank-company@example.com")).isEmpty();
-	}
-
-	@Test
-	void setupWithTooLongCompanyNameCreatesNothingAndKeepsInput() throws Exception {
-		String longName = "F".repeat(256);
-
-		mockMvc.perform(postSetup(longName, "long-company@example.com", SETUP_TOKEN))
-			.andExpect(status().isOk())
-			.andExpect(view().name("setup"))
-			.andExpect(model().attribute("email", "long-company@example.com"))
-			.andExpect(model().attribute("companyName", longName))
-			.andExpect(model().attribute("error", "Nazwa firmy może mieć maksymalnie 255 znaków."));
-
-		assertThat(accountRepository.findByEmail("long-company@example.com")).isEmpty();
-		assertThat(companiesNamed(longName)).isZero();
-	}
-
-	@Test
-	void setupFormRedirectsToLoginOnceManagerExists() throws Exception {
+	void setupStaysOpenWhileCompaniesAndManagersExistButNoOperator() throws Exception {
 		seedAccount("existing-manager@example.com", "irrelevant-password", Role.MANAGER, true);
+
+		mockMvc.perform(get("/setup"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("setup"));
+
+		mockMvc.perform(postSetup("open-setup@example.com", SETUP_TOKEN))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?setup"));
+
+		assertThat(operatorEmails()).containsExactly("open-setup@example.com");
+	}
+
+	@Test
+	void setupFormRedirectsToLoginOnceOperatorExists() throws Exception {
+		companyFixtures.operator("existing-operator@example.com", "irrelevant-password", true);
 
 		mockMvc.perform(get("/setup"))
 			.andExpect(status().is3xxRedirection())
@@ -160,52 +143,91 @@ class AuthenticationIntegrationTests {
 	}
 
 	@Test
-	void setupPostCreatesNothingOnceManagerExists() throws Exception {
-		seedAccount("existing-manager@example.com", "irrelevant-password", Role.MANAGER, true);
+	void setupPostCreatesNothingOnceOperatorExists() throws Exception {
+		companyFixtures.operator("existing-operator@example.com", "irrelevant-password", true);
+		int companiesBefore = companyCount();
 
-		mockMvc.perform(postSetup("Closed Setup Company", "closed-setup@example.com", SETUP_TOKEN))
+		mockMvc.perform(postSetup("closed-setup@example.com", SETUP_TOKEN))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/login"));
 
 		assertThat(accountRepository.findByEmail("closed-setup@example.com")).isEmpty();
-		assertThat(companiesNamed("Closed Setup Company")).isZero();
+		assertThat(operatorEmails()).containsExactly("existing-operator@example.com");
+		assertThat(companyCount()).isEqualTo(companiesBefore);
 	}
 
 	@Test
-	void twoConcurrentSetupsCreateExactlyOneCompanyAndOneManager() throws Exception {
+	void twoConcurrentSetupsCreateExactlyOneOperator() throws Exception {
 		for (int iteration = 0; iteration < 5; iteration++) {
 			cleanUp();
+			int companiesBefore = companyCount();
 
 			MvcResult[] results = race(
-					() -> mockMvc.perform(postSetup("Race First Company", "race-first@example.com", SETUP_TOKEN))
-						.andReturn(),
-					() -> mockMvc.perform(postSetup("Race Second Company", "race-second@example.com", SETUP_TOKEN))
-						.andReturn());
+					() -> mockMvc.perform(postSetup("race-first@example.com", SETUP_TOKEN)).andReturn(),
+					() -> mockMvc.perform(postSetup("race-second@example.com", SETUP_TOKEN)).andReturn());
 
 			assertThat(results[0].getResponse().getStatus()).as("iteration %d: first status", iteration)
 				.isEqualTo(302);
 			assertThat(results[1].getResponse().getStatus()).as("iteration %d: second status", iteration)
 				.isEqualTo(302);
-			List<Account> managers = Stream.of("race-first@example.com", "race-second@example.com")
+			List<Account> operators = Stream.of("race-first@example.com", "race-second@example.com")
 				.map(accountRepository::findByEmail)
 				.flatMap(Optional::stream)
 				.toList();
-			assertThat(managers).as("iteration %d: managers created", iteration).hasSize(1);
-			assertThat(managers.get(0).getRole()).isEqualTo(Role.MANAGER);
-			assertThat(managers.get(0).getCompany()).isNotNull();
-			assertThat(companiesNamed("Race First Company") + companiesNamed("Race Second Company"))
-				.as("iteration %d: companies created", iteration)
-				.isEqualTo(1);
+			assertThat(operators).as("iteration %d: operators created", iteration).hasSize(1);
+			assertThat(operators.get(0).getRole()).isEqualTo(Role.OPERATOR);
+			assertThat(operators.get(0).getCompany()).isNull();
+			assertThat(operatorEmails()).as("iteration %d: operators in the database", iteration).hasSize(1);
+			assertThat(companyCount()).as("iteration %d: companies created", iteration).isEqualTo(companiesBefore);
 		}
 	}
 
 	@Test
-	void setupWithWrongTokenDoesNotCreateAccount() throws Exception {
-		mockMvc.perform(postSetup("Rejected Company", "rejected@example.com", "wrong-token"))
-			.andExpect(status().isOk());
+	void setupWithWrongTokenCreatesNothingAndKeepsEmail() throws Exception {
+		assertSetupRejected(postSetup("rejected@example.com", "wrong-token"), "rejected@example.com",
+				"Nieprawidłowy token konfiguracyjny.");
+	}
 
-		assertThat(accountRepository.findByEmail("rejected@example.com")).isEmpty();
-		assertThat(companiesNamed("Rejected Company")).isZero();
+	@Test
+	void setupWithInvalidEmailCreatesNothingAndKeepsEmail() throws Exception {
+		assertSetupRejected(postSetup("not-an-email", SETUP_PASSWORD, SETUP_PASSWORD, SETUP_TOKEN), "not-an-email",
+				"Podaj poprawny adres e-mail.");
+	}
+
+	@Test
+	void setupWithElevenCharacterPasswordCreatesNothingAndKeepsEmail() throws Exception {
+		String shortPassword = "a".repeat(11);
+
+		assertSetupRejected(postSetup("short-password@example.com", shortPassword, shortPassword, SETUP_TOKEN),
+				"short-password@example.com", "Hasło musi mieć co najmniej 12 znaków.");
+	}
+
+	@Test
+	void setupWithMismatchedConfirmationCreatesNothingAndKeepsEmail() throws Exception {
+		assertSetupRejected(
+				postSetup("mismatch@example.com", SETUP_PASSWORD, SETUP_PASSWORD + "-other", SETUP_TOKEN),
+				"mismatch@example.com", "Hasła nie są identyczne.");
+	}
+
+	@Test
+	void operatorCanLogInAfterSetup() throws Exception {
+		mockMvc.perform(postSetup("login-operator@example.com", SETUP_TOKEN))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?setup"));
+
+		MockHttpSession session = (MockHttpSession) mockMvc.perform(formLogin()
+				.user(" Login-Operator@Example.COM ")
+				.password(SETUP_PASSWORD))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/"))
+			.andReturn().getRequest().getSession();
+
+		SecurityContext context = (SecurityContext) session
+			.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+		CompanyUser principal = (CompanyUser) context.getAuthentication().getPrincipal();
+		assertThat(principal.companyId()).isNull();
+		assertThat(principal.getAuthorities()).extracting(GrantedAuthority::getAuthority)
+			.containsExactly("ROLE_OPERATOR");
 	}
 
 	@Test
@@ -302,18 +324,43 @@ class AuthenticationIntegrationTests {
 			.andExpect(status().isForbidden());
 	}
 
-	private RequestBuilder postSetup(String companyName, String email, String token) {
+	private RequestBuilder postSetup(String email, String token) {
+		return postSetup(email, SETUP_PASSWORD, SETUP_PASSWORD, token);
+	}
+
+	private RequestBuilder postSetup(String email, String password, String confirmPassword, String token) {
 		return post("/setup")
 			.with(csrf())
-			.param("companyName", companyName)
 			.param("email", email)
-			.param("password", SETUP_PASSWORD)
-			.param("confirmPassword", SETUP_PASSWORD)
+			.param("password", password)
+			.param("confirmPassword", confirmPassword)
 			.param("token", token);
 	}
 
-	private int companiesNamed(String name) {
-		return jdbcTemplate.queryForObject("SELECT count(*) FROM companies WHERE name = ?", Integer.class, name);
+	/**
+	 * Performs a setup the form must refuse: it re-renders with the email kept
+	 * and the given error, and creates neither an account nor a company.
+	 */
+	private void assertSetupRejected(RequestBuilder request, String email, String error) throws Exception {
+		int companiesBefore = companyCount();
+
+		mockMvc.perform(request)
+			.andExpect(status().isOk())
+			.andExpect(view().name("setup"))
+			.andExpect(model().attribute("email", email))
+			.andExpect(model().attribute("error", error));
+
+		assertThat(accountRepository.findByEmail(email.strip().toLowerCase(Locale.ROOT))).isEmpty();
+		assertThat(operatorEmails()).isEmpty();
+		assertThat(companyCount()).isEqualTo(companiesBefore);
+	}
+
+	private List<String> operatorEmails() {
+		return jdbcTemplate.queryForList("SELECT email FROM accounts WHERE role = 'OPERATOR'", String.class);
+	}
+
+	private int companyCount() {
+		return jdbcTemplate.queryForObject("SELECT count(*) FROM companies", Integer.class);
 	}
 
 	private Company company() {

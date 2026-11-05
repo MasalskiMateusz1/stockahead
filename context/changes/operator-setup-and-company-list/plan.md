@@ -355,25 +355,25 @@ V20 is additive except for the replaced role CHECK. Existing manager/technician 
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes, including the existing setup, role-gate and company-isolation suites
-- [x] 1.2 V20 migration tests: second operator rejected, operator-with-company rejected, manager-without-company rejected
-- [x] 1.3 AccountUserDetailsService and AccountActivityFilter tests cover the operator principal (current, deactivated, missing)
+- [x] 1.1 `./mvnw verify` passes, including the existing setup, role-gate and company-isolation suites — 0e49818
+- [x] 1.2 V20 migration tests: second operator rejected, operator-with-company rejected, manager-without-company rejected — 0e49818
+- [x] 1.3 AccountUserDetailsService and AccountActivityFilter tests cover the operator principal (current, deactivated, missing) — 0e49818
 
 #### Manual
 
-- [x] 1.4 `./mvnw spring-boot:test-run`: existing setup → manager login → warehouse pages still work as before
+- [x] 1.4 `./mvnw spring-boot:test-run`: existing setup → manager login → warehouse pages still work as before — 0e49818
 
 ### Phase 2: Setup creates the operator
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 Setup tests: operator created without company, concurrent race yields exactly one operator, validation failures create nothing
-- [ ] 2.3 `CompanyAccountIntegrationTests` passes unchanged after the validation extraction
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 Setup tests: operator created without company, concurrent race yields exactly one operator, validation failures create nothing
+- [x] 2.3 `CompanyAccountIntegrationTests` passes unchanged after the validation extraction
 
 #### Manual
 
-- [ ] 2.4 Fresh `./mvnw spring-boot:test-run`: `/setup` shows email/password/token only, creates the operator, then `/setup` redirects to login
+- [x] 2.4 Fresh `./mvnw spring-boot:test-run`: `/setup` shows email/password/token only, creates the operator, then `/setup` redirects to login
 
 ### Phase 3: Operator company list, home routing and guardrail tests
 

@@ -18,28 +18,26 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * First-run setup screen: creates the first company together with its
- * initial MANAGER account, guarded by an out-of-band token from the
- * environment. Disables itself once a manager exists.
+ * First-run setup screen: creates the single OPERATOR account, which belongs
+ * to no company, guarded by an out-of-band token from the environment. The
+ * email and password follow the same rules as every account-creating form
+ * ({@link AccountCredentials}). Setup is closed exactly when an operator
+ * exists.
  */
 @Controller
 public class SetupController {
 
-	private static final int MAX_COMPANY_NAME_LENGTH = 255;
-
 	/**
 	 * First key of the setup-only {@code pg_advisory_xact_lock(int, int)}
-	 * ("SETU"). It serializes concurrent setup submissions now that the
-	 * database allows more than one manager. Public registration must not
-	 * reuse it: many companies are allowed there.
+	 * ("SETU"). It serializes concurrent setup submissions so the losing one
+	 * sees the winner's operator and creates nothing. Public registration must
+	 * not reuse it: many companies are allowed there.
 	 */
 	private static final int SETUP_LOCK_NAMESPACE = 0x53455455;
 
 	private static final int SETUP_LOCK_KEY = 0;
 
 	private final AccountRepository accountRepository;
-
-	private final CompanyRepository companyRepository;
 
 	private final PasswordEncoder passwordEncoder;
 
@@ -49,11 +47,10 @@ public class SetupController {
 
 	private final TransactionTemplate transactionTemplate;
 
-	public SetupController(AccountRepository accountRepository, CompanyRepository companyRepository,
-			PasswordEncoder passwordEncoder, @Value("${app.setup-token}") String setupToken,
-			MessageSource messageSource, PlatformTransactionManager transactionManager) {
+	public SetupController(AccountRepository accountRepository, PasswordEncoder passwordEncoder,
+			@Value("${app.setup-token}") String setupToken, MessageSource messageSource,
+			PlatformTransactionManager transactionManager) {
 		this.accountRepository = accountRepository;
-		this.companyRepository = companyRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.setupToken = setupToken;
 		this.messageSource = messageSource;
@@ -62,35 +59,27 @@ public class SetupController {
 
 	@GetMapping("/setup")
 	public String showSetupForm() {
-		if (accountRepository.existsByRole(Role.MANAGER)) {
+		if (accountRepository.existsByRole(Role.OPERATOR)) {
 			return "redirect:/login";
 		}
 		return "setup";
 	}
 
 	@PostMapping("/setup")
-	public String createManagerAccount(@RequestParam(defaultValue = "") String companyName,
-			@RequestParam String email, @RequestParam String password, @RequestParam String confirmPassword,
-			@RequestParam String token, Model model, Locale locale) {
+	public String createOperatorAccount(@RequestParam String email, @RequestParam String password,
+			@RequestParam String confirmPassword, @RequestParam String token, Model model, Locale locale) {
 		if (!isTokenValid(token)) {
-			return renderError(model, email, companyName, "setup.error.invalidToken", locale);
+			return renderError(model, email, "setup.error.invalidToken", null, locale);
 		}
 
-		String trimmedCompanyName = companyName.strip();
-		if (trimmedCompanyName.isEmpty()) {
-			return renderError(model, email, companyName, "setup.error.companyNameRequired", locale);
-		}
-		if (trimmedCompanyName.length() > MAX_COMPANY_NAME_LENGTH) {
-			return renderError(model, email, companyName, "setup.error.companyNameTooLong", locale);
-		}
-
-		if (!password.equals(confirmPassword)) {
-			return renderError(model, email, companyName, "setup.error.passwordMismatch", locale);
+		AccountCredentials.Result credentials = AccountCredentials.validate(email, password, confirmPassword);
+		if (!credentials.isValid()) {
+			return renderError(model, email, credentials.errorKey(), credentials.errorArguments(), locale);
 		}
 
 		// Re-check right before creating: a second concurrent submission may have
-		// already created the manager account between the GET render and this POST.
-		if (accountRepository.existsByRole(Role.MANAGER)) {
+		// already created the operator between the GET render and this POST.
+		if (accountRepository.existsByRole(Role.OPERATOR)) {
 			return "redirect:/login";
 		}
 
@@ -98,30 +87,24 @@ public class SetupController {
 		try {
 			created = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
 				// Serialize concurrent setups, then re-check under the lock: the losing
-				// submission must see the winner's manager and create nothing.
+				// submission must see the winner's operator and create nothing.
 				accountRepository.lockAdvisory(SETUP_LOCK_NAMESPACE, SETUP_LOCK_KEY);
-				if (accountRepository.existsByRole(Role.MANAGER)) {
+				if (accountRepository.existsByRole(Role.OPERATOR)) {
 					return false;
 				}
 
-				Company company = new Company();
-				company.setName(trimmedCompanyName);
-				company.setStatus(CompanyStatus.ACTIVE);
-				company.setCreatedAt(Instant.now());
-				companyRepository.save(company);
-
 				Account account = new Account();
-				account.setEmail(Emails.canonical(email));
+				account.setEmail(credentials.canonicalEmail());
 				account.setPasswordHash(passwordEncoder.encode(password));
-				account.setRole(Role.MANAGER);
+				account.setRole(Role.OPERATOR);
+				account.setActive(true);
 				account.setCreatedAt(Instant.now());
-				account.setCompany(company);
 				accountRepository.saveAndFlush(account);
 				return true;
 			}));
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderError(model, email, companyName, "setup.error.accountCreationFailed", locale);
+			return renderError(model, email, "setup.error.accountCreationFailed", null, locale);
 		}
 
 		if (!created) {
@@ -130,10 +113,9 @@ public class SetupController {
 		return "redirect:/login?setup";
 	}
 
-	private String renderError(Model model, String email, String companyName, String messageKey, Locale locale) {
+	private String renderError(Model model, String email, String messageKey, Object[] arguments, Locale locale) {
 		model.addAttribute("email", email);
-		model.addAttribute("companyName", companyName);
-		model.addAttribute("error", messageSource.getMessage(messageKey, null, locale));
+		model.addAttribute("error", messageSource.getMessage(messageKey, arguments, locale));
 		return "setup";
 	}
 

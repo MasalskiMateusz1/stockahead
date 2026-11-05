@@ -2,7 +2,6 @@ package pl.regavio.stockahead.account;
 
 import java.time.Instant;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -34,12 +33,6 @@ import pl.regavio.stockahead.security.CompanyUser;
  */
 @Controller
 public class CompanyAccountController {
-
-	private static final int MAX_EMAIL_LENGTH = 255;
-
-	private static final int MIN_PASSWORD_LENGTH = 12;
-
-	private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
 	private static final String LIST_REDIRECT = "redirect:/manager/accounts";
 
@@ -88,24 +81,11 @@ public class CompanyAccountController {
 		if (parsedRole == null) {
 			return renderError(model, email, role, "accounts.error.roleInvalid", null, locale);
 		}
-		String canonicalEmail = Emails.canonical(email);
-		if (canonicalEmail.isEmpty()) {
-			return renderError(model, email, role, "accounts.error.emailRequired", null, locale);
+		AccountCredentials.Result credentials = AccountCredentials.validate(email, password, confirmPassword);
+		if (!credentials.isValid()) {
+			return renderError(model, email, role, credentials.errorKey(), credentials.errorArguments(), locale);
 		}
-		if (canonicalEmail.length() > MAX_EMAIL_LENGTH) {
-			return renderError(model, email, role, "accounts.error.emailTooLong",
-					new Object[] { MAX_EMAIL_LENGTH }, locale);
-		}
-		if (!EMAIL_PATTERN.matcher(canonicalEmail).matches()) {
-			return renderError(model, email, role, "accounts.error.emailInvalid", null, locale);
-		}
-		if (password.length() < MIN_PASSWORD_LENGTH) {
-			return renderError(model, email, role, "accounts.error.passwordTooShort",
-					new Object[] { MIN_PASSWORD_LENGTH }, locale);
-		}
-		if (!password.equals(confirmPassword)) {
-			return renderError(model, email, role, "accounts.error.passwordMismatch", null, locale);
-		}
+		String canonicalEmail = credentials.canonicalEmail();
 
 		Account account = new Account();
 		account.setEmail(canonicalEmail);

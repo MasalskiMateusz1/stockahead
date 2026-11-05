@@ -7,15 +7,11 @@
 <body>
 	<main class="auth-page">
 		<div class="card">
-			<h1>Załóż konto kierownika</h1>
+			<h1>Załóż konto operatora</h1>
 
 			<div th:replace="~{fragments :: alerts}"></div>
 
 			<form th:action="@{/setup}" method="post">
-				<div class="form-field">
-					<label for="companyName">Nazwa firmy</label>
-					<input type="text" id="companyName" name="companyName" th:value="${companyName}" maxlength="255" required>
-				</div>
 				<div class="form-field">
 					<label for="email">E-mail</label>
 					<input type="email" id="email" name="email" th:value="${email}" required>
