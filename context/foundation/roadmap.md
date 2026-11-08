@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 2
 status: draft
 created: 2026-10-05
-updated: 2026-11-05
+updated: 2026-11-08
 prd_version: 2
 main_goal: quality
 top_blocker: capacity
@@ -49,7 +49,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | S-05 | company-scoped-stock-movements    | Users receive deliveries, correct stock and import CSV only into their company's catalog                        | S-01, S-03       | FR-028, Business Logic Changes, Constraints (CSV formats unchanged)                                                             | done |
 | S-06 | company-scoped-shopping-list      | Manager sees and exports a shopping list built only from their company's shortages                              | S-03             | US-01, FR-028, Constraints (CSV formats unchanged)                                                                              | done |
 | S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company                        | F-01             | FR-030, FR-032, FR-029, FR-028                                                                                                  | done |
-| S-08 | operator-setup-and-company-list   | Setup creates the operator, who sees the list of companies and nothing else                                     | F-01             | FR-033, FR-025, FR-029, Success Criteria › Guardrails (operator has no path to company data)                                    | in-progress |
+| S-08 | operator-setup-and-company-list   | Setup creates the operator, who sees the list of companies and nothing else                                     | F-01             | FR-033, FR-025, FR-029, Success Criteria › Guardrails (operator has no path to company data)                                    | done |
 | S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                                     | F-01             | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle)                                                       | in-progress |
 | S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction                | S-09             | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…"                                          | proposed |
 | S-11 | operator-approves-companies       | Operator approves or rejects a pending company; an approved manager reaches the warehouse                       | S-03, S-08, S-09 | US-01, FR-026, FR-024, FR-025, Business Logic Changes (company lifecycle)                                                       | proposed |
@@ -192,7 +192,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - Is the setup token alone enough protection against the fresh-deploy race (PRD Open Question 1)? — Owner: user. Block: no (today's token posture carries over until decided). **Answered 2026-11-04:** yes, the token is enough (constant-time compare, advisory lock, self-closing setup).
   - Should setup adopt the technician form's validation (12-character password minimum, email format and length)? Today `/setup` checks neither, so the first manager may have a weaker password than a technician (found in company-boundary-harness impl review F5). — Owner: user. Block: no. **Answered 2026-11-04:** yes, setup validates the operator's email and password with the shared `account/AccountCredentials` helper, the same rules as the accounts page.
 - **Risk:** A third role that is *not* a superset of manager breaks the current "manager ⊇ technician" assumption — every warehouse route must refuse the operator, which means a 403 test per controller, not one global check. Refuse the operator with a role gate, never by relying on company-scoped queries returning nothing: `GET /parts` has no `@PreAuthorize` today, so an operator (`companyId == null`) would get an empty catalog instead of a 403 (found in company-scoped-parts impl review F3).
-- **Status:** in-progress
+- **Status:** done
 
 ### S-09: A visitor registers a company and waits for approval
 
@@ -294,3 +294,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-05: Technician receives a delivery, manager corrects stock or imports parts from CSV — each affects only the user's company's parts, and reservations recompute only for that company's orders.** — Archived 2026-11-01 → `context/archive/2026-11-01-company-scoped-stock-movements/`. Lesson: —.
 - **S-06: Manager sees and exports to CSV a shopping list aggregating only their company's shortages and blocked orders.** — Archived 2026-11-03 → `context/archive/2026-11-01-company-scoped-shopping-list/`. Lesson: —.
 - **S-07: Manager creates and deactivates technician and manager accounts only in their own company; the last active manager cannot be deactivated; an email stays unique across the whole platform.** — Archived 2026-11-04 → `context/archive/2026-11-04-company-accounts/`. Lesson: —.
+- **S-08: On a fresh deploy the token-gated setup creates the operator account (member of no company) and then closes; the operator logs in and sees the list of companies (name, manager's email, registration date, status) and has no route to any warehouse page.** — Archived 2026-11-08 → `context/archive/2026-11-04-operator-setup-and-company-list/`. Lesson: —.
