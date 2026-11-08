@@ -242,26 +242,26 @@ No schema change and no new env var is required, since all three properties have
 
 #### Automated
 
-- [x] 1.1 Full build and tests pass: `./mvnw verify`
-- [x] 1.2 New honeypot, missing-timestamp and too-fast tests in `RegistrationIntegrationTests` pass and assert no company row was created
-- [x] 1.3 Existing `RegistrationIntegrationTests` cases pass unchanged in intent through the stamped-session helper
+- [x] 1.1 Full build and tests pass: `./mvnw verify` — 3f4efbd
+- [x] 1.2 New honeypot, missing-timestamp and too-fast tests in `RegistrationIntegrationTests` pass and assert no company row was created — 3f4efbd
+- [x] 1.3 Existing `RegistrationIntegrationTests` cases pass unchanged in intent through the stamped-session helper — 3f4efbd
 
 #### Manual
 
-- [x] 1.4 On `./mvnw spring-boot:test-run`, a person filling `/register` normally registers successfully with no visible extra field or delay
-- [x] 1.5 Submitting the form within ~1 s of loading it shows the neutral error with name and email kept (e.g. browser autofill and an immediate click, or `curl` with the session cookie and CSRF token)
-- [x] 1.6 Tab order on `/register` skips the honeypot, and a screen reader does not announce it
+- [x] 1.4 On `./mvnw spring-boot:test-run`, a person filling `/register` normally registers successfully with no visible extra field or delay — 3f4efbd
+- [x] 1.5 Submitting the form within ~1 s of loading it shows the neutral error with name and email kept (e.g. browser autofill and an immediate click, or `curl` with the session cookie and CSRF token) — 3f4efbd
+- [x] 1.6 Tab order on `/register` skips the honeypot, and a screen reader does not announce it — 3f4efbd
 
 ### Phase 2: Per-IP registration rate limit
 
 #### Automated
 
-- [ ] 2.1 Full build and tests pass: `./mvnw verify`
-- [ ] 2.2 `RegistrationRateLimiterTests` pass, including the concurrent-reserve test
-- [ ] 2.3 Integration test shows the 6th successful registration from one IP answers 429 and creates no company, while failed validations and duplicate emails leave the quota untouched
+- [x] 2.1 Full build and tests pass: `./mvnw verify`
+- [x] 2.2 `RegistrationRateLimiterTests` pass, including the concurrent-reserve test
+- [x] 2.3 Integration test shows the 6th successful registration from one IP answers 429 and creates no company, while failed validations and duplicate emails leave the quota untouched
 
 #### Manual
 
-- [ ] 2.4 On `./mvnw spring-boot:test-run`, registering 6 companies in a row from one browser shows the "too many registrations" message on the 6th, with name and email kept
-- [ ] 2.5 After a restart of the app the same browser can register again (accepted in-memory behaviour)
+- [x] 2.4 On `./mvnw spring-boot:test-run`, registering 6 companies in a row from one browser shows the "too many registrations" message on the 6th, with name and email kept
+- [x] 2.5 After a restart of the app the same browser can register again (accepted in-memory behaviour)
 - [ ] 2.6 On the deployed `test.regavio.com`, an INFO log line for a rejected registration shows the real client IP (from `CF-Connecting-IP`), not the Traefik/tunnel address

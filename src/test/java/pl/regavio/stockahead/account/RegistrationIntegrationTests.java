@@ -2,6 +2,7 @@ package pl.regavio.stockahead.account;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +40,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * manager logs in to the awaiting-approval page while the operator sees the
  * company as pending. Every submission must pass the bot check (empty
  * honeypot, form rendered at least the minimum fill time earlier), so
- * {@link #postRegister} sends a session stamped 10 s in the past. Rows created through {@code /register} are not tracked
+ * {@link #postRegister} sends a session stamped 10 s in the past. All tests
+ * share one Spring context and so one {@link RegistrationRateLimiter}: to keep
+ * them clear of the per-IP cap, {@link #postRegister} sends a unique
+ * {@code CF-Connecting-IP} (10.x.y.z) on every call, and the rate-limit tests
+ * use dedicated addresses from 192.0.2.0/24 and 198.51.100.0/24 that no other
+ * test sends. Rows created through {@code /register} are not tracked
  * by {@link CompanyFixtures}, so this class deletes its own companies (by
  * name prefix) and accounts (by email domain).
  */
@@ -65,6 +71,13 @@ class RegistrationIntegrationTests {
 	private static final String REGISTERED_MESSAGE = "Firma została zarejestrowana i czeka na zatwierdzenie. Zaloguj się.";
 
 	private static final String AWAITING_MESSAGE = "Twoja firma oczekuje na zatwierdzenie przez operatora.";
+
+	private static final String TOO_MANY_REGISTRATIONS_ERROR = "Zbyt wiele rejestracji z tego adresu. Spróbuj ponownie później.";
+
+	/** Default {@code app.registration.max-per-ip}. */
+	private static final int MAX_PER_IP = 5;
+
+	private static final AtomicInteger IP_COUNTER = new AtomicInteger();
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -101,12 +114,56 @@ class RegistrationIntegrationTests {
 
 	private static MockHttpServletRequestBuilder postRegister(String companyName, String email, String password,
 			String confirmPassword, MockHttpSession session) {
+		return postRegisterFrom(nextIp(), companyName, email, password, confirmPassword, session);
+	}
+
+	private static MockHttpServletRequestBuilder postRegisterFrom(String ip, String companyName, String email) {
+		return postRegisterFrom(ip, companyName, email, PASSWORD, PASSWORD,
+				sessionIssuedAt(Instant.now().minusSeconds(10)));
+	}
+
+	private static MockHttpServletRequestBuilder postRegisterFrom(String ip, String companyName, String email,
+			String password, String confirmPassword, MockHttpSession session) {
+		return postRegisterWithoutClientIp(companyName, email, password, confirmPassword, session)
+			.header(ClientAddress.CF_CONNECTING_IP_HEADER, ip);
+	}
+
+	private static MockHttpServletRequestBuilder postRegisterWithoutClientIp(String companyName, String email,
+			String password, String confirmPassword, MockHttpSession session) {
 		return post("/register")
 			.session(session)
 			.param("companyName", companyName)
 			.param("email", email)
 			.param("password", password)
 			.param("confirmPassword", confirmPassword);
+	}
+
+	/** A {@code CF-Connecting-IP} no other call uses, in 10.0.0.0/8. */
+	private static String nextIp() {
+		int n = IP_COUNTER.incrementAndGet();
+		return "10." + ((n >> 16) & 0xff) + "." + ((n >> 8) & 0xff) + "." + (n & 0xff);
+	}
+
+	/** Registers {@code times} companies from {@code ip}, each with its own email, expecting success. */
+	private void registerSuccessfullyFrom(String ip, String label, int times) throws Exception {
+		for (int i = 1; i <= times; i++) {
+			mockMvc.perform(postRegisterFrom(ip, NAME_PREFIX + " " + label + " " + i,
+					label.toLowerCase() + i + "@registration.example").with(csrf()))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(header().string("Location", "/login?registered"));
+		}
+	}
+
+	private void expectTooManyRegistrations(MockHttpServletRequestBuilder request, String companyName, String email)
+			throws Exception {
+		mockMvc.perform(request.with(csrf()))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(view().name("register"))
+			.andExpect(model().attribute("error", TOO_MANY_REGISTRATIONS_ERROR))
+			.andExpect(model().attribute("companyName", companyName))
+			.andExpect(model().attribute("email", email))
+			.andExpect(content().string(containsString(TOO_MANY_REGISTRATIONS_ERROR)));
+		assertThat(count("SELECT count(*) FROM accounts WHERE email = ?", email)).isZero();
 	}
 
 	private static MockHttpSession sessionIssuedAt(Instant issuedAt) {
@@ -401,6 +458,97 @@ class RegistrationIntegrationTests {
 				DUPLICATE_EMAIL_ERROR);
 
 		assertThat(count("SELECT count(*) FROM companies WHERE name = ?", NAME_PREFIX + " Operator Dup Co")).isZero();
+	}
+
+	// ---------- POST /register: per-IP rate limit ----------
+
+	@Test
+	void sixthSuccessfulRegistrationFromSameIpIsRejectedWith429() throws Exception {
+		String ip = "192.0.2.1";
+		registerSuccessfullyFrom(ip, "Limit", MAX_PER_IP);
+
+		String name = NAME_PREFIX + " Limit Sixth";
+		String email = "limit-sixth@registration.example";
+		MockHttpSession session = sessionIssuedAt(Instant.now().minusSeconds(10));
+		expectTooManyRegistrations(postRegisterFrom(ip, name, email, PASSWORD, PASSWORD, session), name, email);
+
+		assertThat(prefixedCompanyCount()).isEqualTo(MAX_PER_IP);
+		assertThat(count("SELECT count(*) FROM companies WHERE name = ?", name)).isZero();
+		assertThat(session.getAttribute(RegistrationBotCheck.FORM_ISSUED_AT_SESSION_ATTRIBUTE))
+			.as("429 re-render stamps the session again")
+			.isInstanceOf(Instant.class);
+	}
+
+	@Test
+	void failedValidationDoesNotConsumeQuota() throws Exception {
+		String ip = "192.0.2.2";
+		for (int i = 1; i <= MAX_PER_IP + 1; i++) {
+			mockMvc.perform(postRegisterFrom(ip, NAME_PREFIX + " Typo " + i, "typo" + i + "@registration.example",
+					PASSWORD, "different-password", sessionIssuedAt(Instant.now().minusSeconds(10))).with(csrf()))
+				.andExpect(status().isOk())
+				.andExpect(model().attribute("error", "Hasła nie są identyczne."));
+		}
+
+		registerSuccessfullyFrom(ip, "Typo", MAX_PER_IP);
+
+		String name = NAME_PREFIX + " Typo Over";
+		String email = "typo-over@registration.example";
+		expectTooManyRegistrations(postRegisterFrom(ip, name, email), name, email);
+		assertThat(prefixedCompanyCount()).isEqualTo(MAX_PER_IP);
+	}
+
+	@Test
+	void duplicateEmailReleasesSlot() throws Exception {
+		String ip = "192.0.2.3";
+		Company existing = companyFixtures.company(NAME_PREFIX + " Dup Existing Co");
+		companyFixtures.account(existing, EXISTING_MANAGER_EMAIL, PASSWORD, Role.MANAGER, true);
+
+		mockMvc.perform(postRegisterFrom(ip, NAME_PREFIX + " Dup Attempt", EXISTING_MANAGER_EMAIL).with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(model().attribute("error", DUPLICATE_EMAIL_ERROR));
+
+		registerSuccessfullyFrom(ip, "Dup", MAX_PER_IP);
+
+		String name = NAME_PREFIX + " Dup Over";
+		String email = "dup-over@registration.example";
+		expectTooManyRegistrations(postRegisterFrom(ip, name, email), name, email);
+		assertThat(count("SELECT count(*) FROM companies WHERE name LIKE ?", NAME_PREFIX + " Dup %"))
+			.as("existing company plus the five registered after the duplicate")
+			.isEqualTo(MAX_PER_IP + 1);
+	}
+
+	@Test
+	void cfConnectingIpTakesPrecedenceOverRemoteAddr() throws Exception {
+		String cfIp = "192.0.2.4";
+		for (int i = 1; i <= MAX_PER_IP; i++) {
+			String remoteAddr = "198.51.100." + i;
+			mockMvc.perform(postRegisterFrom(cfIp, NAME_PREFIX + " Cf " + i, "cf" + i + "@registration.example")
+				.with(request -> {
+					request.setRemoteAddr(remoteAddr);
+					return request;
+				})
+				.with(csrf()))
+				.andExpect(status().is3xxRedirection());
+		}
+
+		String name = NAME_PREFIX + " Cf Over";
+		String email = "cf-over@registration.example";
+		expectTooManyRegistrations(postRegisterFrom(cfIp, name, email).with(request -> {
+			request.setRemoteAddr("198.51.100.6");
+			return request;
+		}), name, email);
+
+		// Without the header the remote address is what counts, and 198.51.100.1 has used none of its quota.
+		mockMvc.perform(postRegisterWithoutClientIp(NAME_PREFIX + " Cf Remote", "cf-remote@registration.example",
+				PASSWORD, PASSWORD, sessionIssuedAt(Instant.now().minusSeconds(10)))
+			.with(request -> {
+				request.setRemoteAddr("198.51.100.1");
+				return request;
+			})
+			.with(csrf()))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?registered"));
+		assertThat(prefixedCompanyCount()).isEqualTo(MAX_PER_IP + 1);
 	}
 
 	// ---------- CSRF ----------

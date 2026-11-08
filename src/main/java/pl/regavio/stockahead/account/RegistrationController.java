@@ -2,13 +2,17 @@ package pl.regavio.stockahead.account;
 
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Optional;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,8 +32,12 @@ import org.springframework.web.bind.annotation.RequestParam;
  * (the honeypot must be empty and the minimum fill time must have passed since
  * the form was stamped); a failure re-renders the form with a neutral error.
  * Then the company name is checked, then the email and password with the
- * same rules as every account-creating form ({@link AccountCredentials}). Company names need not be unique; the
- * email is globally unique through the canonical-email index, so a taken
+ * same rules as every account-creating form ({@link AccountCredentials}). Only
+ * after all field validation passes does the controller reserve a slot for the
+ * client IP ({@link ClientAddress}) in {@link RegistrationRateLimiter}, so typos
+ * never consume quota; with no slot free the form re-renders with HTTP 429. The
+ * slot is released whenever the transaction does not commit. Company names
+ * need not be unique; the email is globally unique through the canonical-email index, so a taken
  * email surfaces as a constraint violation on insert and rolls the company
  * back with it. The page never names an existing company.
  */
@@ -52,15 +60,19 @@ public class RegistrationController {
 
 	private final RegistrationBotCheck botCheck;
 
+	private final RegistrationRateLimiter rateLimiter;
+
 	public RegistrationController(CompanyRepository companyRepository, AccountRepository accountRepository,
 			PasswordEncoder passwordEncoder, MessageSource messageSource,
-			PlatformTransactionManager transactionManager, RegistrationBotCheck botCheck) {
+			PlatformTransactionManager transactionManager, RegistrationBotCheck botCheck,
+			RegistrationRateLimiter rateLimiter) {
 		this.companyRepository = companyRepository;
 		this.accountRepository = accountRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.messageSource = messageSource;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 		this.botCheck = botCheck;
+		this.rateLimiter = rateLimiter;
 	}
 
 	@GetMapping("/register")
@@ -76,7 +88,8 @@ public class RegistrationController {
 	public String registerCompany(@RequestParam String companyName, @RequestParam String email,
 			@RequestParam String password, @RequestParam String confirmPassword,
 			@RequestParam(name = RegistrationBotCheck.HONEYPOT_PARAMETER, required = false) String honeypot,
-			HttpSession session, Model model, Locale locale) {
+			HttpSession session, HttpServletRequest request, HttpServletResponse response, Model model,
+			Locale locale) {
 		if (!botCheck.passes(session, honeypot)) {
 			log.info("Registration submission rejected by the bot check (honeypot or minimum fill time)");
 			return renderError(model, session, companyName, email, "register.error.verificationFailed", null,
@@ -99,6 +112,16 @@ public class RegistrationController {
 					credentials.errorArguments(), locale);
 		}
 
+		String clientIp = ClientAddress.of(request);
+		Optional<RegistrationRateLimiter.Reservation> reservation = rateLimiter.tryReserve(clientIp);
+		if (reservation.isEmpty()) {
+			log.info("Registration rejected by the per-IP rate limit for client {}", clientIp);
+			response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+			return renderError(model, session, companyName, email, "register.error.tooManyRegistrations", null,
+					locale);
+		}
+
+		boolean committed = false;
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
 				Instant now = Instant.now();
@@ -118,11 +141,17 @@ public class RegistrationController {
 				account.setCompany(company);
 				accountRepository.saveAndFlush(account);
 			});
+			committed = true;
 		}
 		catch (DataIntegrityViolationException ex) {
 			// Company names are not unique, so the only constraint the insert can hit
 			// is the global canonical-email index; the company row rolls back with it.
 			return renderError(model, session, companyName, email, "accounts.error.duplicateEmail", null, locale);
+		}
+		finally {
+			if (!committed) {
+				rateLimiter.release(reservation.get());
+			}
 		}
 
 		return "redirect:/login?registered";
