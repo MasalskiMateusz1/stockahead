@@ -256,12 +256,12 @@ No schema change and no new env var is required, since all three properties have
 
 #### Automated
 
-- [x] 2.1 Full build and tests pass: `./mvnw verify`
-- [x] 2.2 `RegistrationRateLimiterTests` pass, including the concurrent-reserve test
-- [x] 2.3 Integration test shows the 6th successful registration from one IP answers 429 and creates no company, while failed validations and duplicate emails leave the quota untouched
+- [x] 2.1 Full build and tests pass: `./mvnw verify` — 13d794d
+- [x] 2.2 `RegistrationRateLimiterTests` pass, including the concurrent-reserve test — 13d794d
+- [x] 2.3 Integration test shows the 6th successful registration from one IP answers 429 and creates no company, while failed validations and duplicate emails leave the quota untouched — 13d794d
 
 #### Manual
 
-- [x] 2.4 On `./mvnw spring-boot:test-run`, registering 6 companies in a row from one browser shows the "too many registrations" message on the 6th, with name and email kept
-- [x] 2.5 After a restart of the app the same browser can register again (accepted in-memory behaviour)
+- [x] 2.4 On `./mvnw spring-boot:test-run`, registering 6 companies in a row from one browser shows the "too many registrations" message on the 6th, with name and email kept — 13d794d
+- [x] 2.5 After a restart of the app the same browser can register again (accepted in-memory behaviour) — 13d794d
 - [ ] 2.6 On the deployed `test.regavio.com`, an INFO log line for a rejected registration shows the real client IP (from `CF-Connecting-IP`), not the Traefik/tunnel address
