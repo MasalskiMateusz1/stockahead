@@ -484,4 +484,28 @@ class MessagesBundleTests {
 			.isEqualTo("Zaimportowano: 2 nowych części, 1234 zaktualizowanych, 10000 szt.");
 	}
 
+	@Test
+	void operatorCompaniesApproved() {
+		assertThat(messageSource.getMessage("operator.companies.approved", new Object[] { "Elektro Sp. z o.o." }, PL))
+			.isEqualTo("Firma Elektro Sp. z o.o. została zatwierdzona.");
+	}
+
+	@Test
+	void operatorCompaniesRejected() {
+		assertThat(messageSource.getMessage("operator.companies.rejected", new Object[] { "Elektro Sp. z o.o." }, PL))
+			.isEqualTo("Firma Elektro Sp. z o.o. została odrzucona.");
+	}
+
+	@Test
+	void operatorCompaniesStatusChanged() {
+		assertThat(messageSource.getMessage("operator.companies.statusChanged", null, PL))
+			.isEqualTo("Status firmy zmienił się — odświeżono listę.");
+	}
+
+	@Test
+	void operatorCompaniesActionFailed() {
+		assertThat(messageSource.getMessage("operator.companies.actionFailed", null, PL))
+			.isEqualTo("Nie udało się zmienić statusu firmy. Spróbuj ponownie.");
+	}
+
 }

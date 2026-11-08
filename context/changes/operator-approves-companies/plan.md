@@ -236,33 +236,33 @@ V21 is additive (a nullable column) and rebuilds one index plus drops one constr
 
 #### Automated
 
-- [x] 1.1 `./mvnw verify` passes
-- [x] 1.2 V21MigrationTests: a second live account with a released account's email (any case or whitespace) inserts; two live accounts with the same canonical email still violate the index; a released active account and a released operator are rejected by CHECKs
-- [x] 1.3 Integration: a released account's login with the correct password redirects to `/login?error` and creates no session
-- [x] 1.4 Integration: a live account sharing a released account's email logs in as itself (its own company id in the principal)
-- [x] 1.5 AccountActivityFilterTest: released account → session invalidated, redirect `/login?error`; the released check wins over inactive; pending, blocked and deactivated paths are unchanged
+- [x] 1.1 `./mvnw verify` passes — 4fe8cc1
+- [x] 1.2 V21MigrationTests: a second live account with a released account's email (any case or whitespace) inserts; two live accounts with the same canonical email still violate the index; a released active account and a released operator are rejected by CHECKs — 4fe8cc1
+- [x] 1.3 Integration: a released account's login with the correct password redirects to `/login?error` and creates no session — 4fe8cc1
+- [x] 1.4 Integration: a live account sharing a released account's email logs in as itself (its own company id in the principal) — 4fe8cc1
+- [x] 1.5 AccountActivityFilterTest: released account → session invalidated, redirect `/login?error`; the released check wins over inactive; pending, blocked and deactivated paths are unchanged — 4fe8cc1
 
 #### Manual
 
-- [x] 1.6 With a manager of a PENDING company logged in, run `UPDATE accounts SET active = false, email_released_at = now() WHERE email = '<email>'`. The next click lands on the login page with "Nieprawidłowy e-mail lub hasło." and logging in again fails the same way
+- [x] 1.6 With a manager of a PENDING company logged in, run `UPDATE accounts SET active = false, email_released_at = now() WHERE email = '<email>'`. The next click lands on the login page with "Nieprawidłowy e-mail lub hasło." and logging in again fails the same way — 4fe8cc1
 
 ### Phase 2: Approve and reject from the operator list
 
 #### Automated
 
-- [ ] 2.1 `./mvnw verify` passes
-- [ ] 2.2 US-01 path: register → manager session sits on `/awaiting-approval` → operator approves → the same manager session reaches the dashboard and the parts list on its next request
-- [ ] 2.3 Reject path: the operator rejects via the confirm page → the company is REJECTED and its account is inactive with `email_released_at` set → the manager's correct-password login redirects to `/login?error` → the operator list still shows the row as "Odrzucona" with its email → the same email registers again and the list shows two rows
-- [ ] 2.4 An open manager session of the rejected company is redirected to `/login?error` on its next request
-- [ ] 2.5 Stale clicks: approve or reject on an ACTIVE or REJECTED company changes nothing and redirects to the list with the statusChanged flash; GET of the reject page for a non-PENDING company redirects the same way
-- [ ] 2.6 Unknown company id → 404 on approve, the reject page and reject
-- [ ] 2.7 Manager and technician get 403 on all three new routes and change nothing; anonymous is redirected to login; POST without a CSRF token is rejected
-- [ ] 2.8 Concurrency: simultaneous approve and reject on one PENDING company leave exactly one outcome (ACTIVE with live accounts, or REJECTED with released accounts), never a mix
-- [ ] 2.9 The list shows action buttons only on PENDING rows
+- [x] 2.1 `./mvnw verify` passes
+- [x] 2.2 US-01 path: register → manager session sits on `/awaiting-approval` → operator approves → the same manager session reaches the dashboard and the parts list on its next request
+- [x] 2.3 Reject path: the operator rejects via the confirm page → the company is REJECTED and its account is inactive with `email_released_at` set → the manager's correct-password login redirects to `/login?error` → the operator list still shows the row as "Odrzucona" with its email → the same email registers again and the list shows two rows
+- [x] 2.4 An open manager session of the rejected company is redirected to `/login?error` on its next request
+- [x] 2.5 Stale clicks: approve or reject on an ACTIVE or REJECTED company changes nothing and redirects to the list with the statusChanged flash; GET of the reject page for a non-PENDING company redirects the same way
+- [x] 2.6 Unknown company id → 404 on approve, the reject page and reject
+- [x] 2.7 Manager and technician get 403 on all three new routes and change nothing; anonymous is redirected to login; POST without a CSRF token is rejected
+- [x] 2.8 Concurrency: simultaneous approve and reject on one PENDING company leave exactly one outcome (ACTIVE with live accounts, or REJECTED with released accounts), never a mix
+- [x] 2.9 The list shows action buttons only on PENDING rows
 
 #### Manual
 
-- [ ] 2.10 In `./mvnw spring-boot:test-run`, register a company, log in as the operator, approve it, and confirm the manager reaches the warehouse
-- [ ] 2.11 Register a second company, reject it via the confirm page, confirm the generic login failure, and register again with the same email
-- [ ] 2.12 Open two operator tabs, approve in one, then click reject in the other, and see the "Status firmy zmienił się" message
-- [ ] 2.13 The list and confirm page look consistent with the rest of the app
+- [x] 2.10 In `./mvnw spring-boot:test-run`, register a company, log in as the operator, approve it, and confirm the manager reaches the warehouse
+- [x] 2.11 Register a second company, reject it via the confirm page, confirm the generic login failure, and register again with the same email
+- [x] 2.12 Open two operator tabs, approve in one, then click reject in the other, and see the "Status firmy zmienił się" message
+- [x] 2.13 The list and confirm page look consistent with the rest of the app

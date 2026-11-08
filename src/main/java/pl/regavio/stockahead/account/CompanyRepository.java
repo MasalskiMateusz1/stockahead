@@ -32,7 +32,7 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
 	 * route.
 	 */
 	@Query("""
-			SELECT new pl.regavio.stockahead.account.CompanyListRow(c.name,
+			SELECT new pl.regavio.stockahead.account.CompanyListRow(c.id, c.name,
 				(SELECT a.email FROM Account a
 					WHERE a.company = c AND a.role = pl.regavio.stockahead.account.Role.MANAGER
 					ORDER BY a.createdAt, a.id LIMIT 1),
@@ -41,5 +41,22 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
 			ORDER BY c.createdAt DESC, c.id DESC
 			""")
 	List<CompanyListRow> findAllForOperatorList();
+
+	/**
+	 * The by-id variant of {@link #findAllForOperatorList()}: company
+	 * {@code id} with its first-created manager's email, or empty if no
+	 * company has that id. Like the list, an intentional cross-company read
+	 * used only by the operator's routes ({@link OperatorCompanyController}).
+	 */
+	@Query("""
+			SELECT new pl.regavio.stockahead.account.CompanyListRow(c.id, c.name,
+				(SELECT a.email FROM Account a
+					WHERE a.company = c AND a.role = pl.regavio.stockahead.account.Role.MANAGER
+					ORDER BY a.createdAt, a.id LIMIT 1),
+				c.createdAt, c.status)
+			FROM Company c
+			WHERE c.id = :id
+			""")
+	Optional<CompanyListRow> findOperatorRowById(@Param("id") Long id);
 
 }

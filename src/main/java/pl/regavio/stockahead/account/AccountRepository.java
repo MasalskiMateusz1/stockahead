@@ -1,9 +1,11 @@
 package pl.regavio.stockahead.account;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -64,5 +66,17 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 	 */
 	@Query("SELECT a FROM Account a WHERE a.company.id = :companyId AND a.active = true AND a.role IN (pl.regavio.stockahead.account.Role.TECHNICIAN, pl.regavio.stockahead.account.Role.MANAGER) ORDER BY a.email")
 	List<Account> findAssignable(@Param("companyId") Long companyId);
+
+	/**
+	 * Deactivates every account of company {@code companyId} and releases its
+	 * email ({@code email_released_at = releasedAt}); accounts already released
+	 * keep their original moment. Used only by
+	 * {@link CompanyLifecycle#reject(Long)}, under the company row lock.
+	 * Flushes pending changes first, so the company's new status is written
+	 * in the same transaction before the bulk update.
+	 */
+	@Modifying(flushAutomatically = true)
+	@Query("UPDATE Account a SET a.active = false, a.emailReleasedAt = :releasedAt WHERE a.company.id = :companyId AND a.emailReleasedAt IS NULL")
+	int releaseAllByCompanyId(@Param("companyId") Long companyId, @Param("releasedAt") Instant releasedAt);
 
 }
