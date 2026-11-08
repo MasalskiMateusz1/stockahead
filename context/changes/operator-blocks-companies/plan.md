@@ -255,12 +255,12 @@ None. `BLOCKED` is already in the enum and the V14 CHECK.
 
 #### Automated
 
-- [x] 2.1 Full build and test suite passes: `./mvnw verify`
-- [x] 2.2 Block → unblock end-to-end test passes (open session gated then restored, data and account flags intact, deactivated technician stays deactivated)
-- [x] 2.3 Stale-click, 404, 403, anonymous and CSRF tests pass for block and unblock routes
-- [x] 2.4 Block-vs-unblock and double-block concurrency tests leave exactly one applied transition
+- [x] 2.1 Full build and test suite passes: `./mvnw verify` — c598136
+- [x] 2.2 Block → unblock end-to-end test passes (open session gated then restored, data and account flags intact, deactivated technician stays deactivated) — c598136
+- [x] 2.3 Stale-click, 404, 403, anonymous and CSRF tests pass for block and unblock routes — c598136
+- [x] 2.4 Block-vs-unblock and double-block concurrency tests leave exactly one applied transition — c598136
 
 #### Manual
 
-- [x] 2.5 In `./mvnw spring-boot:test-run`, the operator blocks an active company via the confirmation page, its manager's open tab shows the blocked page on refresh, and a new login shows the blocked message
-- [x] 2.6 The operator unblocks it from the list and the manager's same tab reaches the dashboard with its parts intact
+- [x] 2.5 In `./mvnw spring-boot:test-run`, the operator blocks an active company via the confirmation page, its manager's open tab shows the blocked page on refresh, and a new login shows the blocked message — c598136
+- [x] 2.6 The operator unblocks it from the list and the manager's same tab reaches the dashboard with its parts intact — c598136
