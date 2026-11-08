@@ -27,7 +27,7 @@ class TemplateConventionTests {
 	private static final Path TEMPLATES_DIR = Path.of("src/main/resources/templates");
 
 	private static final Set<String> VIEWS_WITHOUT_TOPBAR = Set.of("login.html", "setup.html",
-			"awaiting-approval.html");
+			"register.html", "awaiting-approval.html");
 
 	private static List<Path> templates() throws IOException {
 		try (Stream<Path> files = Files.list(TEMPLATES_DIR)) {

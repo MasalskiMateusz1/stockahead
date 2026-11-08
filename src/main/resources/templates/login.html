@@ -14,6 +14,7 @@
 			<p th:if="${param.setup}" class="alert alert-success" role="status" th:text="#{login.status.operatorCreated}"></p>
 			<p th:if="${param.deactivated}" class="alert alert-error" role="alert" th:text="#{login.status.deactivated}"></p>
 			<p th:if="${param.roleChanged}" class="alert alert-error" role="alert" th:text="#{login.status.roleChanged}"></p>
+			<p th:if="${param.registered}" class="alert alert-success" role="status" th:text="#{login.status.registered}"></p>
 
 			<form th:action="@{/login}" method="post">
 				<div class="form-field">
@@ -26,6 +27,8 @@
 				</div>
 				<button type="submit" class="btn">Zaloguj</button>
 			</form>
+
+			<p class="hint">Nie masz konta? <a th:href="@{/register}">Zarejestruj firmę</a></p>
 		</div>
 	</main>
 </body>

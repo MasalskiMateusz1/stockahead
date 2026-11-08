@@ -258,30 +258,30 @@ None. No schema change. Existing fixture companies and any SQL-inserted companie
 
 #### Automated
 
-- [x] 1.1 Full build and test suite passes: `./mvnw verify`
-- [x] 1.2 `AccountActivityFilterTest` covers: pending-company user redirected to `/awaiting-approval` with the session kept; exempt request passes; deactivated pending user goes to `/login?deactivated` (precedence); active-company user passes; operator unaffected
-- [x] 1.3 `PendingCompanyAccessIntegrationTests` passes: a pending manager is redirected from `/` and from one route per warehouse controller, and a mutating POST changes nothing
-- [x] 1.4 `PendingCompanyAccessIntegrationTests` passes: after `UPDATE companies SET status = 'ACTIVE'`, the same session reaches `/` (dashboard) on its next request
-- [x] 1.5 `PendingCompanyAccessIntegrationTests` passes: `/awaiting-approval` renders for the pending manager, redirects an active-company manager to `/`, and answers the operator with 403
-- [x] 1.6 `TemplateConventionTests` passes with `awaiting-approval.html` exempt only from the topbar rule
+- [x] 1.1 Full build and test suite passes: `./mvnw verify` — 98ca754
+- [x] 1.2 `AccountActivityFilterTest` covers: pending-company user redirected to `/awaiting-approval` with the session kept; exempt request passes; deactivated pending user goes to `/login?deactivated` (precedence); active-company user passes; operator unaffected — 98ca754
+- [x] 1.3 `PendingCompanyAccessIntegrationTests` passes: a pending manager is redirected from `/` and from one route per warehouse controller, and a mutating POST changes nothing — 98ca754
+- [x] 1.4 `PendingCompanyAccessIntegrationTests` passes: after `UPDATE companies SET status = 'ACTIVE'`, the same session reaches `/` (dashboard) on its next request — 98ca754
+- [x] 1.5 `PendingCompanyAccessIntegrationTests` passes: `/awaiting-approval` renders for the pending manager, redirects an active-company manager to `/`, and answers the operator with 403 — 98ca754
+- [x] 1.6 `TemplateConventionTests` passes with `awaiting-approval.html` exempt only from the topbar rule — 98ca754
 
 #### Manual
 
-- [x] 1.7 With an SQL-seeded PENDING company and manager on `./mvnw spring-boot:test-run`, logging in lands on the styled awaiting page; typing `/parts` or `/orders` returns there; logout works
-- [x] 1.8 After `UPDATE companies SET status = 'ACTIVE'`, refreshing in the same session reaches the dashboard
+- [x] 1.7 With an SQL-seeded PENDING company and manager on `./mvnw spring-boot:test-run`, logging in lands on the styled awaiting page; typing `/parts` or `/orders` returns there; logout works — 98ca754
+- [x] 1.8 After `UPDATE companies SET status = 'ACTIVE'`, refreshing in the same session reaches the dashboard — 98ca754
 
 ### Phase 2: Public company registration
 
 #### Automated
 
-- [ ] 2.1 Full build and test suite passes: `./mvnw verify`
-- [ ] 2.2 `RegistrationIntegrationTests` passes: anonymous `GET /register` renders the form without any existing company's name, and an authenticated user is redirected to `/`
-- [ ] 2.3 `RegistrationIntegrationTests` passes: a valid POST creates exactly one PENDING company with the trimmed name and one active MANAGER with the canonical email in it, then redirects to `/login?registered`
-- [ ] 2.4 `RegistrationIntegrationTests` passes: blank or over-255 company name, and each `AccountCredentials` failure, re-render with the right message and create nothing
-- [ ] 2.5 `RegistrationIntegrationTests` passes: an email already used by a company account or by the operator (case/whitespace variant) re-renders with the duplicate message and leaves no orphan company
-- [ ] 2.6 `RegistrationIntegrationTests` passes: a second registration with an existing company's name succeeds
-- [ ] 2.7 `RegistrationIntegrationTests` passes: a POST without a CSRF token is rejected
-- [ ] 2.8 `RegistrationIntegrationTests` passes: the registered manager logs in, is sent to `/awaiting-approval`, and the operator's company list shows the company as pending with that email
+- [x] 2.1 Full build and test suite passes: `./mvnw verify`
+- [x] 2.2 `RegistrationIntegrationTests` passes: anonymous `GET /register` renders the form without any existing company's name, and an authenticated user is redirected to `/`
+- [x] 2.3 `RegistrationIntegrationTests` passes: a valid POST creates exactly one PENDING company with the trimmed name and one active MANAGER with the canonical email in it, then redirects to `/login?registered`
+- [x] 2.4 `RegistrationIntegrationTests` passes: blank or over-255 company name, and each `AccountCredentials` failure, re-render with the right message and create nothing
+- [x] 2.5 `RegistrationIntegrationTests` passes: an email already used by a company account or by the operator (case/whitespace variant) re-renders with the duplicate message and leaves no orphan company
+- [x] 2.6 `RegistrationIntegrationTests` passes: a second registration with an existing company's name succeeds
+- [x] 2.7 `RegistrationIntegrationTests` passes: a POST without a CSRF token is rejected
+- [x] 2.8 `RegistrationIntegrationTests` passes: the registered manager logs in, is sent to `/awaiting-approval`, and the operator's company list shows the company as pending with that email
 
 #### Manual
 
