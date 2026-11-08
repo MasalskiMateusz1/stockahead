@@ -1,10 +1,10 @@
 ---
 change_id: company-registration
 title: Public company registration with pending state
-status: implementing
+status: archived
 created: 2026-11-05
-updated: 2026-11-05
-archived_at: null
+updated: 2026-11-08
+archived_at: 2026-11-08T10:50:06Z
 ---
 
 ## Notes
