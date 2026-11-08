@@ -1,10 +1,10 @@
 ---
 change_id: per-company-registration-token
 title: Per-company token for manager registration (framing)
-status: preparing
+status: archived
 created: 2026-11-05
-updated: 2026-11-05
-archived_at: null
+updated: 2026-11-08
+archived_at: 2026-11-08T10:17:23Z
 ---
 
 ## Notes
