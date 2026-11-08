@@ -1,7 +1,8 @@
 ---
 change_id: operator-approves-companies
 title: Operator approves or rejects pending companies
-status: impl_reviewed
+status: archived
+archived_at: 2026-11-08T16:08:21Z
 created: 2026-11-08
 updated: 2026-11-08
 ---
