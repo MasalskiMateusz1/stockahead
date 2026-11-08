@@ -9,9 +9,18 @@ import org.springframework.data.repository.query.Param;
 
 public interface AccountRepository extends JpaRepository<Account, Long> {
 
+	/**
+	 * Exact-email lookup for tests only. It does not skip released accounts,
+	 * so an email shared by a released and a live account matches two rows.
+	 */
 	Optional<Account> findByEmail(String email);
 
-	@Query(value = "SELECT * FROM accounts WHERE lower(btrim(email)) = :canonicalEmail", nativeQuery = true)
+	/**
+	 * The login lookup: the account whose email is not released and whose
+	 * canonical email is {@code canonicalEmail}. Released accounts are
+	 * ignored, so at most one row matches ({@code accounts_email_canonical_idx}).
+	 */
+	@Query(value = "SELECT * FROM accounts WHERE lower(btrim(email)) = :canonicalEmail AND email_released_at IS NULL", nativeQuery = true)
 	Optional<Account> findByCanonicalEmail(@Param("canonicalEmail") String canonicalEmail);
 
 	boolean existsByRole(Role role);

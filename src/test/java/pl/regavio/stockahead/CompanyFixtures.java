@@ -110,6 +110,26 @@ public class CompanyFixtures {
 	}
 
 	/**
+	 * Creates and commits a released account in {@code company}: inactive,
+	 * with {@code email_released_at} set, as a rejected registration leaves
+	 * it. Its email stays free for a live account.
+	 */
+	public Account releasedAccount(Company company, String email, String rawPassword, Role role) {
+		emails.add(email);
+		return transactionTemplate.execute(status -> {
+			Account account = new Account();
+			account.setEmail(email);
+			account.setPasswordHash(passwordEncoder.encode(rawPassword));
+			account.setRole(role);
+			account.setActive(false);
+			account.setEmailReleasedAt(Instant.now());
+			account.setCreatedAt(Instant.now());
+			account.setCompany(companyRepository.getReferenceById(company.getId()));
+			return accountRepository.save(account);
+		});
+	}
+
+	/**
 	 * Creates and commits the operator account: role {@code OPERATOR}, no
 	 * company, with the password encoded as the login form expects. The
 	 * database allows only one operator.

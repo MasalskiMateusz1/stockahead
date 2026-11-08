@@ -32,6 +32,7 @@ import pl.regavio.stockahead.TestcontainersConfiguration;
 import pl.regavio.stockahead.security.CompanyUser;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -312,6 +313,56 @@ class AuthenticationIntegrationTests {
 		mockMvc.perform(formLogin()
 				.user("inactive@example.com")
 				.password("correct-password"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?error"));
+	}
+
+	@Test
+	void releasedAccountCannotLogInWithTheCorrectPasswordAndGetsNoSession() throws Exception {
+		Company rejected = companyFixtures.company("AuthenticationIntegrationTests Rejected Co", CompanyStatus.REJECTED);
+		companyFixtures.releasedAccount(rejected, "released@example.com", "correct-password", Role.MANAGER);
+
+		MvcResult result = mockMvc.perform(formLogin()
+				.user("released@example.com")
+				.password("correct-password"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?error"))
+			.andReturn();
+
+		MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
+		if (session != null) {
+			assertThat(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNull();
+			mockMvc.perform(get("/").session(session))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(header().string("Location", containsString("/login")));
+		}
+	}
+
+	@Test
+	void liveAccountSharingAReleasedAccountsEmailLogsInAsItself() throws Exception {
+		Company rejected = companyFixtures.company("AuthenticationIntegrationTests Rejected Co", CompanyStatus.REJECTED);
+		Account released = companyFixtures.releasedAccount(rejected, "reused@example.com", "old-password-value",
+				Role.MANAGER);
+		Account live = seedAccount("reused@example.com", "new-password-value", Role.MANAGER, true);
+
+		MockHttpSession session = (MockHttpSession) mockMvc.perform(formLogin()
+				.user("reused@example.com")
+				.password("new-password-value"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/"))
+			.andReturn().getRequest().getSession();
+
+		SecurityContext context = (SecurityContext) session
+			.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+		CompanyUser principal = (CompanyUser) context.getAuthentication().getPrincipal();
+		assertThat(principal.accountId()).isEqualTo(live.getId()).isNotEqualTo(released.getId());
+		assertThat(principal.companyId()).isEqualTo(company().getId()).isNotEqualTo(rejected.getId());
+		mockMvc.perform(get("/").session(session))
+			.andExpect(status().isOk());
+
+		mockMvc.perform(formLogin()
+				.user("reused@example.com")
+				.password("old-password-value"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/login?error"));
 	}

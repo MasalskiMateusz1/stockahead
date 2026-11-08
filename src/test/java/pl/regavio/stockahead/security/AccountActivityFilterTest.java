@@ -45,8 +45,10 @@ import static org.mockito.Mockito.when;
  * company-less principal whose account is not the operator, is logged out
  * as deactivated.
  *
- * <p>A principal with a company is checked deactivated first, then
- * role-changed, then company status: a user of a company that is not
+ * <p>A principal with a company is checked released first (a rejected
+ * registration: logged out to the generic {@code /login?error}, even though
+ * it is also inactive), then deactivated, then role-changed, then company
+ * status: a user of a company that is not
  * {@code ACTIVE} is redirected to {@code /awaiting-approval} with the session
  * kept, unless the request is gate-exempt; a user of an active company
  * passes.
@@ -254,6 +256,77 @@ class AccountActivityFilterTest {
 		when(accountRepository.findWithCompanyByIdAndCompanyId(5L, 7L)).thenReturn(Optional.empty());
 
 		assertLoggedOut(companyPrincipal(Role.MANAGER), "/login?deactivated");
+	}
+
+	@ParameterizedTest
+	@EnumSource(CompanyStatus.class)
+	void releasedAccountIsLoggedOutWithTheGenericLoginError(CompanyStatus status) throws Exception {
+		when(accountRepository.findWithCompanyByIdAndCompanyId(5L, 7L))
+			.thenReturn(Optional.of(released(companyAccount(Role.MANAGER, false, status))));
+
+		assertLoggedOut(companyPrincipal(Role.MANAGER), "/login?error");
+	}
+
+	@Test
+	void releasedCheckWinsOverRoleChange() throws Exception {
+		when(accountRepository.findWithCompanyByIdAndCompanyId(5L, 7L))
+			.thenReturn(Optional.of(released(companyAccount(Role.TECHNICIAN, false, CompanyStatus.REJECTED))));
+
+		assertLoggedOut(companyPrincipal(Role.MANAGER), "/login?error");
+	}
+
+	@Test
+	void releasedAccountIsLoggedOutEvenOnGateExemptRequest() throws Exception {
+		when(accountRepository.findWithCompanyByIdAndCompanyId(5L, 7L))
+			.thenReturn(Optional.of(released(companyAccount(Role.MANAGER, false, CompanyStatus.REJECTED))));
+		authenticate(companyPrincipal(Role.MANAGER));
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/awaiting-approval");
+		MockHttpSession session = new MockHttpSession();
+		request.setSession(session);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+
+		filter().doFilter(request, response, filterChain);
+
+		assertThat(session.isInvalid()).isTrue();
+		assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+		assertThat(response.getRedirectedUrl()).isEqualTo("/login?error");
+		verifyNoInteractions(filterChain);
+	}
+
+	@Test
+	void releasedAccountRedirectKeepsTheContextPath() throws Exception {
+		when(accountRepository.findWithCompanyByIdAndCompanyId(5L, 7L))
+			.thenReturn(Optional.of(released(companyAccount(Role.MANAGER, false, CompanyStatus.REJECTED))));
+		authenticate(companyPrincipal(Role.MANAGER));
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/app/parts");
+		request.setContextPath("/app");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+
+		filter().doFilter(request, response, filterChain);
+
+		assertThat(response.getRedirectedUrl()).isEqualTo("/app/login?error");
+		verifyNoInteractions(filterChain);
+	}
+
+	@Test
+	void deactivatedUserOfBlockedCompanyIsStillLoggedOutAsDeactivated() throws Exception {
+		when(accountRepository.findWithCompanyByIdAndCompanyId(5L, 7L))
+			.thenReturn(Optional.of(companyAccount(Role.MANAGER, false, CompanyStatus.BLOCKED)));
+
+		assertLoggedOut(companyPrincipal(Role.MANAGER), "/login?deactivated");
+	}
+
+	@Test
+	void deactivatedUserOfActiveCompanyIsStillLoggedOutAsDeactivated() throws Exception {
+		when(accountRepository.findWithCompanyByIdAndCompanyId(5L, 7L))
+			.thenReturn(Optional.of(companyAccount(Role.TECHNICIAN, false, CompanyStatus.ACTIVE)));
+
+		assertLoggedOut(companyPrincipal(Role.TECHNICIAN), "/login?deactivated");
+	}
+
+	private static Account released(Account account) {
+		account.setEmailReleasedAt(Instant.now());
+		return account;
 	}
 
 	private static CompanyUser companyPrincipal(Role role) {

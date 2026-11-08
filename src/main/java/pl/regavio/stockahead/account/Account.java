@@ -22,7 +22,13 @@ public class Account {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false, unique = true)
+	/**
+	 * Unique among accounts whose email is not released
+	 * ({@code accounts_email_canonical_idx}, case and surrounding spaces
+	 * ignored); a released account keeps its email, which a live account may
+	 * share.
+	 */
+	@Column(nullable = false)
 	private String email;
 
 	@Column(name = "password_hash", nullable = false)
@@ -42,6 +48,15 @@ public class Account {
 	@ManyToOne(fetch = FetchType.LAZY, optional = true)
 	@JoinColumn(name = "company_id", nullable = true)
 	private Company company;
+
+	/**
+	 * When this account's email was released, or {@code null} if it was not.
+	 * A released account belongs to a rejected registration and never logs
+	 * in: login ignores it, its email is free for a new account, and the
+	 * database keeps it inactive and never an operator.
+	 */
+	@Column(name = "email_released_at")
+	private Instant emailReleasedAt;
 
 	public Long getId() {
 		return id;
@@ -97,6 +112,19 @@ public class Account {
 
 	public void setCompany(Company company) {
 		this.company = company;
+	}
+
+	public Instant getEmailReleasedAt() {
+		return emailReleasedAt;
+	}
+
+	public void setEmailReleasedAt(Instant emailReleasedAt) {
+		this.emailReleasedAt = emailReleasedAt;
+	}
+
+	/** Whether this account's email was released ({@link #getEmailReleasedAt()} is set). */
+	public boolean isEmailReleased() {
+		return emailReleasedAt != null;
 	}
 
 }
