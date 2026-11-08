@@ -174,6 +174,7 @@ The operator blocks an ACTIVE company through a confirmation page and unblocks a
 - **Access:** unknown id → 404 on all three new routes. Manager and technician → 403 and nothing changes. Anonymous → login redirect. Operator POST without CSRF → rejected, nothing changes.
 - **List:** replace `listShowsActionsOnlyOnPendingRows` with a per-status action assertion (PENDING approve/reject, ACTIVE block link, BLOCKED unblock form, REJECTED none).
 - **Concurrency:** simultaneous `block` and `unblock` on one ACTIVE company → exactly one `DONE`, final status consistent with that outcome. Simultaneous double `block` → one `DONE`, one `STATUS_CHANGED`, status BLOCKED.
+  - *Correction (impl-review F1):* "exactly one `DONE`" for block vs unblock is wrong. If block commits first, unblock then sees BLOCKED and applies too, ending ACTIVE. The test accepts both serial orders: block `DONE` + unblock no-op → BLOCKED, or both `DONE` → ACTIVE.
 
 #### 5. Repository guidance
 

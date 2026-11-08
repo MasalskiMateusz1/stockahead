@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.Company;
+import pl.regavio.stockahead.account.CompanyStatus;
 import pl.regavio.stockahead.account.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -127,9 +128,50 @@ class AccountUserDetailsServiceTest {
 		assertThat(userDetails).isInstanceOf(CompanyUser.class);
 		assertThat(((CompanyUser) userDetails).accountId()).isEqualTo(3L);
 		assertThat(((CompanyUser) userDetails).companyId()).isNull();
+		assertThat(((CompanyUser) userDetails).companyBlocked()).isFalse();
 		assertThat(userDetails.getAuthorities())
 			.extracting(Object::toString)
 			.containsExactly("ROLE_OPERATOR");
+	}
+
+	@Test
+	void principalOfBlockedCompanyIsMarkedCompanyBlocked() {
+		Account manager = new Account();
+		manager.setEmail("manager@example.com");
+		manager.setPasswordHash("hashed-password");
+		manager.setRole(Role.MANAGER);
+		manager.setActive(true);
+		manager.setCreatedAt(Instant.now());
+		Company company = company(42L);
+		company.setStatus(CompanyStatus.BLOCKED);
+		manager.setCompany(company);
+
+		when(accountRepository.findByCanonicalEmail("manager@example.com")).thenReturn(Optional.of(manager));
+
+		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
+		UserDetails userDetails = service.loadUserByUsername("manager@example.com");
+
+		assertThat(((CompanyUser) userDetails).companyBlocked()).isTrue();
+	}
+
+	@Test
+	void principalOfActiveCompanyIsNotMarkedCompanyBlocked() {
+		Account manager = new Account();
+		manager.setEmail("manager@example.com");
+		manager.setPasswordHash("hashed-password");
+		manager.setRole(Role.MANAGER);
+		manager.setActive(true);
+		manager.setCreatedAt(Instant.now());
+		Company company = company(42L);
+		company.setStatus(CompanyStatus.ACTIVE);
+		manager.setCompany(company);
+
+		when(accountRepository.findByCanonicalEmail("manager@example.com")).thenReturn(Optional.of(manager));
+
+		AccountUserDetailsService service = new AccountUserDetailsService(accountRepository);
+		UserDetails userDetails = service.loadUserByUsername("manager@example.com");
+
+		assertThat(((CompanyUser) userDetails).companyBlocked()).isFalse();
 	}
 
 	@Test

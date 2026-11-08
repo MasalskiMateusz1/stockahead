@@ -102,7 +102,7 @@ class CompanyLifecycleConcurrencyTests {
 	}
 
 	@Test
-	void simultaneousBlockAndUnblockOfActiveCompanyApplyExactlyOneTransition() throws Exception {
+	void simultaneousBlockAndUnblockOfActiveCompanyEndInAConsistentSerialOrder() throws Exception {
 		ExecutorService executor = Executors.newFixedThreadPool(2);
 		try {
 			for (int iteration = 0; iteration < ITERATIONS; iteration++) {

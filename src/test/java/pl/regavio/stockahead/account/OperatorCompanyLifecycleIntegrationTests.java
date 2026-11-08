@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -440,7 +441,8 @@ class OperatorCompanyLifecycleIntegrationTests {
 		for (String email : List.of(MANAGER_EMAIL, TECHNICIAN_EMAIL)) {
 			mockMvc.perform(formLogin().user(email).password(PASSWORD))
 				.andExpect(status().is3xxRedirection())
-				.andExpect(header().string("Location", "/login?blocked"));
+				.andExpect(header().string("Location", "/login?blocked"))
+				.andExpect(unauthenticated());
 		}
 		assertThat(accountState(companyId)).as("block keeps account flags").isEqualTo(accountsBefore);
 

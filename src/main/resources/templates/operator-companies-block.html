@@ -11,9 +11,9 @@
 		<h1 th:text="#{operator.companies.block.title}">Blokada firmy</h1>
 
 		<dl class="stats">
-			<dt th:text="#{operator.companies.reject.name}">Nazwa firmy</dt>
+			<dt th:text="#{operator.companies.block.name}">Nazwa firmy</dt>
 			<dd th:text="${company.name}"></dd>
-			<dt th:text="#{operator.companies.reject.managerEmail}">E-mail kierownika</dt>
+			<dt th:text="#{operator.companies.block.managerEmail}">E-mail kierownika</dt>
 			<dd th:text="${company.managerEmail}"></dd>
 		</dl>
 
@@ -23,7 +23,7 @@
 			<form th:action="@{/operator/companies/{id}/block(id=${company.id})}" method="post">
 				<button type="submit" class="btn btn-danger" th:text="#{operator.companies.block.confirm}">Zablokuj firmę</button>
 			</form>
-			<a class="btn btn-secondary" th:href="@{/operator/companies}" th:text="#{operator.companies.reject.cancel}">Anuluj</a>
+			<a class="btn btn-secondary" th:href="@{/operator/companies}" th:text="#{operator.companies.block.cancel}">Anuluj</a>
 		</div>
 	</main>
 </body>

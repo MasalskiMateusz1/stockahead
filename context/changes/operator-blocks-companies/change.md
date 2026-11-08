@@ -1,7 +1,7 @@
 ---
 change_id: operator-blocks-companies
 title: Operator blocks and unblocks companies
-status: implemented
+status: impl_reviewed
 created: 2026-11-08
 updated: 2026-11-08
 ---

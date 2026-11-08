@@ -98,6 +98,8 @@ public class SecurityConfig {
 	/**
 	 * Replaces the provider's default post-check, so it repeats that check
 	 * (credentials expired) before refusing a blocked company's account.
+	 * Re-check {@code DaoAuthenticationProvider}'s default post-checks on a
+	 * Spring Security major upgrade: a newly added default would be skipped.
 	 */
 	private static UserDetailsChecker postAuthenticationChecks() {
 		return user -> {
