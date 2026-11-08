@@ -53,7 +53,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                                     | F-01             | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle)                                                       | done     |
 | S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction                | S-09             | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…"                                          | done     |
 | S-11 | operator-approves-companies       | Operator approves or rejects a pending company; an approved manager reaches the warehouse                       | S-03, S-08, S-09 | US-01, FR-026, FR-024, FR-025, Business Logic Changes (company lifecycle)                                                       | done     |
-| S-12 | operator-blocks-companies         | Operator blocks and unblocks a company; blocked users cannot log in, data stays                                 | S-11             | FR-027, Success Criteria › Secondary                                                                                            | proposed |
+| S-12 | operator-blocks-companies         | Operator blocks and unblocks a company; blocked users cannot log in, data stays                                 | S-11             | FR-027, Success Criteria › Secondary                                                                                            | in-progress |
 
 ## Streams
 
@@ -244,7 +244,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** The only nice-to-have in the milestone, sequenced last; the existing deactivated-account check is the natural extension point, but a block must not be confused with deactivation (unblock restores everyone, not just the manager).
-- **Status:** proposed
+- **Status:** in-progress
 
 ## Backlog Handoff
 
