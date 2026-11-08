@@ -250,19 +250,19 @@ V21 is additive (a nullable column) and rebuilds one index plus drops one constr
 
 #### Automated
 
-- [x] 2.1 `./mvnw verify` passes
-- [x] 2.2 US-01 path: register → manager session sits on `/awaiting-approval` → operator approves → the same manager session reaches the dashboard and the parts list on its next request
-- [x] 2.3 Reject path: the operator rejects via the confirm page → the company is REJECTED and its account is inactive with `email_released_at` set → the manager's correct-password login redirects to `/login?error` → the operator list still shows the row as "Odrzucona" with its email → the same email registers again and the list shows two rows
-- [x] 2.4 An open manager session of the rejected company is redirected to `/login?error` on its next request
-- [x] 2.5 Stale clicks: approve or reject on an ACTIVE or REJECTED company changes nothing and redirects to the list with the statusChanged flash; GET of the reject page for a non-PENDING company redirects the same way
-- [x] 2.6 Unknown company id → 404 on approve, the reject page and reject
-- [x] 2.7 Manager and technician get 403 on all three new routes and change nothing; anonymous is redirected to login; POST without a CSRF token is rejected
-- [x] 2.8 Concurrency: simultaneous approve and reject on one PENDING company leave exactly one outcome (ACTIVE with live accounts, or REJECTED with released accounts), never a mix
-- [x] 2.9 The list shows action buttons only on PENDING rows
+- [x] 2.1 `./mvnw verify` passes — b052608
+- [x] 2.2 US-01 path: register → manager session sits on `/awaiting-approval` → operator approves → the same manager session reaches the dashboard and the parts list on its next request — b052608
+- [x] 2.3 Reject path: the operator rejects via the confirm page → the company is REJECTED and its account is inactive with `email_released_at` set → the manager's correct-password login redirects to `/login?error` → the operator list still shows the row as "Odrzucona" with its email → the same email registers again and the list shows two rows — b052608
+- [x] 2.4 An open manager session of the rejected company is redirected to `/login?error` on its next request — b052608
+- [x] 2.5 Stale clicks: approve or reject on an ACTIVE or REJECTED company changes nothing and redirects to the list with the statusChanged flash; GET of the reject page for a non-PENDING company redirects the same way — b052608
+- [x] 2.6 Unknown company id → 404 on approve, the reject page and reject — b052608
+- [x] 2.7 Manager and technician get 403 on all three new routes and change nothing; anonymous is redirected to login; POST without a CSRF token is rejected — b052608
+- [x] 2.8 Concurrency: simultaneous approve and reject on one PENDING company leave exactly one outcome (ACTIVE with live accounts, or REJECTED with released accounts), never a mix — b052608
+- [x] 2.9 The list shows action buttons only on PENDING rows — b052608
 
 #### Manual
 
-- [x] 2.10 In `./mvnw spring-boot:test-run`, register a company, log in as the operator, approve it, and confirm the manager reaches the warehouse
-- [x] 2.11 Register a second company, reject it via the confirm page, confirm the generic login failure, and register again with the same email
-- [x] 2.12 Open two operator tabs, approve in one, then click reject in the other, and see the "Status firmy zmienił się" message
-- [x] 2.13 The list and confirm page look consistent with the rest of the app
+- [x] 2.10 In `./mvnw spring-boot:test-run`, register a company, log in as the operator, approve it, and confirm the manager reaches the warehouse — b052608
+- [x] 2.11 Register a second company, reject it via the confirm page, confirm the generic login failure, and register again with the same email — b052608
+- [x] 2.12 Open two operator tabs, approve in one, then click reject in the other, and see the "Status firmy zmienił się" message — b052608
+- [x] 2.13 The list and confirm page look consistent with the rest of the app — b052608
