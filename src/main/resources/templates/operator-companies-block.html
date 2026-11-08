@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(#{operator.companies.block.title})}">
+	<meta charset="UTF-8">
+	<title>Blokada firmy — Stockahead</title>
+</head>
+<body>
+	<header th:replace="~{fragments :: topbar}"></header>
+
+	<main class="container">
+		<h1 th:text="#{operator.companies.block.title}">Blokada firmy</h1>
+
+		<dl class="stats">
+			<dt th:text="#{operator.companies.reject.name}">Nazwa firmy</dt>
+			<dd th:text="${company.name}"></dd>
+			<dt th:text="#{operator.companies.reject.managerEmail}">E-mail kierownika</dt>
+			<dd th:text="${company.managerEmail}"></dd>
+		</dl>
+
+		<p class="alert alert-info" th:text="#{operator.companies.block.intro}"></p>
+
+		<div class="page-actions">
+			<form th:action="@{/operator/companies/{id}/block(id=${company.id})}" method="post">
+				<button type="submit" class="btn btn-danger" th:text="#{operator.companies.block.confirm}">Zablokuj firmę</button>
+			</form>
+			<a class="btn btn-secondary" th:href="@{/operator/companies}" th:text="#{operator.companies.reject.cancel}">Anuluj</a>
+		</div>
+	</main>
+</body>
+</html>

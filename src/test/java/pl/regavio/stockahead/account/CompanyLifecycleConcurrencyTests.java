@@ -1,6 +1,7 @@
 package pl.regavio.stockahead.account;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,8 +35,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * concurrent transitions on real Postgres: an approve and a reject of the same
  * PENDING company at the same moment leave exactly one outcome — ACTIVE with
  * every account live, or REJECTED with every account released — and the
- * loser is the stale no-op. Uses the latch-and-executor pattern of
- * {@link LastManagerConcurrencyTests}.
+ * loser is the stale no-op. Likewise a block and an unblock of the same
+ * ACTIVE company apply exactly one transition, and two simultaneous blocks
+ * leave one applied block and one no-op. Uses the latch-and-executor pattern
+ * of {@link LastManagerConcurrencyTests}.
  */
 @Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
@@ -67,8 +70,92 @@ class CompanyLifecycleConcurrencyTests {
 		companyFixtures.cleanUp();
 	}
 
+	@Autowired
+	private CompanyLifecycle companyLifecycle;
+
 	private long count(String sql, Object... args) {
 		return jdbcTemplate.queryForObject(sql, Long.class, args);
+	}
+
+	private String companyStatus(long companyId) {
+		return jdbcTemplate.queryForObject("SELECT status FROM companies WHERE id = ?", String.class, companyId);
+	}
+
+	/** Runs {@code first} and {@code second} at the same moment on two threads and returns both results. */
+	private List<CompanyLifecycle.Result> simultaneously(ExecutorService executor, Callable<CompanyLifecycle.Result> first,
+			Callable<CompanyLifecycle.Result> second) throws Exception {
+		CountDownLatch start = new CountDownLatch(1);
+		Future<CompanyLifecycle.Result> firstResult = executor.submit(() -> {
+			start.await();
+			return first.call();
+		});
+		Future<CompanyLifecycle.Result> secondResult = executor.submit(() -> {
+			start.await();
+			return second.call();
+		});
+		start.countDown();
+		return List.of(firstResult.get(15, TimeUnit.SECONDS), secondResult.get(15, TimeUnit.SECONDS));
+	}
+
+	private static long countOutcome(List<CompanyLifecycle.Result> results, CompanyLifecycle.Outcome outcome) {
+		return results.stream().filter(result -> result.outcome() == outcome).count();
+	}
+
+	@Test
+	void simultaneousBlockAndUnblockOfActiveCompanyApplyExactlyOneTransition() throws Exception {
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+				Company company = companyFixtures.company("CompanyLifecycleConcurrencyTests Block Co " + iteration,
+						CompanyStatus.ACTIVE);
+				List<CompanyLifecycle.Result> results = simultaneously(executor,
+						() -> companyLifecycle.block(company.getId()), () -> companyLifecycle.unblock(company.getId()));
+
+				CompanyLifecycle.Result block = results.get(0);
+				CompanyLifecycle.Result unblock = results.get(1);
+				String status = companyStatus(company.getId());
+				if (block.outcome() == CompanyLifecycle.Outcome.DONE
+						&& unblock.outcome() == CompanyLifecycle.Outcome.DONE) {
+					// block won the lock, then unblock saw BLOCKED: both applied in sequence
+					assertThat(status).as("iteration %d", iteration).isEqualTo("ACTIVE");
+				}
+				else {
+					assertThat(countOutcome(results, CompanyLifecycle.Outcome.DONE))
+						.as("iteration %d: exactly one transition applied", iteration)
+						.isEqualTo(1);
+					assertThat(block.outcome()).as("iteration %d: only block can apply from ACTIVE", iteration)
+						.isEqualTo(CompanyLifecycle.Outcome.DONE);
+					assertThat(status).as("iteration %d", iteration).isEqualTo("BLOCKED");
+				}
+			}
+		}
+		finally {
+			executor.shutdownNow();
+			executor.awaitTermination(10, TimeUnit.SECONDS);
+		}
+	}
+
+	@Test
+	void simultaneousDoubleBlockAppliesOneBlockAndOneNoOp() throws Exception {
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+				Company company = companyFixtures.company("CompanyLifecycleConcurrencyTests Double Block Co " + iteration,
+						CompanyStatus.ACTIVE);
+				List<CompanyLifecycle.Result> results = simultaneously(executor,
+						() -> companyLifecycle.block(company.getId()), () -> companyLifecycle.block(company.getId()));
+
+				assertThat(countOutcome(results, CompanyLifecycle.Outcome.DONE)).as("iteration %d", iteration)
+					.isEqualTo(1);
+				assertThat(countOutcome(results, CompanyLifecycle.Outcome.STATUS_CHANGED)).as("iteration %d", iteration)
+					.isEqualTo(1);
+				assertThat(companyStatus(company.getId())).as("iteration %d", iteration).isEqualTo("BLOCKED");
+			}
+		}
+		finally {
+			executor.shutdownNow();
+			executor.awaitTermination(10, TimeUnit.SECONDS);
+		}
 	}
 
 	@Test

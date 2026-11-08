@@ -39,6 +39,14 @@
 								</form>
 								<a class="btn btn-danger" th:href="@{/operator/companies/{id}/reject(id=${company.id})}">Odrzuć</a>
 							</div>
+							<div class="actions" th:if="${company.status.name() == 'ACTIVE'}">
+								<a class="btn btn-danger" th:href="@{/operator/companies/{id}/block(id=${company.id})}">Zablokuj</a>
+							</div>
+							<div class="actions" th:if="${company.status.name() == 'BLOCKED'}">
+								<form th:action="@{/operator/companies/{id}/unblock(id=${company.id})}" method="post">
+									<button type="submit" class="btn">Odblokuj</button>
+								</form>
+							</div>
 						</td>
 					</tr>
 				</tbody>

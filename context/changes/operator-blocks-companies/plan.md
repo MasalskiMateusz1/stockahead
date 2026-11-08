@@ -243,24 +243,24 @@ None. `BLOCKED` is already in the enum and the V14 CHECK.
 
 #### Automated
 
-- [x] 1.1 Full build and test suite passes: `./mvnw verify`
-- [x] 1.2 Blocked-login integration tests pass (correct password → `/login?blocked`; wrong password and deactivated account → `/login?error`; pending and active unchanged)
-- [x] 1.3 Gate page shows blocked wording for a BLOCKED company and pending wording for a PENDING one
+- [x] 1.1 Full build and test suite passes: `./mvnw verify` — fb10e8f
+- [x] 1.2 Blocked-login integration tests pass (correct password → `/login?blocked`; wrong password and deactivated account → `/login?error`; pending and active unchanged) — fb10e8f
+- [x] 1.3 Gate page shows blocked wording for a BLOCKED company and pending wording for a PENDING one — fb10e8f
 
 #### Manual
 
-- [x] 1.4 With a company set to BLOCKED in the DB (`./mvnw spring-boot:test-run`), logging in with the correct password shows "Twoja firma została zablokowana przez operatora." and a wrong password shows the generic message
+- [x] 1.4 With a company set to BLOCKED in the DB (`./mvnw spring-boot:test-run`), logging in with the correct password shows "Twoja firma została zablokowana przez operatora." and a wrong password shows the generic message — fb10e8f
 
 ### Phase 2: Block and unblock from the operator list
 
 #### Automated
 
-- [ ] 2.1 Full build and test suite passes: `./mvnw verify`
-- [ ] 2.2 Block → unblock end-to-end test passes (open session gated then restored, data and account flags intact, deactivated technician stays deactivated)
-- [ ] 2.3 Stale-click, 404, 403, anonymous and CSRF tests pass for block and unblock routes
-- [ ] 2.4 Block-vs-unblock and double-block concurrency tests leave exactly one applied transition
+- [x] 2.1 Full build and test suite passes: `./mvnw verify`
+- [x] 2.2 Block → unblock end-to-end test passes (open session gated then restored, data and account flags intact, deactivated technician stays deactivated)
+- [x] 2.3 Stale-click, 404, 403, anonymous and CSRF tests pass for block and unblock routes
+- [x] 2.4 Block-vs-unblock and double-block concurrency tests leave exactly one applied transition
 
 #### Manual
 
-- [ ] 2.5 In `./mvnw spring-boot:test-run`, the operator blocks an active company via the confirmation page, its manager's open tab shows the blocked page on refresh, and a new login shows the blocked message
-- [ ] 2.6 The operator unblocks it from the list and the manager's same tab reaches the dashboard with its parts intact
+- [x] 2.5 In `./mvnw spring-boot:test-run`, the operator blocks an active company via the confirmation page, its manager's open tab shows the blocked page on refresh, and a new login shows the blocked message
+- [x] 2.6 The operator unblocks it from the list and the manager's same tab reaches the dashboard with its parts intact
