@@ -1,5 +1,6 @@
 package pl.regavio.stockahead.account;
 
+import java.time.Instant;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
@@ -36,7 +37,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * validation failure or a taken email re-renders the form and creates
  * nothing (no orphan company), CSRF stays enforced, and the registered
  * manager logs in to the awaiting-approval page while the operator sees the
- * company as pending. Rows created through {@code /register} are not tracked
+ * company as pending. Every submission must pass the bot check (empty
+ * honeypot, form rendered at least the minimum fill time earlier), so
+ * {@link #postRegister} sends a session stamped 10 s in the past. Rows created through {@code /register} are not tracked
  * by {@link CompanyFixtures}, so this class deletes its own companies (by
  * name prefix) and accounts (by email domain).
  */
@@ -56,6 +59,8 @@ class RegistrationIntegrationTests {
 	private static final String OPERATOR_EMAIL = "operator@registration.example";
 
 	private static final String DUPLICATE_EMAIL_ERROR = "Konto o tym adresie e-mail już istnieje.";
+
+	private static final String VERIFICATION_FAILED_ERROR = "Nie udało się wysłać formularza. Spróbuj ponownie.";
 
 	private static final String REGISTERED_MESSAGE = "Firma została zarejestrowana i czeka na zatwierdzenie. Zaloguj się.";
 
@@ -90,11 +95,28 @@ class RegistrationIntegrationTests {
 
 	private static MockHttpServletRequestBuilder postRegister(String companyName, String email, String password,
 			String confirmPassword) {
+		return postRegister(companyName, email, password, confirmPassword,
+				sessionIssuedAt(Instant.now().minusSeconds(10)));
+	}
+
+	private static MockHttpServletRequestBuilder postRegister(String companyName, String email, String password,
+			String confirmPassword, MockHttpSession session) {
 		return post("/register")
+			.session(session)
 			.param("companyName", companyName)
 			.param("email", email)
 			.param("password", password)
 			.param("confirmPassword", confirmPassword);
+	}
+
+	private static MockHttpSession sessionIssuedAt(Instant issuedAt) {
+		MockHttpSession session = new MockHttpSession();
+		session.setAttribute(RegistrationBotCheck.FORM_ISSUED_AT_SESSION_ATTRIBUTE, issuedAt);
+		return session;
+	}
+
+	private long prefixedCompanyCount() {
+		return count("SELECT count(*) FROM companies WHERE name LIKE ?", NAME_PREFIX + "%");
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -157,6 +179,98 @@ class RegistrationIntegrationTests {
 		mockMvc.perform(get("/login").param("registered", ""))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(REGISTERED_MESSAGE)));
+	}
+
+	@Test
+	void getRegisterStampsSessionTimestamp() throws Exception {
+		Instant before = Instant.now();
+
+		MockHttpSession session = (MockHttpSession) mockMvc.perform(get("/register"))
+			.andExpect(status().isOk())
+			.andReturn().getRequest().getSession();
+
+		Object issuedAt = session.getAttribute(RegistrationBotCheck.FORM_ISSUED_AT_SESSION_ATTRIBUTE);
+		assertThat(issuedAt).isInstanceOf(Instant.class);
+		assertThat((Instant) issuedAt).isAfterOrEqualTo(before).isBeforeOrEqualTo(Instant.now());
+	}
+
+	@Test
+	void formRendersHoneypotFieldOffScreen() throws Exception {
+		String html = mockMvc.perform(get("/register"))
+			.andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+
+		String name = "name=\"" + RegistrationBotCheck.HONEYPOT_PARAMETER + "\"";
+		int input = html.indexOf(name);
+		assertThat(input).as("honeypot input rendered").isPositive();
+		String inputTag = html.substring(html.lastIndexOf("<input", input), html.indexOf(">", input) + 1);
+		assertThat(inputTag).contains("type=\"text\"")
+			.contains("tabindex=\"-1\"")
+			.contains("autocomplete=\"off\"")
+			.contains("aria-hidden=\"true\"");
+		String wrapper = html.substring(html.lastIndexOf("<div", input), input);
+		assertThat(wrapper).contains("form-trap").doesNotContainPattern("\\shidden[\\s=>]");
+	}
+
+	// ---------- POST /register: bot check ----------
+
+	@Test
+	void honeypotFilledCreatesNothingAndShowsNeutralError() throws Exception {
+		mockMvc.perform(postRegister(NAME_PREFIX + " Honeypot Co", REGISTRANT_EMAIL, PASSWORD, PASSWORD)
+			.param(RegistrationBotCheck.HONEYPOT_PARAMETER, "https://spam.example")
+			.with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(view().name("register"))
+			.andExpect(model().attribute("error", VERIFICATION_FAILED_ERROR))
+			.andExpect(content().string(containsString(VERIFICATION_FAILED_ERROR)));
+
+		assertThat(prefixedCompanyCount()).isZero();
+		assertThat(count("SELECT count(*) FROM accounts WHERE email = ?", REGISTRANT_EMAIL)).isZero();
+	}
+
+	@Test
+	void submissionWithoutFormTimestampIsRejected() throws Exception {
+		mockMvc.perform(postRegister(NAME_PREFIX + " No Stamp Co", REGISTRANT_EMAIL, PASSWORD, PASSWORD,
+				new MockHttpSession()).with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(view().name("register"))
+			.andExpect(model().attribute("error", VERIFICATION_FAILED_ERROR));
+
+		assertThat(prefixedCompanyCount()).isZero();
+		assertThat(count("SELECT count(*) FROM accounts WHERE email = ?", REGISTRANT_EMAIL)).isZero();
+	}
+
+	@Test
+	void submissionFasterThanMinimumFillTimeIsRejected() throws Exception {
+		mockMvc.perform(postRegister(NAME_PREFIX + " Too Fast Co", REGISTRANT_EMAIL, PASSWORD, PASSWORD,
+				sessionIssuedAt(Instant.now())).with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(view().name("register"))
+			.andExpect(model().attribute("error", VERIFICATION_FAILED_ERROR));
+
+		assertThat(prefixedCompanyCount()).isZero();
+		assertThat(count("SELECT count(*) FROM accounts WHERE email = ?", REGISTRANT_EMAIL)).isZero();
+	}
+
+	@Test
+	void rejectedSubmissionKeepsEnteredNameAndEmail() throws Exception {
+		String name = NAME_PREFIX + " Kept Co";
+		MockHttpSession session = sessionIssuedAt(Instant.now());
+
+		String html = mockMvc.perform(postRegister(name, REGISTRANT_EMAIL, PASSWORD, PASSWORD, session).with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(model().attribute("error", VERIFICATION_FAILED_ERROR))
+			.andExpect(model().attribute("companyName", name))
+			.andExpect(model().attribute("email", REGISTRANT_EMAIL))
+			.andReturn().getResponse().getContentAsString();
+
+		assertThat(html).contains("value=\"" + name + "\"")
+			.contains("value=\"" + REGISTRANT_EMAIL + "\"")
+			.doesNotContain("value=\"" + PASSWORD + "\"");
+		assertThat(session.getAttribute(RegistrationBotCheck.FORM_ISSUED_AT_SESSION_ATTRIBUTE))
+			.as("re-render stamps the session again")
+			.isInstanceOf(Instant.class);
+		assertThat(prefixedCompanyCount()).isZero();
 	}
 
 	// ---------- POST /register: success ----------

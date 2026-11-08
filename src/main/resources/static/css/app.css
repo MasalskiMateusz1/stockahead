@@ -318,6 +318,17 @@ textarea:focus-visible {
 	margin: 0;
 }
 
+/* Honeypot field on the public registration form: kept in the DOM for naive
+   form-fillers but moved off-screen (not display:none) so humans never see it. */
+.form-trap {
+	position: absolute;
+	left: -10000px;
+	top: auto;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
 /* ---------- Buttons ---------- */
 
 button,
