@@ -51,14 +51,14 @@ public class OperatorCompanyController {
 	@PostMapping("/operator/companies/{id}/approve")
 	@PreAuthorize("hasRole('OPERATOR')")
 	public String approve(@PathVariable Long id, RedirectAttributes redirectAttributes, Locale locale) {
-		CompanyLifecycle.Outcome outcome;
+		CompanyLifecycle.Result result;
 		try {
-			outcome = companyLifecycle.approve(id);
+			result = companyLifecycle.approve(id);
 		}
 		catch (DataIntegrityViolationException ex) {
 			return actionFailed(redirectAttributes, locale);
 		}
-		return afterTransition(id, outcome, "operator.companies.approved", redirectAttributes, locale);
+		return afterTransition(result, "operator.companies.approved", redirectAttributes, locale);
 	}
 
 	/**
@@ -82,24 +82,23 @@ public class OperatorCompanyController {
 	@PostMapping("/operator/companies/{id}/reject")
 	@PreAuthorize("hasRole('OPERATOR')")
 	public String reject(@PathVariable Long id, RedirectAttributes redirectAttributes, Locale locale) {
-		CompanyLifecycle.Outcome outcome;
+		CompanyLifecycle.Result result;
 		try {
-			outcome = companyLifecycle.reject(id);
+			result = companyLifecycle.reject(id);
 		}
 		catch (DataIntegrityViolationException ex) {
 			return actionFailed(redirectAttributes, locale);
 		}
-		return afterTransition(id, outcome, "operator.companies.rejected", redirectAttributes, locale);
+		return afterTransition(result, "operator.companies.rejected", redirectAttributes, locale);
 	}
 
-	private String afterTransition(Long id, CompanyLifecycle.Outcome outcome, String successKey,
+	private String afterTransition(CompanyLifecycle.Result result, String successKey,
 			RedirectAttributes redirectAttributes, Locale locale) {
-		if (outcome != CompanyLifecycle.Outcome.DONE) {
+		if (result.outcome() != CompanyLifecycle.Outcome.DONE) {
 			return statusChanged(redirectAttributes, locale);
 		}
-		String name = companyRepository.findOperatorRowById(id).map(CompanyListRow::name).orElse("");
 		redirectAttributes.addFlashAttribute("success",
-				messageSource.getMessage(successKey, new Object[] { name }, locale));
+				messageSource.getMessage(successKey, new Object[] { result.companyName() }, locale));
 		return LIST_REDIRECT;
 	}
 

@@ -16,6 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * email. Everything else takes the current account id from
  * {@link CompanyUser#accountId()} and loads it with
  * {@code AccountRepository.findByIdAndCompanyId(accountId, companyId)}.
+ * {@code AccountRepository.findByEmail} is test-only: since V21 a released
+ * account can share its email with a live one, so that lookup may match two
+ * rows and must never be called from production code.
  */
 class AccountLookupConventionTests {
 
@@ -41,9 +44,27 @@ class AccountLookupConventionTests {
 			.containsExactlyInAnyOrderElementsOf(ALLOWED);
 	}
 
+	@Test
+	void productionCodeNeverCallsTheTestOnlyFindByEmail() throws IOException {
+		List<Path> callers;
+		try (Stream<Path> files = Files.walk(MAIN_SOURCES)) {
+			callers = files.filter(path -> path.getFileName().toString().endsWith(".java"))
+				.filter(path -> contains(path, "findByEmail("))
+				.sorted()
+				.toList();
+		}
+
+		assertThat(callers).as("files in %s calling the test-only findByEmail", MAIN_SOURCES.toAbsolutePath())
+			.containsExactly(PACKAGE_ROOT.resolve("account/AccountRepository.java"));
+	}
+
 	private static boolean callsFindByCanonicalEmail(Path file) {
+		return contains(file, "findByCanonicalEmail");
+	}
+
+	private static boolean contains(Path file, String text) {
 		try {
-			return Files.readString(file, StandardCharsets.UTF_8).contains("findByCanonicalEmail");
+			return Files.readString(file, StandardCharsets.UTF_8).contains(text);
 		}
 		catch (IOException ex) {
 			throw new IllegalStateException("Cannot read " + file, ex);

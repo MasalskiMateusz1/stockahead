@@ -29,6 +29,13 @@ public class CompanyLifecycle {
 		NOT_PENDING
 	}
 
+	/**
+	 * What a transition did, with the company's name read under the row lock
+	 * (for the operator's feedback message).
+	 */
+	public record Result(Outcome outcome, String companyName) {
+	}
+
 	/** No company has the requested id; answered with 404. */
 	@ResponseStatus(HttpStatus.NOT_FOUND)
 	public static class CompanyNotFoundException extends RuntimeException {
@@ -55,13 +62,13 @@ public class CompanyLifecycle {
 	 * @throws CompanyNotFoundException if no company has {@code companyId}
 	 */
 	@Transactional
-	public Outcome approve(Long companyId) {
-		Company company = lockPending(companyId);
-		if (company == null) {
-			return Outcome.NOT_PENDING;
+	public Result approve(Long companyId) {
+		Company company = lockCompany(companyId);
+		if (company.getStatus() != CompanyStatus.PENDING) {
+			return new Result(Outcome.NOT_PENDING, company.getName());
 		}
 		company.setStatus(CompanyStatus.ACTIVE);
-		return Outcome.DONE;
+		return new Result(Outcome.DONE, company.getName());
 	}
 
 	/**
@@ -72,24 +79,23 @@ public class CompanyLifecycle {
 	 * @throws CompanyNotFoundException if no company has {@code companyId}
 	 */
 	@Transactional
-	public Outcome reject(Long companyId) {
-		Company company = lockPending(companyId);
-		if (company == null) {
-			return Outcome.NOT_PENDING;
+	public Result reject(Long companyId) {
+		Company company = lockCompany(companyId);
+		if (company.getStatus() != CompanyStatus.PENDING) {
+			return new Result(Outcome.NOT_PENDING, company.getName());
 		}
 		company.setStatus(CompanyStatus.REJECTED);
 		accountRepository.releaseAllByCompanyId(companyId, Instant.now());
-		return Outcome.DONE;
+		return new Result(Outcome.DONE, company.getName());
 	}
 
 	/**
-	 * Locks company {@code companyId} and returns it if it is PENDING, or
-	 * {@code null} if it is in any other status. Must run inside a transaction.
+	 * Locks company {@code companyId} and returns it, so the caller re-reads
+	 * its status under the lock. Must run inside a transaction.
 	 */
-	private Company lockPending(Long companyId) {
-		Company company = companyRepository.findByIdForUpdate(companyId)
+	private Company lockCompany(Long companyId) {
+		return companyRepository.findByIdForUpdate(companyId)
 			.orElseThrow(() -> new CompanyNotFoundException(companyId));
-		return company.getStatus() == CompanyStatus.PENDING ? company : null;
 	}
 
 }

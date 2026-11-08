@@ -221,6 +221,8 @@ None. These are single-row locks on operator actions at a handful of companies.
 
 V21 is additive (a nullable column) and rebuilds one index plus drops one constraint. Existing rows all have `email_released_at IS NULL`, so the rebuilt partial index accepts current data. Rollback would mean a new migration; no data is rewritten.
 
+V21 is forward-only once a rejected email has registered again: `accounts_email_key` can no longer be restored, and app code from before V21 (unfiltered `findByCanonicalEmail`) would match two rows and fail login for that email. Never roll the app back past this change after the first reject plus re-registration.
+
 ## References
 
 - Roadmap: `context/foundation/roadmap.md` S-11 (Outcome, Unknowns, Risk)

@@ -122,6 +122,27 @@ class V21MigrationTests {
 	}
 
 	@Test
+	void upgradeFromV20KeepsExistingAccountsLiveAndCanonicallyUnique() throws Exception {
+		try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:18"))) {
+			postgres.start();
+			migrate(postgres, "20");
+			long existing = insertCompany(postgres, "Existing Co");
+			long other = insertCompany(postgres, "Other Co");
+			execute(postgres, "INSERT INTO accounts (email, password_hash, role, company_id) VALUES "
+					+ "('manager@example.com', 'hash', 'MANAGER', " + existing + "), "
+					+ "('tech@example.com', 'hash', 'TECHNICIAN', " + existing + ")");
+
+			migrate(postgres);
+
+			assertThat(strings(postgres, "SELECT email FROM accounts WHERE email_released_at IS NULL AND active ORDER BY email"))
+				.containsExactly("manager@example.com", "tech@example.com");
+			assertRejected(() -> execute(postgres, "INSERT INTO accounts (email, password_hash, role, company_id) "
+					+ "VALUES (' Manager@Example.com ', 'hash', 'MANAGER', " + other + ")"),
+					"23505", "accounts_email_canonical_idx");
+		}
+	}
+
+	@Test
 	void plainEmailUniqueConstraintIsGone() throws Exception {
 		try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:18"))) {
 			postgres.start();
@@ -134,10 +155,16 @@ class V21MigrationTests {
 	}
 
 	private void migrate(PostgreSQLContainer postgres) {
-		Flyway.configure()
-			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-			.load()
-			.migrate();
+		migrate(postgres, null);
+	}
+
+	private void migrate(PostgreSQLContainer postgres, String target) {
+		var configuration = Flyway.configure()
+			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+		if (target != null) {
+			configuration.target(target);
+		}
+		configuration.load().migrate();
 	}
 
 	private long insertCompany(PostgreSQLContainer postgres, String name) throws SQLException {

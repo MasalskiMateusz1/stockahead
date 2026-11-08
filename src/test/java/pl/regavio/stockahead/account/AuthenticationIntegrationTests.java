@@ -329,13 +329,16 @@ class AuthenticationIntegrationTests {
 			.andExpect(header().string("Location", "/login?error"))
 			.andReturn();
 
+		// The fixture is also inactive, so this pins the generic outcome, not the
+		// email_released_at filter itself; that filter is pinned by
+		// liveAccountSharingAReleasedAccountsEmailLogsInAsItself.
+		// The failure handler keeps a session only to carry the login error.
 		MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
-		if (session != null) {
-			assertThat(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNull();
-			mockMvc.perform(get("/").session(session))
-				.andExpect(status().is3xxRedirection())
-				.andExpect(header().string("Location", containsString("/login")));
-		}
+		assertThat(session).as("session holding the login error").isNotNull();
+		assertThat(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNull();
+		mockMvc.perform(get("/").session(session))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", containsString("/login")));
 	}
 
 	@Test
