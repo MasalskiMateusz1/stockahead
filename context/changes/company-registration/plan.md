@@ -274,17 +274,17 @@ None. No schema change. Existing fixture companies and any SQL-inserted companie
 
 #### Automated
 
-- [x] 2.1 Full build and test suite passes: `./mvnw verify`
-- [x] 2.2 `RegistrationIntegrationTests` passes: anonymous `GET /register` renders the form without any existing company's name, and an authenticated user is redirected to `/`
-- [x] 2.3 `RegistrationIntegrationTests` passes: a valid POST creates exactly one PENDING company with the trimmed name and one active MANAGER with the canonical email in it, then redirects to `/login?registered`
-- [x] 2.4 `RegistrationIntegrationTests` passes: blank or over-255 company name, and each `AccountCredentials` failure, re-render with the right message and create nothing
-- [x] 2.5 `RegistrationIntegrationTests` passes: an email already used by a company account or by the operator (case/whitespace variant) re-renders with the duplicate message and leaves no orphan company
-- [x] 2.6 `RegistrationIntegrationTests` passes: a second registration with an existing company's name succeeds
-- [x] 2.7 `RegistrationIntegrationTests` passes: a POST without a CSRF token is rejected
-- [x] 2.8 `RegistrationIntegrationTests` passes: the registered manager logs in, is sent to `/awaiting-approval`, and the operator's company list shows the company as pending with that email
+- [x] 2.1 Full build and test suite passes: `./mvnw verify` — 98f7311
+- [x] 2.2 `RegistrationIntegrationTests` passes: anonymous `GET /register` renders the form without any existing company's name, and an authenticated user is redirected to `/` — 98f7311
+- [x] 2.3 `RegistrationIntegrationTests` passes: a valid POST creates exactly one PENDING company with the trimmed name and one active MANAGER with the canonical email in it, then redirects to `/login?registered` — 98f7311
+- [x] 2.4 `RegistrationIntegrationTests` passes: blank or over-255 company name, and each `AccountCredentials` failure, re-render with the right message and create nothing — 98f7311
+- [x] 2.5 `RegistrationIntegrationTests` passes: an email already used by a company account or by the operator (case/whitespace variant) re-renders with the duplicate message and leaves no orphan company — 98f7311
+- [x] 2.6 `RegistrationIntegrationTests` passes: a second registration with an existing company's name succeeds — 98f7311
+- [x] 2.7 `RegistrationIntegrationTests` passes: a POST without a CSRF token is rejected — 98f7311
+- [x] 2.8 `RegistrationIntegrationTests` passes: the registered manager logs in, is sent to `/awaiting-approval`, and the operator's company list shows the company as pending with that email — 98f7311
 
 #### Manual
 
-- [ ] 2.9 On a fresh `./mvnw spring-boot:test-run`: login → "Zarejestruj firmę" → register → success message on login → log in → awaiting page; the operator sees the company as "Oczekuje"
-- [ ] 2.10 A duplicate email and a too-short password show readable errors and keep the typed company name and email
-- [ ] 2.11 After `UPDATE companies SET status = 'ACTIVE'` the registrant reaches the dashboard and can create a technician
+- [x] 2.9 On a fresh `./mvnw spring-boot:test-run`: login → "Zarejestruj firmę" → register → success message on login → log in → awaiting page; the operator sees the company as "Oczekuje"
+- [x] 2.10 A duplicate email and a too-short password show readable errors and keep the typed company name and email
+- [x] 2.11 After `UPDATE companies SET status = 'ACTIVE'` the registrant reaches the dashboard and can create a technician
