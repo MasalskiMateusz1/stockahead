@@ -51,7 +51,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | S-07 | company-accounts                  | Manager creates and deactivates technicians and other managers only in their own company                        | F-01             | FR-030, FR-032, FR-029, FR-028                                                                                                  | done |
 | S-08 | operator-setup-and-company-list   | Setup creates the operator, who sees the list of companies and nothing else                                     | F-01             | FR-033, FR-025, FR-029, Success Criteria › Guardrails (operator has no path to company data)                                    | done |
 | S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                                     | F-01             | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle)                                                       | done        |
-| S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction                | S-09             | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…"                                          | proposed |
+| S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction                | S-09             | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…"                                          | done |
 | S-11 | operator-approves-companies       | Operator approves or rejects a pending company; an approved manager reaches the warehouse                       | S-03, S-08, S-09 | US-01, FR-026, FR-024, FR-025, Business Logic Changes (company lifecycle)                                                       | proposed |
 | S-12 | operator-blocks-companies         | Operator blocks and unblocks a company; blocked users cannot log in, data stays                                 | S-11             | FR-027, Success Criteria › Secondary                                                                                            | proposed |
 
@@ -219,7 +219,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Which human-verification mechanism fits the instance's hosting and the "no noticeable friction" bar? PRD says "mechanism decided downstream". — Owner: user. Block: no.
 - **Risk:** May introduce the milestone's only external dependency; kept as its own slice so a vendor or key problem never blocks the registration flow or isolation work.
-- **Status:** proposed
+- **Status:** done
 
 ### S-11: Operator approves or rejects a registration
 
@@ -296,3 +296,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-07: Manager creates and deactivates technician and manager accounts only in their own company; the last active manager cannot be deactivated; an email stays unique across the whole platform.** — Archived 2026-11-04 → `context/archive/2026-11-04-company-accounts/`. Lesson: —.
 - **S-08: On a fresh deploy the token-gated setup creates the operator account (member of no company) and then closes; the operator logs in and sees the list of companies (name, manager's email, registration date, status) and has no route to any warehouse page.** — Archived 2026-11-08 → `context/archive/2026-11-04-operator-setup-and-company-list/`. Lesson: —.
 - **S-09: Visitor fills in company name, email and password on the public website; the company is created as pending with them as its manager; logging in shows only "awaiting approval" and no warehouse feature.** — Archived 2026-11-08 → `context/archive/2026-11-05-company-registration/`. Lesson: —.
+- **S-10: Mass automated registrations are refused before they reach the operator's pending list, while a human completes sign-up without noticeable friction.** — Archived 2026-11-08 → `context/archive/2026-11-08-registration-bot-protection/`. Lesson: —.
