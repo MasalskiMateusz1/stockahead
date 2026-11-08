@@ -8,9 +8,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.CompanyStatus;
 import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.account.Role;
 
@@ -23,14 +25,21 @@ public class AccountUserDetailsService implements UserDetailsService {
 		this.accountRepository = accountRepository;
 	}
 
+	/**
+	 * Read-only transaction so the lazily loaded company's status can be read:
+	 * the login runs in the security filter chain, outside any open session.
+	 */
 	@Override
+	@Transactional(readOnly = true)
 	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 		Account account = accountRepository.findByCanonicalEmail(Emails.canonical(email))
 			.orElseThrow(() -> new UsernameNotFoundException("No account with email " + email));
 
 		Long companyId = account.getCompany() == null ? null : account.getCompany().getId();
+		boolean companyBlocked = account.getCompany() != null
+				&& account.getCompany().getStatus() == CompanyStatus.BLOCKED;
 		return new CompanyUser(account.getEmail(), account.getPasswordHash(), account.isActive(),
-				authoritiesFor(account.getRole()), account.getId(), companyId);
+				authoritiesFor(account.getRole()), account.getId(), companyId, companyBlocked);
 	}
 
 	/**

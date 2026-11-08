@@ -13,6 +13,7 @@
 			<p th:if="${param.logout}" class="alert alert-info" role="status" th:text="#{login.status.loggedOut}"></p>
 			<p th:if="${param.setup}" class="alert alert-success" role="status" th:text="#{login.status.operatorCreated}"></p>
 			<p th:if="${param.deactivated}" class="alert alert-error" role="alert" th:text="#{login.status.deactivated}"></p>
+			<p th:if="${param.blocked}" class="alert alert-error" role="alert" th:text="#{login.status.companyBlocked}"></p>
 			<p th:if="${param.roleChanged}" class="alert alert-error" role="alert" th:text="#{login.status.roleChanged}"></p>
 			<p th:if="${param.registered}" class="alert alert-success" role="status" th:text="#{login.status.registered}"></p>
 
