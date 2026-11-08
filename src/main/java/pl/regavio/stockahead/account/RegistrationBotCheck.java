@@ -23,7 +23,7 @@ public class RegistrationBotCheck {
 			+ ".FORM_ISSUED_AT";
 
 	/** Request parameter of the off-screen honeypot input; must stay empty. */
-	public static final String HONEYPOT_PARAMETER = "company_website_url";
+	public static final String HONEYPOT_PARAMETER = "hp_7c1f";
 
 	private final Duration minFillTime;
 
@@ -33,6 +33,11 @@ public class RegistrationBotCheck {
 
 	public void stamp(HttpSession session) {
 		session.setAttribute(FORM_ISSUED_AT_SESSION_ATTRIBUTE, Instant.now());
+	}
+
+	/** Removes the stamp, so the next submission needs a freshly rendered form. */
+	public void clear(HttpSession session) {
+		session.removeAttribute(FORM_ISSUED_AT_SESSION_ATTRIBUTE);
 	}
 
 	public boolean passes(HttpSession session, String honeypotValue) {

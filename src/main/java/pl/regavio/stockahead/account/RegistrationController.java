@@ -113,7 +113,8 @@ public class RegistrationController {
 		}
 
 		String clientIp = ClientAddress.of(request);
-		Optional<RegistrationRateLimiter.Reservation> reservation = rateLimiter.tryReserve(clientIp);
+		Optional<RegistrationRateLimiter.Reservation> reservation = rateLimiter
+				.tryReserve(ClientAddress.rateLimitKey(clientIp));
 		if (reservation.isEmpty()) {
 			log.info("Registration rejected by the per-IP rate limit for client {}", clientIp);
 			response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
@@ -154,6 +155,7 @@ public class RegistrationController {
 			}
 		}
 
+		botCheck.clear(session);
 		return "redirect:/login?registered";
 	}
 

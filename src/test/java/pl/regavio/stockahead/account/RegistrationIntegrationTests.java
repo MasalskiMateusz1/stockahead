@@ -286,6 +286,26 @@ class RegistrationIntegrationTests {
 	}
 
 	@Test
+	void sessionCannotBeReusedForASecondRegistration() throws Exception {
+		MockHttpSession session = sessionIssuedAt(Instant.now().minusSeconds(10));
+		mockMvc.perform(postRegister(NAME_PREFIX + " Reuse First", "reuse-first@registration.example", PASSWORD,
+				PASSWORD, session).with(csrf()))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(header().string("Location", "/login?registered"));
+		assertThat(session.getAttribute(RegistrationBotCheck.FORM_ISSUED_AT_SESSION_ATTRIBUTE))
+			.as("success clears the form stamp")
+			.isNull();
+
+		mockMvc.perform(postRegister(NAME_PREFIX + " Reuse Second", "reuse-second@registration.example", PASSWORD,
+				PASSWORD, session).with(csrf()))
+			.andExpect(status().isOk())
+			.andExpect(model().attribute("error", VERIFICATION_FAILED_ERROR));
+		assertThat(count("SELECT count(*) FROM accounts WHERE email = ?", "reuse-second@registration.example"))
+			.isZero();
+		assertThat(prefixedCompanyCount()).isEqualTo(1);
+	}
+
+	@Test
 	void submissionWithoutFormTimestampIsRejected() throws Exception {
 		mockMvc.perform(postRegister(NAME_PREFIX + " No Stamp Co", REGISTRANT_EMAIL, PASSWORD, PASSWORD,
 				new MockHttpSession()).with(csrf()))
@@ -515,6 +535,20 @@ class RegistrationIntegrationTests {
 		assertThat(count("SELECT count(*) FROM companies WHERE name LIKE ?", NAME_PREFIX + " Dup %"))
 			.as("existing company plus the five registered after the duplicate")
 			.isEqualTo(MAX_PER_IP + 1);
+	}
+
+	@Test
+	void ipv6AddressesInOneSlash64ShareQuota() throws Exception {
+		for (int i = 1; i <= MAX_PER_IP; i++) {
+			mockMvc.perform(postRegisterFrom("2001:db8:0:64::" + i, NAME_PREFIX + " V6 " + i,
+					"v6-" + i + "@registration.example").with(csrf()))
+				.andExpect(status().is3xxRedirection());
+		}
+
+		String name = NAME_PREFIX + " V6 Over";
+		String email = "v6-over@registration.example";
+		expectTooManyRegistrations(postRegisterFrom("2001:db8:0:64:ffff::99", name, email), name, email);
+		assertThat(prefixedCompanyCount()).isEqualTo(MAX_PER_IP);
 	}
 
 	@Test

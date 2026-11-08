@@ -1,7 +1,7 @@
 ---
 change_id: registration-bot-protection
 title: Registration rejects automated sign-ups
-status: implemented
+status: impl_reviewed
 created: 2026-11-08
 updated: 2026-11-08
 archived_at: null
