@@ -3,7 +3,7 @@ project: "Stockahead"
 version: 2
 status: draft
 created: 2026-10-05
-updated: 2026-11-08
+updated: 2026-11-09
 prd_version: 2
 main_goal: quality
 top_blocker: capacity
@@ -53,7 +53,7 @@ Stockahead today serves exactly one plant: one manager, globally unique names, n
 | S-09 | company-registration              | Visitor registers a company and, after login, sees only "awaiting approval"                                     | F-01             | US-01, FR-023, FR-024, FR-029, Business Logic Changes (company lifecycle)                                                       | done     |
 | S-10 | registration-bot-protection       | Automated sign-ups are rejected before they reach the pending list; humans pass without friction                | S-09             | FR-023 (human-verification resolution), NFR "Automated mass registration is rejected…"                                          | done     |
 | S-11 | operator-approves-companies       | Operator approves or rejects a pending company; an approved manager reaches the warehouse                       | S-03, S-08, S-09 | US-01, FR-026, FR-024, FR-025, Business Logic Changes (company lifecycle)                                                       | done     |
-| S-12 | operator-blocks-companies         | Operator blocks and unblocks a company; blocked users cannot log in, data stays                                 | S-11             | FR-027, Success Criteria › Secondary                                                                                            | in-progress |
+| S-12 | operator-blocks-companies         | Operator blocks and unblocks a company; blocked users cannot log in, data stays                                 | S-11             | FR-027, Success Criteria › Secondary                                                                                            | done |
 
 ## Streams
 
@@ -244,7 +244,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** The only nice-to-have in the milestone, sequenced last; the existing deactivated-account check is the natural extension point, but a block must not be confused with deactivation (unblock restores everyone, not just the manager).
-- **Status:** in-progress
+- **Status:** done
 
 ## Backlog Handoff
 
@@ -298,3 +298,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **S-09: Visitor fills in company name, email and password on the public website; the company is created as pending with them as its manager; logging in shows only "awaiting approval" and no warehouse feature.** — Archived 2026-11-08 → `context/archive/2026-11-05-company-registration/`. Lesson: —.
 - **S-10: Mass automated registrations are refused before they reach the operator's pending list, while a human completes sign-up without noticeable friction.** — Archived 2026-11-08 → `context/archive/2026-11-08-registration-bot-protection/`. Lesson: —.
 - **S-11: Operator approves a pending company, after which its manager reaches the full warehouse; or rejects it, after which login fails with a generic message, the registration stays on record, and its email can register again.** — Archived 2026-11-08 → `context/archive/2026-11-08-operator-approves-companies/`. Lesson: —.
+- **S-12: Operator blocks an active company so its users cannot log in (open sessions may finish) and unblocks it with all data intact.** — Archived 2026-11-09 → `context/archive/2026-11-08-operator-blocks-companies/`. Lesson: —.

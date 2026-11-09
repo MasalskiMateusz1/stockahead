@@ -1,9 +1,10 @@
 ---
 change_id: operator-blocks-companies
 title: Operator blocks and unblocks companies
-status: impl_reviewed
+status: archived
+archived_at: 2026-11-09T16:13:53Z
 created: 2026-11-08
-updated: 2026-11-08
+updated: 2026-11-09
 ---
 
 ## Notes
