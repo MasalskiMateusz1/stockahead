@@ -402,33 +402,33 @@ No data or schema migration. Rollback is a revert of `app.css`, `orders-list.htm
 
 #### Automated
 
-- [x] 1.1 Full build and tests pass: `./mvnw verify`
-- [x] 1.2 `TemplateConventionTests` passes (no inline styles introduced)
-- [x] 1.3 The literal font stack and the h1/h2/h3 literal sizes are gone from `app.css`
-- [x] 1.4 Dark tokens exist only as `light-dark()` values
+- [x] 1.1 Full build and tests pass: `./mvnw verify` — 6df09e9
+- [x] 1.2 `TemplateConventionTests` passes (no inline styles introduced) — 6df09e9
+- [x] 1.3 The literal font stack and the h1/h2/h3 literal sizes are gone from `app.css` — 6df09e9
+- [x] 1.4 Dark tokens exist only as `light-dark()` values — 6df09e9
 
 #### Manual
 
-- [x] 1.5 The `screenshots/before/` set exists with the files listed in change 1
-- [x] 1.6 orders-list, dashboard and parts-list render in light, dark and auto with no flash of the wrong theme, and the theme toggle still cycles auto → light → dark
-- [x] 1.7 "Nowe zlecenie" is blue in both themes, and its text is readable
-- [x] 1.8 The focus ring is visible (Tab onto "Nowe zlecenie") in both themes
-- [x] 1.9 Form-field outlines on `/orders/new` are clearly visible in both themes
-- [x] 1.10 The contrast numbers in the new comments were checked with a contrast tool, not only estimated
+- [x] 1.5 The `screenshots/before/` set exists with the files listed in change 1 — 6df09e9
+- [x] 1.6 orders-list, dashboard and parts-list render in light, dark and auto with no flash of the wrong theme, and the theme toggle still cycles auto → light → dark — 6df09e9
+- [x] 1.7 "Nowe zlecenie" is blue in both themes, and its text is readable — 6df09e9
+- [x] 1.8 The focus ring is visible (Tab onto "Nowe zlecenie") in both themes — 6df09e9
+- [x] 1.9 Form-field outlines on `/orders/new` are clearly visible in both themes — 6df09e9
+- [x] 1.10 The contrast numbers in the new comments were checked with a contrast tool, not only estimated — 6df09e9
 
 ### Phase 2: Shared components + orders-list
 
 #### Automated
 
-- [ ] 2.1 Full build and tests pass: `./mvnw verify`
-- [ ] 2.2 No attributes on table rows or cells in orders-list
+- [x] 2.1 Full build and tests pass: `./mvnw verify`
+- [x] 2.2 No attributes on table rows or cells in orders-list
 
 #### Manual
 
-- [ ] 2.3 In both tables, text columns are left-aligned and quantity, built and dates are right-aligned with aligned digits
-- [ ] 2.4 "Sprawdź" and "Szczegóły" look identical, and "Nowe zlecenie" is the only filled blue button on the page
-- [ ] 2.5 Pending rows still show the amber tint and leading bar
-- [ ] 2.6 Other list views are unchanged in layout, and their tables are still centred
+- [x] 2.3 In both tables, text columns are left-aligned and quantity, built and dates are right-aligned with aligned digits
+- [x] 2.4 "Sprawdź" and "Szczegóły" look identical, and "Nowe zlecenie" is the only filled blue button on the page
+- [x] 2.5 Pending rows still show the amber tint and leading bar
+- [x] 2.6 Other list views are unchanged in layout, and their tables are still centred
 
 ### Phase 3: Feedback after confirm/reject (C5)
 

@@ -223,6 +223,44 @@ tr.row-pending > td:first-child {
 	box-shadow: inset 3px 0 0 var(--warning);
 }
 
+/* Opt-in list table (class="data-table"): text reads left, numbers and dates line up on the
+   right, the action column sits at the right edge. Tables without the class stay centred. */
+table.data-table th,
+table.data-table td {
+	text-align: left;
+	padding: var(--space-2) var(--space-3);
+}
+
+/* Header on the card surface: --muted-foreground on --muted would drop below 4.5:1 in light. */
+table.data-table th {
+	background: var(--card);
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	white-space: nowrap;
+}
+
+/* Subtler than the default row hover; pending rows keep their tint (it is painted on the cells). */
+table.data-table tbody tr:hover {
+	background: color-mix(in oklch, var(--muted) 60%, var(--card));
+}
+
+/* Action column (always the last one). */
+table.data-table th:last-child,
+table.data-table td:last-child {
+	text-align: right;
+}
+
+/* Numeric and date columns of orders-list.html, selected by position because cells carry no
+   classes. If a column is added to or moved in either table, update these positions. */
+#pending-orders table.data-table :is(th, td):is(:nth-child(2), :nth-child(4), :nth-child(6), :nth-child(7)),
+#open-orders table.data-table :is(th, td):is(:nth-child(2), :nth-child(4)) {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
 /* Inline row actions: forms and buttons on one line inside a cell. */
 .actions {
 	display: inline-flex;
@@ -361,6 +399,29 @@ button:hover,
 .btn-danger:hover {
 	background: color-mix(in oklch, var(--destructive) 88%, var(--foreground));
 	color: var(--destructive-foreground);
+}
+
+/* Quiet row-level action (e.g. "Szczegóły" in a list): no fill, thin border, so it never
+   competes with the page's main filled button. Works on a.btn and on bare <button>;
+   .btn-ghost:hover (0,2,0) outranks button:hover (0,1,1) and ties .btn:hover, winning by order. */
+.btn-ghost {
+	background: transparent;
+	color: var(--foreground);
+	border-color: var(--border);
+}
+
+.btn-ghost:hover {
+	background: var(--accent);
+	color: var(--accent-foreground);
+	border-color: var(--border);
+}
+
+/* Compact size for buttons inside table rows: about 28px tall. */
+.btn-sm {
+	min-height: 1.75rem;
+	padding: var(--space-1) var(--space-3);
+	font-size: var(--text-sm);
+	gap: var(--space-1);
 }
 
 /* ---------- Layout ---------- */

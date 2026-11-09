@@ -18,7 +18,7 @@
 			<h2>Do potwierdzenia</h2>
 
 			<div class="table-wrap">
-				<table>
+				<table class="data-table">
 					<thead>
 						<tr>
 							<th>Projekt</th>
@@ -40,7 +40,7 @@
 							<td th:text="${order.assignee == null ? '—' : order.assignee.email + (order.assignee.active ? '' : ' (nieaktywny)')}"></td>
 							<td th:text="${@orderMoments.format(order.completionReportedAt)}"></td>
 							<td th:text="${order.builtUnits != null ? order.builtUnits + ' / ' + order.quantityUnits : '—'}"></td>
-							<td><a class="btn" th:href="@{/orders/{id}(id=${order.id})}">Sprawdź</a></td>
+							<td><a class="btn btn-ghost btn-sm" th:href="@{/orders/{id}(id=${order.id})}">Sprawdź</a></td>
 						</tr>
 					</tbody>
 				</table>
@@ -53,7 +53,7 @@
 			<p th:if="${#lists.isEmpty(orders)}" class="empty">Brak zleceń.</p>
 
 			<div class="table-wrap" th:unless="${#lists.isEmpty(orders)}">
-				<table>
+				<table class="data-table">
 					<thead>
 						<tr>
 							<th>Projekt</th>
@@ -71,7 +71,7 @@
 							<td><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></td>
 							<td th:text="${order.requiredDate}"></td>
 							<td th:text="${order.assignee == null ? '—' : order.assignee.email + (order.assignee.active ? '' : ' (nieaktywny)')}"></td>
-							<td><a class="btn btn-secondary" th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
+							<td><a class="btn btn-ghost btn-sm" th:href="@{/orders/{id}(id=${order.id})}">Szczegóły</a></td>
 						</tr>
 					</tbody>
 				</table>
