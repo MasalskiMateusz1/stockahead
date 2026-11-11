@@ -1,10 +1,10 @@
 ---
 change_id: enhance-ui-design
 title: Enhance ui design
-status: impl_reviewed
+status: archived
 created: 2026-11-09
 updated: 2026-11-11
-archived_at: null
+archived_at: 2026-11-11T07:54:09Z
 ---
 
 ## Notes
