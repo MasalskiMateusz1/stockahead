@@ -375,7 +375,7 @@ button,
 button:hover,
 .btn:hover {
 	/* Shifted toward --foreground so the label keeps >= 4.5:1 (light 6.12:1 / dark 8.52:1). */
-	background: color-mix(in oklch, var(--primary) 88%, var(--foreground));
+	background: color-mix(in oklab, var(--primary) 88%, var(--foreground));
 	color: var(--primary-foreground);
 }
 

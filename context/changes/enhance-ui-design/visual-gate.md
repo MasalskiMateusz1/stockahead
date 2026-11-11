@@ -31,7 +31,7 @@ evidence: screenshots/after/ (27 PNGs, untracked; not committed)
 | hover (row + ghost button) | pass | pass | pass | pass | Row hover tint is visible. The ghost button's hover `--accent` fill is subtle but present. |
 | focus — row link ("Szczegóły") | pass | pass | pass | pass | Blue ring around the ghost button in both themes. |
 | focus — "Nowe zlecenie" | pass | pass | pass | pass | Ring offset is visible against the blue fill. |
-| success (after confirm) | pass | pass | pass | pass | Re-shot after fix F1. Green text and green border, and the alert names the project. Bonus: `orders-list-success-reject-light-1280` shows the reject message (taken before F1). |
+| success (after confirm) | pass | pass | pass | pass | Re-shot after fix F1. Green text and green border, and the alert names the project. Bonus: `orders-list-success-reject-light-1280` shows the reject message. Despite the file name, reject uses a neutral `info` flash (`alert-info`), a user decision during p3 (8a89bf1). Taken before F1, which doesn't affect `alert-info`. |
 | empty (no open, no pending) | pass | pass | pass | pass | Only "Otwarte zlecenia" with the dashed `Brak zleceń.` box. `#pending-orders` is absent. |
 | error | n/a | n/a | n/a | n/a | The `fragments :: alerts` include is present, but no route sets `error` on a GET of `/orders`, so it can't be reached from the UI. |
 | disabled | n/a | n/a | n/a | n/a | The view has no disabled controls (`charges.md`). |

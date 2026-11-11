@@ -73,7 +73,7 @@ and `open-orders` stay.
 - **Fix**: include the alerts fragment on orders-list and extend it with a success flash (`${success}`); add flash
   messages to the order POSTs that redirect here. The error page is a global entry-point fix — **proposed deferred**
   to its own change (touches every view), unless the plan pulls it in.
-- **Status (2026-11-11)**: partially resolved. **Scope correction**: only confirm-completion and reject-completion redirect to `/orders`. Create, change, assign and cancel land on `/orders/{id}`, which already shows alerts, so the success flash covers those two. orders-list now includes `fragments :: alerts` plus its own success `<p>`. The visual gate found and fixed an amber success-alert border (`visual-gate.md` F1). The styled error page and the technician Whitelabel case are deferred. Evidence: commit 8a89bf1, `visual-gate.md` success rows.
+- **Status (2026-11-11)**: partially resolved. **Scope correction**: only confirm-completion and reject-completion redirect to `/orders`. Create, change, assign and cancel land on `/orders/{id}`, which already shows alerts, so the flash covers those two. Confirm uses a green `success` flash. Reject uses a neutral `info` flash (`alert-info`), a user decision during p3 (8a89bf1). orders-list now includes `fragments :: alerts` plus its own success `<p>`. The visual gate found and fixed an amber success-alert border (`visual-gate.md` F1). The styled error page and the technician Whitelabel case are deferred. Evidence: commit 8a89bf1, `visual-gate.md` success rows.
 
 ## Deferred / out of scope (kept visible)
 
