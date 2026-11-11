@@ -18,8 +18,9 @@ import pl.regavio.stockahead.parts.Part;
 
 /**
  * Fills the {@code purchasing-list} page model and backs the CSV export with
- * the same read path. Groups every open order line with a shortage
- * ({@code OrderLine.getMissingQuantity() > 0}) by part, one aggregated row
+ * the same read path. Groups every open order line of company
+ * {@code companyId} with a shortage ({@code OrderLine.getMissingQuantity() > 0})
+ * by part, one aggregated row
  * per part, sorted by part name. Always re-reads inside its own read-only
  * transaction and copies the data into plain view records, never reusing the
  * caller's entities — same shape as {@code OrderDetailModel}.
@@ -38,24 +39,24 @@ class ShoppingListModel {
 	}
 
 	/**
-	 * Populates the shopping list page.
+	 * Populates the shopping list page with company {@code companyId}'s rows.
 	 * @return the {@code purchasing-list} view name
 	 */
-	String render(Model model) {
-		List<ShoppingListRow> rows = readTransaction.execute(status -> buildRows());
+	String render(Model model, Long companyId) {
+		List<ShoppingListRow> rows = readTransaction.execute(status -> buildRows(companyId));
 		model.addAttribute("rows", rows);
 		return "purchasing-list";
 	}
 
 	/**
-	 * Same rows as {@link #render(Model)}, for the CSV export.
+	 * Same rows as {@link #render(Model, Long)}, for the CSV export.
 	 */
-	List<ShoppingListRow> rowsForExport() {
-		return readTransaction.execute(status -> buildRows());
+	List<ShoppingListRow> rowsForExport(Long companyId) {
+		return readTransaction.execute(status -> buildRows(companyId));
 	}
 
-	private List<ShoppingListRow> buildRows() {
-		List<OrderLine> shortageLines = orderLineRepository.findOpenLinesWithShortage();
+	private List<ShoppingListRow> buildRows(Long companyId) {
+		List<OrderLine> shortageLines = orderLineRepository.findOpenLinesWithShortage(companyId);
 		Map<Long, List<OrderLine>> linesByPartId = shortageLines.stream()
 			.collect(Collectors.groupingBy(line -> line.getPart().getId()));
 

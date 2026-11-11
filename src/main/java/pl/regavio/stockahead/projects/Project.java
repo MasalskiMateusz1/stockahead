@@ -7,11 +7,16 @@ import java.util.List;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+
+import pl.regavio.stockahead.account.Company;
 
 @Entity
 @Table(name = "projects")
@@ -21,8 +26,12 @@ public class Project {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false, unique = true)
+	@Column(nullable = false)
 	private String name;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "company_id", nullable = false)
+	private Company company;
 
 	@Column(nullable = false)
 	private boolean active = true;
@@ -52,6 +61,21 @@ public class Project {
 		this.name = name;
 	}
 
+	public Company getCompany() {
+		return company;
+	}
+
+	/**
+	 * Sets the owning company; BOM lines already added take it too, since a
+	 * BOM line always carries its project's company.
+	 */
+	public void setCompany(Company company) {
+		this.company = company;
+		for (BomLine bomLine : bomLines) {
+			bomLine.setCompanyId(companyId());
+		}
+	}
+
 	public boolean isActive() {
 		return active;
 	}
@@ -75,6 +99,11 @@ public class Project {
 	public void addBomLine(BomLine bomLine) {
 		bomLines.add(bomLine);
 		bomLine.setProject(this);
+		bomLine.setCompanyId(companyId());
+	}
+
+	private Long companyId() {
+		return company == null ? null : company.getId();
 	}
 
 	public void removeBomLine(BomLine bomLine) {

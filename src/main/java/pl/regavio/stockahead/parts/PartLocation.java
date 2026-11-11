@@ -24,6 +24,14 @@ public class PartLocation {
 	@Column(nullable = false)
 	private String location;
 
+	/**
+	 * The part's company, set by {@link Part#addLocation}. A plain column:
+	 * {@link #part} stays the only writer of {@code part_id}, and the
+	 * {@code (part_id, company_id)} foreign key keeps the two in step.
+	 */
+	@Column(name = "company_id", nullable = false)
+	private Long companyId;
+
 	public Long getId() {
 		return id;
 	}
@@ -38,6 +46,14 @@ public class PartLocation {
 
 	public void setPart(Part part) {
 		this.part = part;
+	}
+
+	public Long getCompanyId() {
+		return companyId;
+	}
+
+	void setCompanyId(Long companyId) {
+		this.companyId = companyId;
 	}
 
 	public String getLocation() {

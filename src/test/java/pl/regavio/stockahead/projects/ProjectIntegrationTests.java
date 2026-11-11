@@ -1,6 +1,5 @@
 package pl.regavio.stockahead.projects;
 
-import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -12,14 +11,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * transaction so the DB {@code UNIQUE} constraint on {@code projects.name}
  * — the controller's only duplicate-name check — genuinely fires.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class ProjectIntegrationTests {
@@ -61,7 +60,9 @@ class ProjectIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -90,6 +91,7 @@ class ProjectIntegrationTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
@@ -102,16 +104,15 @@ class ProjectIntegrationTests {
 		seedAccount(TECHNICIAN_EMAIL, Role.TECHNICIAN);
 	}
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("ProjectIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private void seedAccount(String email, Role role) {
-		transactionTemplate.executeWithoutResult(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
-		});
+		companyFixtures.account(company(), email, PASSWORD, role, true);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -122,13 +123,13 @@ class ProjectIntegrationTests {
 
 	private Long seedProject(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, ?, ?) RETURNING id", Long.class, name, active, company().getId()));
 	}
 
 	private Long seedPart(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, 10, ?) RETURNING id", Long.class, name,
-				active));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, 10, ?, ?) RETURNING id",
+				Long.class, name, active, company().getId()));
 	}
 
 	private List<String> projectNames() {
@@ -368,10 +369,10 @@ class ProjectIntegrationTests {
 		Long activePartId = seedPart("Resistor 10k", true);
 		Long inactivePartId = seedPart("Old Capacitor", false);
 		transactionTemplate.executeWithoutResult(status -> {
-			jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, ?)",
-					projectId, activePartId, 4);
-			jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, ?)",
-					projectId, inactivePartId, 2);
+			jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, ?, ?)",
+					projectId, activePartId, 4, company().getId());
+			jdbcTemplate.update("INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, ?, ?)",
+					projectId, inactivePartId, 2, company().getId());
 			jdbcTemplate.update("INSERT INTO project_links (project_id, url, label) VALUES (?, ?, ?)", projectId,
 					"https://example.com/schematic.pdf", "Schemat");
 		});

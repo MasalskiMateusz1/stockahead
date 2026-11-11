@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -19,13 +20,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 
+import pl.regavio.stockahead.account.CompanyRepository;
+import pl.regavio.stockahead.security.CompanyUser;
+
 /**
  * Project list and detail screens, open to any authenticated user, plus
  * manager-only create/rename/deactivate/reactivate actions. Renaming is a
  * form on the detail page, next to the BOM and links, not a separate screen.
  * {@code showInactive} is honored only for managers, and an inactive
- * project's detail page is 404 for a technician. The DB {@code UNIQUE}
- * constraint on {@code projects.name} is the only duplicate-name check.
+ * project's detail page is 404 for a technician. Project names are unique
+ * per company, not globally: the DB {@code UNIQUE} constraint
+ * {@code projects_company_name_key (company_id, name)} is the only
+ * duplicate-name check. A new project belongs to its creator's company.
  */
 @Controller
 public class ProjectController {
@@ -34,15 +40,19 @@ public class ProjectController {
 
 	private final ProjectRepository projectRepository;
 
+	private final CompanyRepository companyRepository;
+
 	private final ProjectDetailModel projectDetailModel;
 
 	private final TransactionTemplate transactionTemplate;
 
 	private final MessageSource messageSource;
 
-	ProjectController(ProjectRepository projectRepository, ProjectDetailModel projectDetailModel,
-			PlatformTransactionManager transactionManager, MessageSource messageSource) {
+	ProjectController(ProjectRepository projectRepository, CompanyRepository companyRepository,
+			ProjectDetailModel projectDetailModel, PlatformTransactionManager transactionManager,
+			MessageSource messageSource) {
 		this.projectRepository = projectRepository;
+		this.companyRepository = companyRepository;
 		this.projectDetailModel = projectDetailModel;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 		this.messageSource = messageSource;
@@ -52,19 +62,21 @@ public class ProjectController {
 	public String list(
 			@RequestParam(name = "showInactive", required = false, defaultValue = "false") boolean showInactive,
 			Authentication authentication,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model) {
 		boolean isManager = isManager(authentication);
 		boolean effectiveShowInactive = isManager && showInactive;
 
-		model.addAttribute("projects", projectRepository.list(effectiveShowInactive));
+		model.addAttribute("projects", projectRepository.list(principal.companyId(), effectiveShowInactive));
 		model.addAttribute("showInactive", effectiveShowInactive);
 		model.addAttribute("isManager", isManager);
 		return "projects-list";
 	}
 
 	@GetMapping("/projects/{id}")
-	public String detail(@PathVariable Long id, Authentication authentication, Model model) {
-		return projectDetailModel.render(model, id, isManager(authentication));
+	public String detail(@PathVariable Long id, Authentication authentication,
+			@AuthenticationPrincipal CompanyUser principal, Model model) {
+		return projectDetailModel.render(model, id, principal.companyId(), isManager(authentication));
 	}
 
 	@GetMapping("/projects/new")
@@ -75,7 +87,8 @@ public class ProjectController {
 
 	@PostMapping("/projects")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String create(@RequestParam String name, Model model, Locale locale) {
+	public String create(@RequestParam String name, @AuthenticationPrincipal CompanyUser principal, Model model,
+			Locale locale) {
 		String trimmedName = name == null ? "" : name.trim();
 		String validationError = validateName(trimmedName, locale);
 		if (validationError != null) {
@@ -89,6 +102,7 @@ public class ProjectController {
 				project.setName(trimmedName);
 				project.setActive(true);
 				project.setCreatedAt(Instant.now());
+				project.setCompany(companyRepository.getReferenceById(principal.companyId()));
 				return projectRepository.saveAndFlush(project).getId();
 			});
 		}
@@ -102,27 +116,28 @@ public class ProjectController {
 
 	@PostMapping("/projects/{id}")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String rename(@PathVariable Long id, @RequestParam String name, Model model, Locale locale) {
-		if (!projectRepository.existsById(id)) {
+	public String rename(@PathVariable Long id, @RequestParam String name,
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale) {
+		if (!projectRepository.existsByIdAndCompanyId(id, principal.companyId())) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
 
 		String trimmedName = name == null ? "" : name.trim();
 		String validationError = validateName(trimmedName, locale);
 		if (validationError != null) {
-			return renderEditProjectError(model, id, validationError, name);
+			return renderEditProjectError(model, id, principal.companyId(), validationError, name);
 		}
 
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
-				Project project = projectRepository.findById(id)
+				Project project = projectRepository.findByIdAndCompanyId(id, principal.companyId())
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				project.setName(trimmedName);
 				projectRepository.saveAndFlush(project);
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderEditProjectError(model, id,
+			return renderEditProjectError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.error.duplicateName", null, locale), name);
 		}
 
@@ -131,21 +146,21 @@ public class ProjectController {
 
 	@PostMapping("/projects/{id}/deactivate")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String deactivate(@PathVariable Long id) {
-		setActive(id, false);
+	public String deactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
+		setActive(id, principal.companyId(), false);
 		return "redirect:/projects";
 	}
 
 	@PostMapping("/projects/{id}/reactivate")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String reactivate(@PathVariable Long id) {
-		setActive(id, true);
+	public String reactivate(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal) {
+		setActive(id, principal.companyId(), true);
 		return "redirect:/projects?showInactive=true";
 	}
 
-	private void setActive(Long id, boolean active) {
+	private void setActive(Long id, Long companyId, boolean active) {
 		transactionTemplate.executeWithoutResult(status -> {
-			Project project = projectRepository.findById(id)
+			Project project = projectRepository.findByIdAndCompanyId(id, companyId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 			project.setActive(active);
 			projectRepository.saveAndFlush(project);
@@ -182,8 +197,8 @@ public class ProjectController {
 	 * Re-renders the detail page, where the rename form lives, with the error
 	 * and the submitted name. Routes calling this are manager-only.
 	 */
-	private String renderEditProjectError(Model model, Long id, String error, String name) {
-		projectDetailModel.render(model, id, true, error);
+	private String renderEditProjectError(Model model, Long id, Long companyId, String error, String name) {
+		projectDetailModel.render(model, id, companyId, true, error);
 		model.addAttribute("name", name);
 		return ProjectDetailModel.VIEW;
 	}

@@ -1,230 +1,264 @@
 ---
 project: "Stockahead"
-context_type: greenfield
-created: 2026-09-18
-updated: 2026-09-18
+context_type: brownfield
+created: 2026-10-04
+updated: 2026-10-04
 product_type: web-app
 target_scale:
   users: small
   qps: low
   data_volume: small
 timeline_budget:
-  mvp_weeks: 3
+  delivery_weeks: 3
   hard_deadline: null
   after_hours_only: true
 checkpoint:
   current_phase: 8
   phases_completed: [1, 2, 3, 4, 5, 6, 7]
   gray_areas_resolved:
-    - topic: "pain category"
-      decision: "data trapped in people's heads + no clear 'what to order' decision"
-    - topic: "domain"
-      decision: "small workshop producing devices (BOM-based), not IT repair service"
-    - topic: "primary persona"
-      decision: "technician or manager in a small electronics workshop"
+    - topic: "change category"
+      decision: "architectural change — company boundary across all data, login and setup"
     - topic: "insight"
-      decision: "problem is known, nobody had time to implement a solution"
-    - topic: "auth strategy"
-      decision: "email + password; no public sign-up; manager creates accounts"
-    - topic: "roles"
-      decision: "two roles: manager (superset) and technician"
-    - topic: "tenancy"
-      decision: "single workshop per installation; no multi-tenant"
-    - topic: "shortage detection moment"
-      decision: "at production order: reserve available parts, compute shortages"
-    - topic: "shopping list export"
-      decision: "CSV only in MVP"
-    - topic: "MVP timeline"
-      decision: "~3 weeks after-hours; raised from ~10 to ~15 h/week after scope growth (acknowledged)"
-    - topic: "order priority"
-      decision: "levels (low/normal/high); higher priority takes over unpicked reservations of lower"
-    - topic: "docs attachments"
-      decision: "links in MVP; file upload + PDF preview nice-to-have"
-    - topic: "allocation order"
-      decision: "priority, then earlier due date, then older order; picked parts and reservations of started orders are never taken over"
-    - topic: "order started"
-      decision: "first pick by technician; locks priority, due date and reservations"
-    - topic: "delivery allocation"
-      decision: "new stock auto-fills reservations in allocation order"
-    - topic: "shopping list"
-      decision: "aggregated: one line per part across all open orders"
-    - topic: "part locations"
-      decision: "a part may have several text locations; stock is a single total"
-    - topic: "CSV import semantics"
-      decision: "adds quantity to existing parts, adds missing location, creates new parts; preview before commit"
-  frs_drafted: 21
+      decision: "single-plant was a deliberate MVP limit (now done); change is a learning goal, not a customer request"
+    - topic: "persona"
+      decision: "new company's manager who self-registers, plus a platform operator overseeing all companies"
+    - topic: "existing data"
+      decision: "can be wiped — current instance holds test data only; no migration of existing rows or accounts"
+    - topic: "must preserve"
+      decision: "stock/reservation guarantees (never below zero, no double reservation, allocation order) — per company"
+    - topic: "company sign-up"
+      decision: "public registration creates a pending company; usable only after operator approval; operator can approve or reject (reject frees the email)"
+    - topic: "pending experience"
+      decision: "registrant can log in and sees 'awaiting approval', no warehouse features; no email notification"
+    - topic: "operator capabilities"
+      decision: "see list of companies; block/unblock a company (users can't log in, data stays); NO access to a company's data"
+    - topic: "operator account"
+      decision: "separate operator-only account, not a member of any company"
+    - topic: "email scope"
+      decision: "one email belongs to exactly one account in one company (global uniqueness); login stays email + password, no company picker"
+    - topic: "timeline"
+      decision: "user estimate ≤ 3 weeks after-hours; no scope-cost gate triggered (5-step flow, no integrations); if it overruns, cut operator block/unblock first"
+    - topic: "managers per company"
+      decision: "several managers allowed per company; the last active manager cannot be deactivated"
+    - topic: "operator bootstrap"
+      decision: "the one-time token-gated setup screen creates the operator account (instead of the first manager), then closes"
+    - topic: "naming scope"
+      decision: "part names, project names and shelf spellings are unique per company; companies may reuse them"
+    - topic: "rejected registrations"
+      decision: "kept as a record for history; the email is freed and may register again; rejected registrant gets a generic login failure"
+    - topic: "block effect"
+      decision: "blocked users lose access at next login; active sessions may finish"
+    - topic: "business logic"
+      decision: "modifies: allocation rule runs per company; adds: company lifecycle workflow"
+    - topic: "product framing"
+      decision: "product type unchanged (web-app); scale stays small (a handful of companies); no hard deadline; after-hours work"
+    - topic: "non-goals"
+      decision: "no billing/plans; no shared data across companies; no operator access to company data; one warehouse per company remains"
+  frs_drafted: 10
   quality_check_status: accepted
 ---
 
-# Shape Notes
-
 ## Seed idea
 
-> Magazyn części do produkcji urządzeń. Przyjęcie, wydanie i rezerwacja części. Projekt urządzenia z listą wymaganych części (BOM). Zaplanowanie produkcji N sztuk rezerwuje dostępne części i generuje listę zakupów dla braków. Do projektu można dołączać pliki (np. schematy).
->
-> Otwarte pytania: kto korzysta z systemu (tylko Ty czy kilka osób/ról)? Czym dokładnie jest „planowanie produkcji”: tylko ilość czy także terminy? Jak rozliczać rezerwacje przy kilku planach naraz? Czy lista zakupów łączy braki ze wszystkich projektów?
->
-> Sugestie do przyjęcia lub odrzucenia w trakcie sesji:
-> - planowanie produkcji bez harmonogramu dat,
-> - podgląd schematów tylko dla PDF i tylko jako rozszerzenie.
+Multi-company support — from `context/changes/multi-company-support/frame.md`:
+"add suport for multiplecompanies at the same time"; "I only want ot manage one instance
+with multiple companies registering on just one website".
+
+## Current System
+
+Stockahead is a parts-warehouse and production-reservation web app for one small
+electronics plant. Monolith: Spring Boot 4.1 / Java 21, Thymeleaf, Spring Security, JPA,
+PostgreSQL, Flyway; self-hosted on Coolify (OVH) behind Cloudflare Tunnel. Users: one
+manager (created once via the token-gated `/setup`) and technicians the manager creates.
+Core functionality (milestone M-1, all slices done): parts catalog with locations,
+device projects with BOMs, production orders that reserve parts by priority → deadline →
+age, picking, completion, deliveries, stock correction, CSV import, shopping list with
+CSV export. The PRD's Non-Goals state one installation serves one plant, and Access
+Control states there is no public registration.
 
 ## Vision & Problem Statement
 
-W małym zakładzie produkującym urządzenia elektroniczne stan magazynu części istnieje tylko w pamięci pracowników. Przy każdym projekcie technik lub kierownik szuka części po całym magazynie, a braki wychodzą dopiero w trakcie kompletowania. Kosztuje to stracony czas i koszty opóźnienia projektu.
+Today only one company can ever use a Stockahead installation. The change: one running
+instance, one website, where many companies register themselves and each sees only its
+own data.
 
-Insight: problem jest w zakładzie znany, ale nikt nie miał czasu wdrożyć rozwiązania. Rodzaj bólu: dane uwięzione w głowie oraz brak jasnej decyzji „co zamówić”.
+Why now: the single-plant scope was a deliberate MVP limit and that MVP is done; this
+change is a learning goal (multi-tenant isolation and self-service sign-up), not a
+customer request. Current workaround: none — a second company cannot use the system.
 
 ## User & Persona
 
-Technik lub kierownik w małym zakładzie produkującym urządzenia elektroniczne (znajomy z pracy autora). Przyjmuje dostawy części i kompletuje części do projektów urządzeń. Sięga po produkt na starcie projektu, gdy trzeba ustalić, czy części są na stanie i gdzie leżą, oraz przy przyjęciu dostawy.
+- **New company's manager** — someone from another small plant who finds the website,
+  registers their company and becomes its manager, then creates their own technicians.
+- **Platform operator** — oversees all companies on the instance.
+- Existing roles (manager, technician) keep their meaning, now within one company.
 
 ## Access Control
 
-Logowanie e-mail + hasło. Brak publicznej rejestracji — konta zakłada kierownik; pierwsze konto kierownika powstaje przy uruchomieniu systemu. Niezalogowany użytkownik trafia na ekran logowania.
+**Current model:** email + password login; roles manager (superset of technician) and
+technician; no public registration; the first manager is created once via token-gated
+`/setup`; the manager creates and deactivates technician accounts (never deletes).
 
-Role:
+**Planned changes:**
 
-| Czynność | Kierownik | Technik |
-|---|---|---|
-| Dodawanie/edycja/usuwanie części (kartoteka) | ✅ | ❌ |
-| Dodawanie/edycja/usuwanie projektów urządzeń i ich BOM | ✅ | ❌ |
-| Linki do dokumentacji; dołączanie/usuwanie plików projektu | ✅ | ❌ |
-| Zakładanie/dezaktywacja kont użytkowników | ✅ | ❌ |
-| Import części z CSV | ✅ | ❌ |
-| Korekta stanu (inwentaryzacja) | ✅ | ❌ |
-| Planowanie produkcji (zlecenia z priorytetem, anulowanie) | ✅ | ❌ |
-| Potwierdzenie zakończenia zlecenia | ✅ | ❌ |
-| Zgłoszenie zakończenia zlecenia | ✅ | ✅ |
-| Planowanie zakupów (lista zakupów) | ✅ | ❌ |
-| Przyjęcie dostawy | ✅ | ✅ |
-| Pobranie części ze stanu | ✅ | ✅ |
-| Lista projektów do zmontowania | ✅ | ✅ |
+- **Company registration (new):** anyone can register a company on the public website,
+  becoming that company's manager. The company starts as *pending* and is usable only
+  after the platform operator approves it. The operator can approve or reject; a rejected
+  registration does not become a company and its email can be used again.
+- **Pending state (new):** the registrant can log in but sees only "awaiting approval" —
+  no warehouse features. No email notification.
+- **Platform operator (new role):** a separate account, not a member of any company. Can
+  see the list of companies (name, manager's email, registration date, status) and block
+  or unblock a company — a blocked company's users cannot log in, its data stays. The
+  operator **cannot** see any company's warehouse data.
+- **Company isolation (new):** every user sees and acts only on their own company's data.
+- **Email (modified):** one email belongs to exactly one account in one company; login
+  stays email + password with no company picker.
+- **Preserved:** manager/technician roles and the role → capability matrix, now applied
+  within one company; manager creates/deactivates their own company's technicians.
 
-Kierownik jest nadzbiorem roli technika.
+## Change flow
 
-## MVP flow
+1. A visitor opens the website and registers company "A" (company name, email, password).
+2. They log in and see "awaiting approval".
+3. The operator logs in, sees company A as pending, approves it.
+4. A's manager logs in and uses Stockahead exactly as today (parts, projects, orders,
+   technicians, shopping list…).
+5. Company "B" goes through 1–4; A and B never see each other's parts, orders or people.
 
-1. Pierwsze uruchomienie → konto kierownika (jeden zakład na instalację).
-2. Kierownik dodaje części wraz z lokalizacją (tekst, np. „regał B, szuflada 3”).
-3. Kierownik tworzy projekt urządzenia z listą części (BOM) oraz konto technika.
-4. Kierownik zleca technikowi wykonanie N sztuk według projektu → system rezerwuje dostępne części i wylicza braki.
-5. Technik widzi zlecenie na liście projektów do zmontowania i pobiera zarezerwowane części ze stanu.
-6. Braki trafiają na listę zakupów z możliwością eksportu do CSV.
-
-Szacunek autora: ok. 3 tygodnie pracy po godzinach dla tego przepływu.
-
-## Timeline acknowledgment
-
-Acknowledged on 2026-09-18: po rundzie Socratesa zakres MVP urósł (priorytety z przejmowaniem rezerwacji, import CSV z podglądem, korekta stanu, pobranie częściowe, dwuetapowe zamknięcie zlecenia, zwrot przy anulowaniu). Autor zachowuje 3-tygodniowe MVP i zwiększa zaangażowanie z ok. 10 do ok. 15 h tygodniowo (ok. 45 h); świadomie akceptuje większy, stały wysiłek.
+Blast radius (from `context/changes/multi-company-support/frame.md`): every controller and
+template; unscoped queries and id lookups; global uniqueness rules; the single-manager
+rule and `/setup`; shelf-name logic that works across the whole database.
 
 ## Success Criteria
 
 ### Primary
-- Kierownik zleca produkcję N sztuk urządzenia; system rezerwuje dostępne części, technik pobiera je ze stanu, a brakujące części pojawiają się na liście zakupów możliwej do wyeksportowania do CSV.
+- Two companies register, are approved by the operator, and each runs the full existing
+  Stockahead flow (parts, projects, orders with reservations, picking, shopping list)
+  without ever seeing the other's parts, orders or people.
 
 ### Secondary
-- Podgląd dołączonych plików PDF (np. schematów) w przeglądarce.
+- The operator blocks a company: its users can no longer log in (sessions already open
+  may finish); unblocking restores them with their data intact.
 
 ### Guardrails
-- Stan magazynowy żadnej części nigdy nie spada poniżej zera.
-- Ta sama sztuka części nie może zostać zarezerwowana przez dwa zlecenia jednocześnie (brak podwójnej rezerwacji).
+- No cross-company access: a user of company A can never see or change company B's data,
+  including by guessing a record id in the URL.
+- Stock/reservation guarantees hold per company: stock never below zero, no double
+  reservation, allocation order (priority → deadline → age) unchanged.
+- Users of a pending or blocked company cannot reach any warehouse feature.
+- The operator account has no path to any company's parts, orders or accounts.
+- Existing warehouse behaviour (FR-003…FR-022 of the current PRD) works unchanged within
+  a company.
 
 ## Functional Requirements
 
-### Konta
-- FR-001: Użytkownik może zalogować się e-mailem i hasłem. Priority: must-have
-  > Socrates: Rozważono reset hasła i login zamiast e-maila. Resolution: brak kontrargumentu; zostaje.
-- FR-002: Kierownik może zakładać i dezaktywować konta techników; dezaktywowany technik nie może się zalogować, jego dane i historia zostają. Priority: must-have
-  > Socrates: Counter-argument considered: „usunięcie konta gubi historię”. Resolution: zmieniono usuwanie na dezaktywację.
+New FRs continue the current PRD's numbering (FR-001…FR-022 already exist).
 
-### Magazyn
-- FR-003: Kierownik może dodawać, edytować i usuwać części w kartotece, wraz z jedną lub kilkoma lokalizacjami (tekst); stan części jest łączny dla wszystkich lokalizacji. Priority: must-have
-  > Socrates: Counter-argument considered: „ręczne wprowadzanie całego magazynu to bariera startu”. Resolution: dodano import CSV jako osobne FR-017 (must-have).
-- FR-004: Technik może przyjąć dostawę części, zwiększając jej stan; lista zakupów przelicza się automatycznie. Priority: must-have
-  > Socrates: Counter-argument considered: „dostawa powinna zdejmować braki z listy zakupów”. Resolution: lista zakupów zawsze pokazuje aktualne braki i przelicza się po przyjęciu dostawy.
-- FR-005: Użytkownik może wyszukać część i zobaczyć jej stan fizyczny, ilość zarezerwowaną, ilość dostępną oraz lokalizację. Priority: must-have
-  > Socrates: Counter-argument considered: „stan bez rezerwacji wprowadza w błąd”. Resolution: wynik pokazuje trzy liczby: stan / zarezerwowane / dostępne.
-- FR-006: Kierownik może przeglądać historię ruchów magazynowych (kto, kiedy, ile przyjął/pobrał). Priority: nice-to-have
-  > Socrates: Counter-argument considered: „korekta stanu (inwentaryzacja) ważniejsza niż historia”. Resolution: historia zostaje nice-to-have; dodano korektę stanu jako FR-018 (must-have).
-- FR-017: Kierownik może zaimportować części z pliku CSV; przed zapisem widzi podgląd stanów, jakie będą po zaakceptowaniu pliku. Dla części już istniejących import dopisuje ilość do stanu i dodaje lokalizację z pliku, jeśli jej brak; nowe części są tworzone. Priority: must-have
-  > Socrates: Counter-argument considered: „zły plik = zepsuty magazyn”. Resolution: import najpierw pokazuje stany wynikowe i zapisuje dopiero po akceptacji.
-- FR-018: Kierownik może skorygować stan części (inwentaryzacja), podając powód korekty. Priority: must-have
-  > Socrates: Counter-argument considered: „korekta bez powodu — po czasie nie wiadomo, czemu stan się zmienił”. Resolution: korekta wymaga podania powodu.
+### Company registration & approval
+- FR-023: Visitor can register a company (company name, email, password) and becomes its manager; the company starts as pending. Priority: must-have. Change: new
+  > Socrates: Counter-argument considered: "bots spam sign-ups — a public form fills the pending list with junk; approval only moves the cleanup to the operator." Resolution: registration must pass a human-verification check before it reaches the pending list (mechanism decided downstream).
+- FR-024: Manager of a pending company can log in and sees only "awaiting approval". Priority: must-have. Change: new
+  > Socrates: Counter-argument considered: "what does a rejected registrant see?" Resolution: a generic login failure is acceptable; no special "rejected" message.
+- FR-025: Operator can see the list of companies (name, manager's email, registration date, status). Priority: must-have. Change: new
+  > Socrates: Counter-argument considered: "the manager's email is personal data about another company's people — does it contradict 'operator never sees company data'?" Resolution: kept; the manager's contact is platform data needed to judge a registration, not warehouse data.
+- FR-026: Operator can approve or reject a pending registration; a rejected registration is kept as a record, and its email may register again. Priority: must-have. Change: new
+  > Socrates: Counter-argument considered: "deleting rejected registrations loses the trace of who applied (cf. 'deactivate, never delete')." Resolution: revised — rejected registrations are kept for history; the email is still freed for a new registration.
+- FR-027: Operator can block and unblock a company; a blocked company's users cannot log in, its data stays. Priority: nice-to-have. Change: new
+  > Socrates: Counter-argument considered: "active sessions survive the block unless they are cut." Resolution: accepted — blocking takes effect at next login; open sessions may finish.
 
-### Projekty
-- FR-007: Kierownik może tworzyć, edytować i usuwać projekty urządzeń z listą części (BOM). Priority: must-have
-  > Socrates: Rozważono edycję BOM i usunięcie projektu przy otwartych zleceniach. Resolution: brak kontrargumentu; zostaje.
-- FR-019: Kierownik może dodawać do projektu linki do dokumentacji (np. schematów). Priority: must-have
-  > Socrates: Rozważono brak dostępu technika do wskazywanego zasobu oraz obniżenie do nice-to-have. Resolution: brak kontrargumentu; zostaje.
-- FR-008: Kierownik może dołączać i usuwać pliki projektu (np. schematy). Priority: nice-to-have
-  > Socrates: Counter-argument considered: „link zamiast pliku wystarczy”. Resolution: w MVP linki (FR-019); upload plików zostaje nice-to-have.
-- FR-009: Użytkownik może podejrzeć dołączony plik PDF w przeglądarce. Priority: nice-to-have
-  > Socrates: Counter-argument considered: „zależy od FR-008”. Resolution: realizowane tylko razem z FR-008.
+### Company isolation
+- FR-028: Every user sees and acts only on their own company's data (parts, projects, orders, picking, deliveries, corrections, import, shopping list, accounts). Priority: must-have. Change: new
+  > Socrates: Counter-argument considered: "part/project names and shelf spellings are unique across the whole system today — two companies both having 'R 10k' or shelf 'A1' must just work." Resolution: names and shelf spellings are unique per company; companies may reuse them freely.
 
-### Produkcja
-- FR-010: Kierownik może zlecić technikowi produkcję N sztuk według projektu z priorytetem (np. niski / normalny / wysoki) i wymaganym terminem realizacji; dostępne części zostają zarezerwowane, a zlecenie o wyższym priorytecie przejmuje niepobrane rezerwacje niepodjętych zleceń o niższym priorytecie. Priority: must-have
-  > Socrates: Counter-argument considered: „częściowa rezerwacja blokuje inne zlecenia”. Resolution (słowa autora): „Zlecenia powinny mieć priorytet i w pierwszej kolejności powinny być realizowane zlecenia z najwyższym priorytetem”. Kilka poziomów priorytetu, must-have; wyższy priorytet przejmuje rezerwacje od niższych.
-- FR-021: Kierownik może zmienić priorytet i termin realizacji zlecenia, dopóki nie zostało podjęte (pierwsze pobranie części przez technika); rezerwacje zostają przeliczone. Priority: must-have
-  > Socrates: Counter-argument considered: „technik traci części w trakcie kompletowania”. Resolution (słowa autora): „Po podjęciu zlecenia brak możliwości zmiany jego priorytetu”. Podjęcie = pierwsze pobranie; po podjęciu zablokowane są priorytet i termin, a niepobrane rezerwacje zlecenia nie mogą zostać przejęte.
-- FR-011: Kierownik może anulować zlecenie, zwalniając jego rezerwacje; części już pobrane mogą zostać zwrócone na stan. Priority: must-have
-  > Socrates: Counter-argument considered: „anulowanie po częściowym pobraniu”. Resolution: przy anulowaniu technik/kierownik zwraca pobrane części na stan.
-- FR-012: Technik może zobaczyć listę zleceń do zmontowania; każde zlecenie pokazuje listę kompletacyjną: części, ilości i lokalizacje. Priority: must-have
-  > Socrates: Counter-argument considered: „lista bez lokalizacji części nie rozwiązuje bólu”. Resolution: zlecenie pokazuje listę kompletacyjną z lokalizacjami.
-- FR-013: Technik może pobrać zarezerwowane części ze stanu, także częściowo (np. 6 z 10). Priority: must-have
-  > Socrates: Counter-argument considered: „pobranie częściowe”. Resolution: pobranie obsługuje ilości częściowe.
-- FR-014: Technik może zgłosić zlecenie jako zakończone. Priority: must-have
-  > Socrates: Counter-argument considered: „zakończenie powinien potwierdzać kierownik”. Resolution: technik zgłasza, kierownik potwierdza (FR-020).
-- FR-020: Kierownik może potwierdzić zakończenie zlecenia; niepobrane rezerwacje zostają wtedy zwolnione. Priority: must-have
-  > Socrates: Rozważono wąskie gardło na kierowniku i odrzucanie zgłoszeń. Resolution: brak kontrargumentu; zostaje.
-
-### Zakupy
-- FR-015: Kierownik może zobaczyć listę zakupów z brakującymi częściami, wraz ze zleceniami, które dany brak blokuje. Priority: must-have
-  > Socrates: Counter-argument considered: „lista powinna wskazywać, które zlecenia blokuje brak”. Resolution: każda pozycja pokazuje blokowane zlecenia.
-- FR-016: Kierownik może wyeksportować listę zakupów do CSV. Priority: must-have
-  > Socrates: Rozważono brak kodu dostawcy i kodowanie polskich znaków w arkuszu kalkulacyjnym. Resolution: brak kontrargumentu; zostaje.
+### Accounts
+- FR-029: User (operator, manager, technician) can log in with email + password; an email is unique across the whole platform. Priority: must-have. Change: modified (was FR-001)
+  > Socrates: No counter-argument; it stands as written.
+- FR-030: Manager can create and deactivate technician accounts only within their own company. Priority: must-have. Change: modified (was FR-002)
+  > Socrates: No counter-argument; it stands as written.
+- FR-031: (withdrawn — "all FR-003…FR-022 work unchanged within a company" moved to Success Criteria › Guardrails and a [preserved] scope item)
+  > Socrates: Counter-argument considered: "too broad to verify as one FR — it's really a guardrail." Resolution: moved to guardrail.
+- FR-032: Manager can create and deactivate additional manager accounts in their own company; the last active manager cannot be deactivated. Priority: must-have. Change: new
+  > Socrates: Counter-argument considered: "a company could lock itself out by deactivating every manager, and the operator can't help (no data access)." Resolution: revised — the last active manager cannot be deactivated.
+- FR-033: The one-time, token-gated setup screen creates the operator account, then closes. Priority: must-have. Change: modified (was: setup creates the first manager)
+  > Socrates: Counter-argument considered: "race on a fresh deploy — whoever reaches setup first with the token wins; the token is the only protection." Resolution: left open — see Open Questions.
 
 ## User Stories
 
-### US-01: Kierownik zleca produkcję i dostaje listę braków
+### US-01: Two companies register and work side by side without seeing each other
 
-- **Given** zalogowany kierownik, części w kartotece oraz projekt z listą części (BOM)
-- **When** zleca technikowi produkcję N sztuk tego projektu
-- **Then** dostępne części zostają zarezerwowane, zlecenie pojawia się na liście technika do zmontowania, a brakujące ilości trafiają na listę zakupów
+- **Given** a running instance with an operator account and no companies
+- **When** a visitor registers company A, sees "awaiting approval", the operator approves A, and A's manager then uses parts, projects, orders and the shopping list; and company B goes through the same steps
+- **Then** A and B each run the full existing flow, and neither ever sees the other's parts, orders or people
 
-#### Acceptance Criteria
-- BOM wymaga 10 rezystorów, na stanie jest 6, zlecenie na 1 sztukę → rezerwacja 6, na liście zakupów 4.
+Before this change: only one company could exist; there was no registration and no operator.
 
 ## Business Logic
 
-Zlecenie rezerwuje części według priorytetu, a braki trafiają na listę zakupów.
+Each company's orders reserve only that company's parts — by priority, then earlier
+deadline, then older order — and a company's account can reach warehouse features only
+while the company is active.
 
-Wejścia: stan fizyczny części, otwarte zlecenia produkcji (projekt z BOM × N sztuk, priorytet, termin realizacji, data utworzenia) oraz ilości już pobrane przez techników. Kolejność przydziału części między zleceniami: najpierw wyższy priorytet; przy równym priorytecie — wcześniejszy termin realizacji; przy równym terminie — starsze zlecenie. Zlecenie o wyższej pozycji w tej kolejności przejmuje niepobrane rezerwacje zleceń niższych. Nie podlegają przejęciu: części już pobrane oraz niepobrane rezerwacje zleceń podjętych (podjęcie = pierwsze pobranie części przez technika; od tej chwili priorytet i termin zlecenia są zablokowane).
+**Modified rule.** The system currently allocates parts across all open orders of the
+single plant by priority → deadline → age, and aggregates all shortages into one shopping
+list. This change modifies it so allocation, recompute after every event, and the
+shopping list consider only one company's parts and orders; companies never compete for
+stock.
 
-Wyjście: dla każdego zlecenia — ilość zarezerwowana i brakująca dla każdej części z BOM; dla każdej części — stan / zarezerwowane / dostępne; jedna zagregowana lista zakupów (jedna pozycja na część, suma braków ze wszystkich otwartych zleceń, wraz ze zleceniami, które dany brak blokuje).
+**New rule — company lifecycle.** A registered company is *pending*; the operator moves it
+to *active* (approve) or *rejected* (reject — kept as a record, email freed). An active
+company can be *blocked* and unblocked by the operator (nice-to-have). Only users of an
+active company reach warehouse features; a pending company's manager sees "awaiting
+approval"; blocked or rejected users cannot log in.
 
-Użytkownik styka się z regułą, gdy: kierownik tworzy zlecenie lub zmienia jego priorytet/termin; ktoś przyjmuje dostawę lub importuje CSV (nowe sztuki automatycznie uzupełniają rezerwacje wg kolejności); kierownik koryguje stan; zlecenie zostaje anulowane lub zamknięte (zwolnione rezerwacje trafiają do kolejnych zleceń). Po każdym z tych zdarzeń rezerwacje i lista zakupów są przeliczane.
+## Constraints & Preserved Behavior
+
+- Product type unchanged: web-app. Scale stays small — a handful of companies.
+
+- CSV formats unchanged: parts import and shopping-list export keep their current columns.
+- The existing refresh NFR holds per company: after any event, reservations and shopping
+  list update in < 2 s without manual refresh.
+- Data migration: none — the deploy may start from an empty database; existing data can
+  be wiped.
+- Preserved: stock never below zero, no double reservation, allocation order — per company.
+- Preserved: manager/technician capability matrix within a company; deactivate, never
+  delete accounts.
 
 ## Non-Functional Requirements
 
-- Po każdym zdarzeniu zmieniającym stan lub zlecenia (zlecenie, zmiana priorytetu/terminu, dostawa, import, korekta, anulowanie, zamknięcie) użytkownik widzi aktualne rezerwacje i listę zakupów w < 2 s, bez ręcznego odświeżania.
-- Równoczesna praca kilku użytkowników nigdy nie prowadzi do stanu części poniżej zera ani do zarezerwowania tej samej sztuki przez dwa zlecenia.
+- No user of one company can view or change another company's data through any page,
+  action or URL (including a guessed record id).
+- Automated mass registration is rejected before it reaches the operator's pending list,
+  while a human completes sign-up without noticeable friction.
+- Existing: after any event, a user sees current reservations and shopping list in < 2 s
+  without manual refresh — within their company.
+- Existing: concurrent work never drives a part's stock below zero nor reserves the same
+  unit for two orders — within each company.
 
 ## Non-Goals
 
-- Harmonogram produkcji / kalendarz — termin realizacji służy wyłącznie do rozstrzygania kolejności przy równym priorytecie; brak planowania obciążenia techników.
-- Zamawianie u dostawców z aplikacji — brak integracji z dostawcami, cen i ofert; lista zakupów kończy się na eksporcie CSV.
-- Wiele zakładów / wiele magazynów — jedna instalacja obsługuje jeden zakład z jednym magazynem; lokalizacje to zwykły tekst, bez stanu per lokalizacja.
-- Tryb offline i skanowanie kodów kreskowych/QR — aplikacja wymaga połączenia; brak skanera w MVP.
-- Poza MVP (nice-to-have): historia ruchów magazynowych (FR-006), upload plików projektu (FR-008), podgląd PDF w przeglądarce (FR-009, tylko razem z FR-008).
+- No billing or plans — no subscriptions, pricing tiers or per-company usage limits.
+- No shared data across companies — no shared parts catalog, no cross-company stock
+  transfers, no user belonging to several companies.
+- No operator access to company data — no support or impersonation mode; the operator
+  never enters a company.
+- One warehouse per company remains — locations stay plain text with no stock per
+  location (carried over from the current PRD; only the "one plant per installation"
+  part of that Non-Goal is lifted).
 
-## Open Questions
+## Forward: technical-roadmap
 
-Brak — pytanie o import CSV (dopisz vs nadpisz) rozstrzygnięte w fazie 7: import dopisuje ilość i dodaje brakującą lokalizację; część może mieć kilka lokalizacji przy łącznym stanie.
-
-## Forward: tech-stack
-
-(Informacyjne, nie jest częścią PRD.) Autor ma ok. 4 lata doświadczenia z Java + Spring Boot; z agentami AI pracował dotąd głównie przez promptowanie.
+- Isolation should be proven by automated tests: every company-scoped page/action has a
+  check that another company's user is refused (user request during shaping).
 
 ## Quality cross-check
 
-Accepted on 2026-09-18 — wszystkie elementy obecne (Access Control, Business Logic, Project artifacts, Timeline-cost ack, Non-Goals). Brak luk.
+All six brownfield elements present (Access Control, Business Logic, artifacts, timeline
+≤ 3 weeks, Non-Goals, Preserved behavior). Accepted on 2026-10-04. Deliberately open
+decisions are listed under Open Questions.
+
+## Open Questions
+
+1. **FR-033 setup race** — on a fresh deploy, whoever reaches the setup screen first with the token creates the operator; is the token alone enough protection? Owner: user.
+2. **Email features** — email verification, password reset and approval/rejection
+   notifications are neither in scope nor ruled out. Owner: user.

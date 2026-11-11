@@ -13,14 +13,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
@@ -45,7 +45,7 @@ import static org.hamcrest.Matchers.not;
  * deliberately not {@code @Transactional} so the DB constraints genuinely
  * fire, matching {@code OrderCreationIntegrationTests}'s fixture style.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class OrderListAndDetailIntegrationTests {
@@ -74,7 +74,9 @@ class OrderListAndDetailIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -107,6 +109,7 @@ class OrderListAndDetailIntegrationTests {
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(ASSIGNEE_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(INACTIVE_ASSIGNEE_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
@@ -115,16 +118,15 @@ class OrderListAndDetailIntegrationTests {
 		seedAccount(email, role, true);
 	}
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("OrderListAndDetailIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private Long seedAccount(String email, Role role, boolean active) {
-		return transactionTemplate.execute(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(active);
-			account.setCreatedAt(Instant.now());
-			return accountRepository.save(account).getId();
-		});
+		return companyFixtures.account(company(), email, PASSWORD, role, active).getId();
 	}
 
 	private void assignOrder(Long orderId, Long assigneeId) {
@@ -150,32 +152,32 @@ class OrderListAndDetailIntegrationTests {
 
 	private Long seedProject(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, ?, ?) RETURNING id", Long.class, name, active, company().getId()));
 	}
 
 	private Long seedPart(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				quantity));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, quantity, company().getId()));
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at)
-				VALUES (?, ?, ?, ?, now())
+				INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at)
+				VALUES (?, ?, ?, ?, ?, now())
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, priority, requiredDate));
+				Long.class, company().getId(), projectId, quantityUnits, priority, requiredDate));
 	}
 
 	private void seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
 				"""
-				INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity)
-				VALUES (?, ?, ?, ?)
+				INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity)
+				VALUES (?, ?, ?, ?, ?)
 				""",
-				orderId, partId, requiredQuantity, reservedQuantity));
+				company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	/**
@@ -188,12 +190,12 @@ class OrderListAndDetailIntegrationTests {
 		Long reporterId = accountRepository.findByEmail(reporterEmail).orElseThrow().getId();
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, taken_at,
+				INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, taken_at,
 					completion_reported_at, completion_reported_by, built_units, status, completed_at)
-				VALUES (?, ?, 'NORMAL', ?, now(), now(), now(), ?, ?, ?, ?)
+				VALUES (?, ?, ?, 'NORMAL', ?, now(), now(), now(), ?, ?, ?, ?)
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, LocalDate.now().plusDays(7), reporterId, builtUnits,
+				Long.class, company().getId(), projectId, quantityUnits, LocalDate.now().plusDays(7), reporterId, builtUnits,
 				completed ? "COMPLETED" : "OPEN", completed ? Timestamp.from(Instant.now()) : null));
 	}
 

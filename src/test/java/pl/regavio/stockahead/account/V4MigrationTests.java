@@ -26,7 +26,7 @@ class V4MigrationTests {
 			migrateToV3(postgres);
 			long accountId = insertAccount(postgres, " Tech@Example.com ");
 
-			migrateToLatest(postgres);
+			migrateToV13(postgres);
 
 			try (Connection connection = connection(postgres);
 					PreparedStatement statement = connection.prepareStatement("SELECT id, email FROM accounts")) {
@@ -48,7 +48,7 @@ class V4MigrationTests {
 			insertAccount(postgres, "Tech@X.com");
 			insertAccount(postgres, "tech@x.com");
 
-			assertThatThrownBy(() -> migrateToLatest(postgres))
+			assertThatThrownBy(() -> migrateToV13(postgres))
 				.isInstanceOf(FlywayException.class)
 				.hasStackTraceContaining("V4: kolizja kanonicznych e-maili");
 
@@ -60,7 +60,7 @@ class V4MigrationTests {
 	void canonicalIndexRejectsCaseAndWhitespaceDuplicates() throws Exception {
 		try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:18"))) {
 			postgres.start();
-			migrateToLatest(postgres);
+			migrateToV13(postgres);
 			insertAccount(postgres, "a@x.com");
 
 			assertCanonicalDuplicateRejected(postgres, "A@x.com");
@@ -76,9 +76,14 @@ class V4MigrationTests {
 			.migrate();
 	}
 
-	private void migrateToLatest(PostgreSQLContainer postgres) {
+	/**
+	 * Stops at V13: V4 behaviour is pinned on the pre-company schema, and
+	 * V14 refuses to run while {@code accounts} has rows.
+	 */
+	private void migrateToV13(PostgreSQLContainer postgres) {
 		Flyway.configure()
 			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+			.target("13")
 			.load()
 			.migrate();
 	}

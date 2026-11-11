@@ -12,6 +12,7 @@
 	<header class="topbar" th:fragment="topbar">
 		<a class="brand" th:href="@{/}">Stockahead</a>
 		<nav aria-label="Nawigacja główna">
+			<th:block sec:authorize="hasAnyRole('MANAGER','TECHNICIAN')">
 			<a th:href="@{/parts}">Kartoteka części</a>
 			<a sec:authorize="hasRole('MANAGER')" th:href="@{/parts/import}">Importuj części z CSV</a>
 			<a th:href="@{/deliveries/new}">Przyjmij dostawę</a>
@@ -19,12 +20,15 @@
 			<a sec:authorize="hasRole('MANAGER')" th:href="@{/orders}">Zlecenia</a>
 			<a th:href="@{/picking}">Lista kompletacyjna</a>
 			<a sec:authorize="hasRole('MANAGER')" th:href="@{/purchasing}">Lista zakupów</a>
-			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/technicians}">Konta techników</a>
+			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/accounts}">Konta</a>
+			</th:block>
+			<a sec:authorize="hasRole('OPERATOR')" th:href="@{/operator/companies}">Firmy</a>
 		</nav>
 		<div class="session">
 			<span sec:authentication="name"></span>
 			<span class="badge badge-muted" sec:authorize="hasRole('MANAGER')">Kierownik</span>
-			<span class="badge badge-muted" sec:authorize="!hasRole('MANAGER')">Technik</span>
+			<span class="badge badge-muted" sec:authorize="hasRole('TECHNICIAN') and !hasRole('MANAGER')">Technik</span>
+			<span class="badge badge-muted" sec:authorize="hasRole('OPERATOR')">Operator</span>
 			<button type="button" class="btn btn-secondary btn-icon" data-theme-toggle data-mode="auto" aria-label="Motyw: Auto" title="Motyw: Auto" hidden>
 				<svg class="icon-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
 				<svg class="icon-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -47,7 +51,7 @@
 		<g th:case="'orders'"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1M12 18h1M7 18h1"/></g>
 		<g th:case="'picking'"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8M13 12h8M13 18h8"/></g>
 		<g th:case="'purchasing'"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></g>
-		<g th:case="'technicians'"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g>
+		<g th:case="'accounts'"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g>
 		<g th:case="'access'"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></g>
 	</svg>
 

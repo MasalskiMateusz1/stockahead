@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Firmy')}">
+	<meta charset="UTF-8">
+	<title>Firmy — Stockahead</title>
+</head>
+<body>
+	<header th:replace="~{fragments :: topbar}"></header>
+
+	<main class="container">
+		<h1>Firmy</h1>
+
+		<div th:replace="~{fragments :: alerts}"></div>
+		<p th:if="${success}" class="alert alert-success" role="status" th:text="${success}"></p>
+		<p th:if="${info}" class="alert alert-info" role="status" th:text="${info}"></p>
+
+		<p th:if="${#lists.isEmpty(companies)}" class="empty">Brak zarejestrowanych firm.</p>
+
+		<div class="table-wrap" th:unless="${#lists.isEmpty(companies)}">
+			<table>
+				<thead>
+					<tr><th>Nazwa</th><th>E-mail kierownika</th><th>Data rejestracji</th><th>Status</th><th>Akcje</th></tr>
+				</thead>
+				<tbody>
+					<tr th:each="company : ${companies}">
+						<td th:text="${company.name}"></td>
+						<td th:text="${company.managerEmail}"></td>
+						<td th:text="${company.registeredOn()}"></td>
+						<td th:switch="${company.status.name()}">
+							<span th:case="'PENDING'" class="badge badge-info">Oczekuje</span>
+							<span th:case="'ACTIVE'" class="badge">Aktywna</span>
+							<span th:case="'REJECTED'" class="badge badge-muted">Odrzucona</span>
+							<span th:case="'BLOCKED'" class="badge badge-muted">Zablokowana</span>
+						</td>
+						<td>
+							<div class="actions" th:if="${company.status.name() == 'PENDING'}">
+								<form th:action="@{/operator/companies/{id}/approve(id=${company.id})}" method="post">
+									<button type="submit" class="btn">Zatwierdź</button>
+								</form>
+								<a class="btn btn-danger" th:href="@{/operator/companies/{id}/reject(id=${company.id})}">Odrzuć</a>
+							</div>
+							<div class="actions" th:if="${company.status.name() == 'ACTIVE'}">
+								<a class="btn btn-danger" th:href="@{/operator/companies/{id}/block(id=${company.id})}">Zablokuj</a>
+							</div>
+							<div class="actions" th:if="${company.status.name() == 'BLOCKED'}">
+								<form th:action="@{/operator/companies/{id}/unblock(id=${company.id})}" method="post">
+									<button type="submit" class="btn">Odblokuj</button>
+								</form>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</main>
+</body>
+</html>

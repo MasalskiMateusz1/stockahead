@@ -19,14 +19,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,7 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * directly would bypass {@code @PreAuthorize} method-security AOP and
  * {@code SecurityContext} threading.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class PickingConcurrencyTests {
@@ -67,7 +67,9 @@ class PickingConcurrencyTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -101,20 +103,20 @@ class PickingConcurrencyTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("PickingConcurrencyTests Co");
+		}
+		return company;
+	}
+
 	private void seedAccount(String email, Role role) {
-		transactionTemplate.executeWithoutResult(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
-		});
+		companyFixtures.account(company(), email, PASSWORD, role, true);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -135,34 +137,34 @@ class PickingConcurrencyTests {
 
 	private Long seedProject(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, ?, ?) RETURNING id", Long.class, name, active, company().getId()));
 	}
 
 	private Long seedPart(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				quantity));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, quantity, company().getId()));
 	}
 
 	private Long seedBomLine(Long project, Long part, int quantityPerUnit) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, ?) RETURNING id",
-				Long.class, project, part, quantityPerUnit));
+				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, ?, ?) RETURNING id",
+				Long.class, project, part, quantityPerUnit, company().getId()));
 	}
 
 	private Long seedOrder(Long project, int quantityUnits, Priority priority, LocalDate requiredDate,
 			Instant createdAt) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
-				Long.class, project, quantityUnits, priority.name(), requiredDate, Timestamp.from(createdAt)));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), project, quantityUnits, priority.name(), requiredDate, Timestamp.from(createdAt)));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, ?, ?) RETURNING id",
-				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	private int reservedQuantityOf(Long lineId) {

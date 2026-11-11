@@ -15,6 +15,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,6 +27,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import pl.regavio.stockahead.orders.LockRetry;
 import pl.regavio.stockahead.orders.ReservationAllocator;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Delivery receipt screen for both MANAGER and TECHNICIAN: a multi-row form
@@ -41,10 +43,11 @@ import pl.regavio.stockahead.orders.ReservationAllocator;
  * (add-rows and validation errors), none of which go on to write.
  * <p>
  * A valid receipt is merged per part and written in one transaction: the
- * part rows are locked ({@code findByIdInForUpdate}), every id and every new
+ * part rows of the receiver's company are locked
+ * ({@code findByIdInAndCompanyIdForUpdate}), every id and every new
  * stock total is checked before anything is mutated, then stock is raised,
  * missing locations are added, the persistence context is flushed and only
- * then {@link ReservationAllocator#reallocateForParts(Set)} runs, so the
+ * then {@link ReservationAllocator#reallocateForParts(Long, Set)} runs, so the
  * allocator seeds its pool with the delivered stock. Inactive parts are
  * accepted as-is.
  */
@@ -87,18 +90,19 @@ public class DeliveryController {
 
 	@GetMapping("/deliveries/new")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
-	public String newForm(Model model) {
+	public String newForm(@AuthenticationPrincipal CompanyUser principal, Model model) {
 		List<RowInput> rows = new ArrayList<>();
 		for (int i = 0; i < DEFAULT_ROWS; i++) {
 			rows.add(RowInput.BLANK);
 		}
-		return renderForm(model, rows, null);
+		return renderForm(model, principal.companyId(), rows, null);
 	}
 
 	@PostMapping("/deliveries")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
-	public String receive(@RequestParam Map<String, String> params, Model model, Locale locale,
-			RedirectAttributes redirectAttributes) {
+	public String receive(@RequestParam Map<String, String> params, @AuthenticationPrincipal CompanyUser principal,
+			Model model, Locale locale, RedirectAttributes redirectAttributes) {
+		Long companyId = principal.companyId();
 		int rowCount = parseRowCount(params.get("rows"));
 		List<RowInput> rows = readRows(params, rowCount);
 
@@ -107,12 +111,12 @@ public class DeliveryController {
 			while (rows.size() < extendedCount) {
 				rows.add(RowInput.BLANK);
 			}
-			return renderForm(model, rows, null);
+			return renderForm(model, companyId, rows, null);
 		}
 
 		ReceiptValidation validation = validate(rows, locale);
 		if (validation.error() != null) {
-			return renderForm(model, rows, validation.error());
+			return renderForm(model, companyId, rows, validation.error());
 		}
 
 		Map<Long, ReceiptLine> lines = validation.lines();
@@ -120,7 +124,7 @@ public class DeliveryController {
 		try {
 			businessError = lockRetry
 				.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-					String error = applyReceipt(lines, locale);
+					String error = applyReceipt(lines, companyId, locale);
 					if (error != null) {
 						status.setRollbackOnly();
 					}
@@ -128,10 +132,11 @@ public class DeliveryController {
 				}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
-			return renderForm(model, rows, messageSource.getMessage("deliveries.error.saveFailed", null, locale));
+			return renderForm(model, companyId, rows,
+					messageSource.getMessage("deliveries.error.saveFailed", null, locale));
 		}
 		if (businessError != null) {
-			return renderForm(model, rows, businessError);
+			return renderForm(model, companyId, rows, businessError);
 		}
 
 		int totalUnits = lines.values().stream().mapToInt(ReceiptLine::quantity).sum();
@@ -147,19 +152,25 @@ public class DeliveryController {
 	 * (all before mutating anything), then raises stock, adds each location
 	 * the part lacks (case-insensitive, via {@link PartLocation#sameLocation})
 	 * in the shelf's existing spelling ({@link LocationSpellings}),
-	 * flushes and reallocates. Returns a localized
+	 * flushes and reallocates. Shelf locks and spellings are those of
+	 * {@code companyId}, the receiving user's company. Returns a localized
 	 * business error, or {@code null} once applied.
 	 */
-	private String applyReceipt(Map<Long, ReceiptLine> lines, Locale locale) {
+	private String applyReceipt(Map<Long, ReceiptLine> lines, Long companyId, Locale locale) {
 		Set<Long> partIds = lines.keySet();
 		// Shelf locks always come before part-row locks (see LocationSpellings#lockShelves).
-		LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, lines.values().stream()
-			.flatMap(line -> line.locations().stream())
-			.toList());
-		List<Part> lockedParts = partRepository.findByIdInForUpdate(partIds);
+		LocationSpellings spellings = LocationSpellings.lockShelves(partRepository, companyId,
+				lines.values().stream().flatMap(line -> line.locations().stream()).toList());
+		// Only the receiver's company's parts: another company's id is neither locked
+		// nor returned, so it falls into the partNotFound branch below.
+		List<Part> lockedParts = partRepository.findByIdInAndCompanyIdForUpdate(partIds, companyId);
 		if (lockedParts.size() != partIds.size()) {
 			return messageSource.getMessage("deliveries.error.partNotFound", null, locale);
 		}
+		// Initializes the locked parts' locations in one query, so the location
+		// check below doesn't run one lazy load per part while every lock is held.
+		// The managed instances stay the locked ones.
+		partRepository.findWithLocationsByIdInAndCompanyId(partIds, companyId);
 
 		Map<Long, Integer> newQuantities = new HashMap<>();
 		for (Part part : lockedParts) {
@@ -197,7 +208,7 @@ public class DeliveryController {
 		// Flush BEFORE reallocating: the allocator reads stock with a scalar query,
 		// so unflushed increments would leave the delivered units unallocated.
 		partRepository.flush();
-		reservationAllocator.reallocateForParts(new LinkedHashSet<>(partIds));
+		reservationAllocator.reallocateForParts(companyId, new LinkedHashSet<>(partIds));
 		return null;
 	}
 
@@ -293,9 +304,10 @@ public class DeliveryController {
 		return value == null ? "" : value;
 	}
 
-	private String renderForm(Model model, List<RowInput> rows, String error) {
-		model.addAttribute("parts", partRepository.search("", true));
-		model.addAttribute("knownLocations", partRepository.findAllLocationNames());
+	/** Renders the form with company {@code companyId}'s parts and known shelves only. */
+	private String renderForm(Model model, Long companyId, List<RowInput> rows, String error) {
+		model.addAttribute("parts", partRepository.search(companyId, "", true));
+		model.addAttribute("knownLocations", partRepository.findAllLocationNames(companyId));
 		model.addAttribute("rowInputs", rows);
 		model.addAttribute("rowCount", rows.size());
 		model.addAttribute("error", error);

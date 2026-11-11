@@ -14,15 +14,15 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.hamcrest.Matchers.containsString;
@@ -48,7 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Postgres via Testcontainers, deliberately not {@code @Transactional} so
  * every write commits for real.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class PickingVisibilityIntegrationTests {
@@ -84,7 +84,9 @@ class PickingVisibilityIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -131,20 +133,20 @@ class PickingVisibilityIntegrationTests {
 		for (String email : List.of(MANAGER_EMAIL, TECHNICIAN_A_EMAIL, TECHNICIAN_B_EMAIL, TECHNICIAN_C_EMAIL)) {
 			accountRepository.findByEmail(email).ifPresent(accountRepository::delete);
 		}
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("PickingVisibilityIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private Long seedAccount(String email, Role role) {
-		return transactionTemplate.execute(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			return accountRepository.save(account).getId();
-		});
+		return companyFixtures.account(company(), email, PASSWORD, role, true).getId();
 	}
 
 	private void deactivate(Long accountId) {
@@ -162,11 +164,11 @@ class PickingVisibilityIntegrationTests {
 	private Long seedOrder(String projectName, Long assigneeId) {
 		return transactionTemplate.execute(status -> {
 			Long projectId = jdbcTemplate.queryForObject(
-					"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, projectName);
+					"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class, projectName, company().getId());
 			return jdbcTemplate.queryForObject(
-					"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id) "
-							+ "VALUES (?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
-					Long.class, projectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId);
+					"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, assignee_id) "
+							+ "VALUES (?, ?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
+					Long.class, company().getId(), projectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId);
 		});
 	}
 
@@ -277,13 +279,13 @@ class PickingVisibilityIntegrationTests {
 	@Test
 	void reassigningTakenOrderMovesItBetweenTechnicianLists() throws Exception {
 		Long partId = transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES ('Visibility Handover Resistor', 10, true) "
-						+ "RETURNING id",
-				Long.class));
+				"INSERT INTO parts (name, quantity, active, company_id) "
+						+ "VALUES ('Visibility Handover Resistor', 10, true, ?) RETURNING id",
+				Long.class, company().getId()));
 		Long lineId = transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, 5, 5) RETURNING id",
-				Long.class, orderA, partId));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, 5, 5) RETURNING id",
+				Long.class, company().getId(), orderA, partId));
 		MockHttpSession manager = loginAs(MANAGER_EMAIL);
 		MockHttpSession technicianA = loginAs(TECHNICIAN_A_EMAIL);
 		MockHttpSession technicianB = loginAs(TECHNICIAN_B_EMAIL);

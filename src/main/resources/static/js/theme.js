@@ -1,7 +1,7 @@
 /*
  * Theme selection. Loaded in <head> without defer so data-theme is set on <html>
  * before the body paints. Stored choice: localStorage "stockahead-theme" = "light" | "dark";
- * absent means Auto (follow the OS via prefers-color-scheme in app.css).
+ * absent means Auto (follow the OS via `color-scheme: light dark` + light-dark() tokens in app.css).
  */
 (function () {
 	var STORAGE_KEY = 'stockahead-theme';

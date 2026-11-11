@@ -6,14 +6,17 @@ import org.springframework.context.MessageSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import pl.regavio.stockahead.security.CompanyUser;
+
 /**
  * Manager-only shopping-list screen: delegates straight to
- * {@link ShoppingListModel#render(Model)}, same one-line shape as
- * {@code OrderController.detail}.
+ * {@link ShoppingListModel#render(Model, Long)} with the principal's company,
+ * same one-line shape as {@code OrderController.detail}.
  */
 @Controller
 public class ShoppingListController {
@@ -29,14 +32,15 @@ public class ShoppingListController {
 
 	@GetMapping("/purchasing")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String list(Model model) {
-		return shoppingListModel.render(model);
+	public String list(@AuthenticationPrincipal CompanyUser principal, Model model) {
+		return shoppingListModel.render(model, principal.companyId());
 	}
 
 	@GetMapping("/purchasing/export")
 	@PreAuthorize("hasRole('MANAGER')")
-	public ResponseEntity<byte[]> export(Locale locale) {
-		byte[] csv = ShoppingListCsvWriter.write(shoppingListModel.rowsForExport(), csvHeader(locale));
+	public ResponseEntity<byte[]> export(@AuthenticationPrincipal CompanyUser principal, Locale locale) {
+		byte[] csv = ShoppingListCsvWriter.write(shoppingListModel.rowsForExport(principal.companyId()),
+				csvHeader(locale));
 		HttpHeaders headers = new HttpHeaders();
 		headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"lista-zakupow.csv\"");
 		return ResponseEntity.ok().headers(headers).header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")

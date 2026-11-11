@@ -14,14 +14,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Proves {@link ReservationAllocator#reallocateForParts(Set)} against
+ * Proves {@link ReservationAllocator#reallocateForParts(Long, Set)} against
  * {@code context/foundation/prd.md} §Business Logic and US-01's own
  * acceptance example, without going through HTTP. Orders/parts are seeded
  * directly via {@link JdbcTemplate}, matching
@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * real pick endpoint, so a taken order's stock, reservation and pick counts
  * are exactly what the app produces.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class ReservationAllocatorTests {
@@ -67,7 +67,9 @@ class ReservationAllocatorTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private PlatformTransactionManager transactionManager;
@@ -95,33 +97,35 @@ class ReservationAllocatorTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
 	private Long seedProject(String name) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, name));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id",
+				Long.class, name, company().getId()));
 	}
 
 	private Long seedPart(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				quantity));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, quantity, company().getId()));
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, Priority priority, LocalDate requiredDate,
 			Instant createdAt) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
-				Long.class, projectId, quantityUnits, priority.name(), requiredDate, Timestamp.from(createdAt)));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), projectId, quantityUnits, priority.name(), requiredDate, Timestamp.from(createdAt)));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?) RETURNING id",
-				Long.class, orderId, partId, requiredQuantity));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderId, partId, requiredQuantity));
 	}
 
 	private int reservedQuantityOf(Long lineId) {
@@ -142,24 +146,22 @@ class ReservationAllocatorTests {
 		jdbcTemplate.update("UPDATE parts SET quantity = ? WHERE id = ?", quantity, partId);
 	}
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("ReservationAllocatorTests Co");
+		}
+		return company;
+	}
+
 	/**
 	 * Logs in as {@code email}, creating the account on first use only, so a
 	 * test can pick (or report) more than once without colliding on the
 	 * account's unique email.
 	 */
 	private MockHttpSession session(String email, Role role) throws Exception {
-		transactionTemplate.executeWithoutResult(status -> {
-			if (accountRepository.findByEmail(email).isPresent()) {
-				return;
-			}
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
-		});
+		if (accountRepository.findByEmail(email).isEmpty()) {
+			companyFixtures.account(company(), email, PASSWORD, role, true);
+		}
 		return (MockHttpSession) mockMvc.perform(formLogin().user(email).password(PASSWORD))
 			.andExpect(status().is3xxRedirection())
 			.andReturn().getRequest().getSession();
@@ -198,14 +200,15 @@ class ReservationAllocatorTests {
 	}
 
 	/**
-	 * {@link ReservationAllocator#reallocateForParts(Set)} locks the given
+	 * {@link ReservationAllocator#reallocateForParts(Long, Set)} locks the given
 	 * parts via {@code PESSIMISTIC_WRITE}, which requires an active
 	 * transaction — the same contract its real caller (a future
 	 * {@code OrderController}) will satisfy via its own
 	 * {@code TransactionTemplate} block.
 	 */
 	private void reallocate(Set<Long> partIds) {
-		transactionTemplate.executeWithoutResult(status -> reservationAllocator.reallocateForParts(partIds));
+		transactionTemplate
+			.executeWithoutResult(status -> reservationAllocator.reallocateForParts(company().getId(), partIds));
 	}
 
 	// ---- tests ----------------------------------------------------------

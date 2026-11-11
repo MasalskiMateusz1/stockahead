@@ -1,6 +1,5 @@
 package pl.regavio.stockahead.orders;
 
-import java.time.Instant;
 import java.time.LocalDate;
 
 import org.junit.jupiter.api.AfterEach;
@@ -12,14 +11,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
@@ -44,7 +43,7 @@ import static org.hamcrest.Matchers.not;
  * Against a real Postgres via Testcontainers, deliberately not
  * {@code @Transactional} so the DB constraints genuinely fire.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class PickingListAndDetailIntegrationTests {
@@ -62,7 +61,9 @@ class PickingListAndDetailIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -93,20 +94,20 @@ class PickingListAndDetailIntegrationTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("PickingListAndDetailIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private void seedAccount(String email, Role role) {
-		transactionTemplate.executeWithoutResult(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
-		});
+		companyFixtures.account(company(), email, PASSWORD, role, true);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -127,18 +128,19 @@ class PickingListAndDetailIntegrationTests {
 
 	private Long seedProject(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, ?, ?) RETURNING id", Long.class, name, active, company().getId()));
 	}
 
 	private Long seedPart(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				quantity));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, quantity, company().getId()));
 	}
 
 	private void seedPartLocation(Long partId, String location) {
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"INSERT INTO part_locations (part_id, location) VALUES (?, ?)", partId, location));
+				"INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
+				partId, location, company().getId()));
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
@@ -150,11 +152,11 @@ class PickingListAndDetailIntegrationTests {
 			Long assigneeId) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id)
-				VALUES (?, ?, ?, ?, now(), ?)
+				INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, assignee_id)
+				VALUES (?, ?, ?, ?, ?, now(), ?)
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, priority, requiredDate, assigneeId));
+				Long.class, company().getId(), projectId, quantityUnits, priority, requiredDate, assigneeId));
 	}
 
 	private Long accountIdOf(String email) {
@@ -165,10 +167,10 @@ class PickingListAndDetailIntegrationTests {
 			int pickedQuantity) {
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
 				"""
-				INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity, picked_quantity)
-				VALUES (?, ?, ?, ?, ?)
+				INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity, picked_quantity)
+				VALUES (?, ?, ?, ?, ?, ?)
 				""",
-				orderId, partId, requiredQuantity, reservedQuantity, pickedQuantity));
+				company().getId(), orderId, partId, requiredQuantity, reservedQuantity, pickedQuantity));
 	}
 
 	// ---- detail rendering -------------------------------------------------

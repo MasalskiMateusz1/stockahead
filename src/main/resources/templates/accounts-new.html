@@ -1,21 +1,28 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments :: head('Nowe konto technika')}">
+<head th:replace="~{fragments :: head('Nowe konto')}">
 	<meta charset="UTF-8">
-	<title>Nowe konto technika — Stockahead</title>
+	<title>Nowe konto — Stockahead</title>
 </head>
 <body>
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Nowe konto technika</h1>
+		<h1>Nowe konto</h1>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
-		<form class="card" th:action="@{/manager/technicians}" method="post">
+		<form class="card" th:action="@{/manager/accounts}" method="post">
 			<div class="form-field">
 				<label for="email">E-mail</label>
 				<input type="email" id="email" name="email" th:value="${email}" maxlength="255" required>
+			</div>
+			<div class="form-field">
+				<label for="role">Rola</label>
+				<select id="role" name="role" required>
+					<option value="TECHNICIAN" th:selected="${role != 'MANAGER'}">Technik</option>
+					<option value="MANAGER" th:selected="${role == 'MANAGER'}">Kierownik</option>
+				</select>
 			</div>
 			<div class="form-field">
 				<label for="password">Hasło</label>
@@ -29,7 +36,7 @@
 		</form>
 
 		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/manager/technicians}">Powrót do listy</a>
+			<a class="btn btn-secondary" th:href="@{/manager/accounts}">Powrót do listy</a>
 		</div>
 	</main>
 </body>

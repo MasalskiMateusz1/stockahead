@@ -39,9 +39,9 @@
 				<span class="tile-icon"><svg th:replace="~{fragments :: icon('purchasing')}"></svg></span>
 				<span>Lista zakupów</span>
 			</a>
-			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/technicians}">
-				<span class="tile-icon"><svg th:replace="~{fragments :: icon('technicians')}"></svg></span>
-				<span>Konta techników</span>
+			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/accounts}">
+				<span class="tile-icon"><svg th:replace="~{fragments :: icon('accounts')}"></svg></span>
+				<span>Konta</span>
 			</a>
 			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/ping}">
 				<span class="tile-icon"><svg th:replace="~{fragments :: icon('access')}"></svg></span>

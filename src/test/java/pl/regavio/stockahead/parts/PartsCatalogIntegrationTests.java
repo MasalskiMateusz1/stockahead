@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -27,9 +26,10 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,7 +54,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * must commit its own application transaction so the controller's own
  * {@code TransactionTemplate} and the DB constraint are genuinely exercised.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class PartsCatalogIntegrationTests {
@@ -75,7 +75,9 @@ class PartsCatalogIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -108,6 +110,7 @@ class PartsCatalogIntegrationTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
@@ -120,16 +123,15 @@ class PartsCatalogIntegrationTests {
 		seedAccount(TECHNICIAN_EMAIL, PASSWORD, Role.TECHNICIAN, true);
 	}
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("PartsCatalogIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private void seedAccount(String email, String rawPassword, Role role, boolean active) {
-		transactionTemplate.executeWithoutResult(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(rawPassword));
-			account.setRole(role);
-			account.setActive(active);
-			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
-		});
+		companyFixtures.account(company(), email, rawPassword, role, active);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -149,6 +151,7 @@ class PartsCatalogIntegrationTests {
 		part.setQuantity(quantity);
 		part.setActive(active);
 		part.setCreatedAt(Instant.now());
+		part.setCompany(company());
 		for (String location : locations) {
 			PartLocation partLocation = new PartLocation();
 			partLocation.setLocation(location);
@@ -194,26 +197,26 @@ class PartsCatalogIntegrationTests {
 	 */
 	private Long seedProject(String name, boolean active) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, ?) RETURNING id", Long.class, name, active));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, ?, ?) RETURNING id", Long.class, name, active, company().getId()));
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
 				"""
-				INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at)
-				VALUES (?, ?, ?, ?, now())
+				INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at)
+				VALUES (?, ?, ?, ?, ?, now())
 				RETURNING id
 				""",
-				Long.class, projectId, quantityUnits, priority, requiredDate));
+				Long.class, company().getId(), projectId, quantityUnits, priority, requiredDate));
 	}
 
 	private void seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
 				"""
-				INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity)
-				VALUES (?, ?, ?, ?)
+				INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity)
+				VALUES (?, ?, ?, ?, ?)
 				""",
-				orderId, partId, requiredQuantity, reservedQuantity));
+				company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	// ---- DB constraint --------------------------------------------------
@@ -221,11 +224,11 @@ class PartsCatalogIntegrationTests {
 	@Test
 	void negativeQuantityViolatesDatabaseCheckConstraint() {
 		assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"INSERT INTO parts (name, quantity, active, created_at) VALUES (?, ?, ?, now())",
-				"Negative Stock Part", -1, true)))
+				"INSERT INTO parts (name, quantity, active, created_at, company_id) VALUES (?, ?, ?, now(), ?)",
+				"Negative Stock Part", -1, true, company().getId())))
 			.isInstanceOf(DataIntegrityViolationException.class);
 
-		assertThat(partRepository.findByName("Negative Stock Part")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Negative Stock Part")).isEmpty();
 	}
 
 	// ---- create -----------------------------------------------------------
@@ -243,7 +246,7 @@ class PartsCatalogIntegrationTests {
 			.andExpect(header().string("Location", "/parts"));
 
 		transactionTemplate.executeWithoutResult(status -> {
-			Part created = partRepository.findByName("Resistor 10k").orElseThrow();
+			Part created = partRepository.findByCompanyIdAndName(company().getId(), "Resistor 10k").orElseThrow();
 			assertThat(created.getQuantity()).isEqualTo(42);
 			assertThat(created.isActive()).isTrue();
 			assertThat(created.getLocations()).extracting(PartLocation::getLocation)
@@ -284,6 +287,7 @@ class PartsCatalogIntegrationTests {
 				part.setQuantity(1);
 				part.setActive(true);
 				part.setCreatedAt(Instant.now());
+				part.setCompany(company());
 				PartLocation location = new PartLocation();
 				location.setLocation("Holder Shelf");
 				part.addLocation(location);
@@ -346,7 +350,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "   \n  "))
 			.andExpect(status().isOk());
 
-		assertThat(partRepository.findByName("Diode 1N4148")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Diode 1N4148")).isEmpty();
 	}
 
 	@Test
@@ -360,7 +364,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "A1\nA1"))
 			.andExpect(status().isOk());
 
-		assertThat(partRepository.findByName("Transistor BC547")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Transistor BC547")).isEmpty();
 	}
 
 	// ---- role gating --------------------------------------------------
@@ -555,7 +559,7 @@ class PartsCatalogIntegrationTests {
 			.andExpect(view().name("parts-new"))
 			.andExpect(content().string(containsString("Część o tej nazwie już istnieje.")));
 
-		assertThat(partRepository.findByName("kondensator")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "kondensator")).isEmpty();
 	}
 
 	@Test
@@ -600,7 +604,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "Regał A1\nregał a1"))
 			.andExpect(status().isOk());
 
-		assertThat(partRepository.findByName("Transistor BC557")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Transistor BC557")).isEmpty();
 	}
 
 	@Test
@@ -635,7 +639,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "a1\nB7"))
 			.andExpect(status().is3xxRedirection());
 
-		Long partY = partRepository.findByName("Part Y").orElseThrow().getId();
+		Long partY = partRepository.findByCompanyIdAndName(company().getId(), "Part Y").orElseThrow().getId();
 		assertThat(locationValuesOf(partY)).containsExactlyInAnyOrder("A1", "B7");
 	}
 
@@ -705,7 +709,7 @@ class PartsCatalogIntegrationTests {
 				.param("locations", "Regał\u00A0A1\u00A0\nB2\u202F"))
 			.andExpect(status().is3xxRedirection());
 
-		Long partId = partRepository.findByName("Pasted Widget").orElseThrow().getId();
+		Long partId = partRepository.findByCompanyIdAndName(company().getId(), "Pasted Widget").orElseThrow().getId();
 		assertThat(locationValuesOf(partId)).containsExactlyInAnyOrder("Regał A1", "B2");
 	}
 
@@ -720,7 +724,7 @@ class PartsCatalogIntegrationTests {
 				.param("quantity", "4"))
 			.andExpect(status().isOk());
 
-		assertThat(partRepository.findByName("Pasted Duplicate")).isEmpty();
+		assertThat(partRepository.findByCompanyIdAndName(company().getId(), "Pasted Duplicate")).isEmpty();
 	}
 
 	/**

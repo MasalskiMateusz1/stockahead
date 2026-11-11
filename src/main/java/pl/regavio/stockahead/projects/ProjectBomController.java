@@ -6,6 +6,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -17,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Manager-only BOM editing on a project's detail page: add a line (active
@@ -55,21 +57,22 @@ public class ProjectBomController {
 			@PathVariable Long id,
 			@RequestParam(required = false) String partId,
 			@RequestParam(required = false) String quantityPerUnit,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		if (!projectRepository.existsById(id)) {
+		if (!projectRepository.existsByIdAndCompanyId(id, principal.companyId())) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
 
 		String quantityError = validateQuantity(quantityPerUnit, locale);
 		if (quantityError != null) {
-			return renderAddLineError(model, id, quantityError, partId, quantityPerUnit);
+			return renderAddLineError(model, id, principal.companyId(), quantityError, partId, quantityPerUnit);
 		}
 		int parsedQuantity = Integer.parseInt(quantityPerUnit.trim());
 
 		Long parsedPartId = parsePartId(partId);
 		if (parsedPartId == null) {
-			return renderAddLineError(model, id,
+			return renderAddLineError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.bom.error.partUnavailable", null, locale), partId,
 					quantityPerUnit);
 		}
@@ -77,9 +80,11 @@ public class ProjectBomController {
 		boolean added;
 		try {
 			added = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-				Project project = projectRepository.findById(id)
+				Project project = projectRepository.findByIdAndCompanyId(id, principal.companyId())
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-				Part part = partRepository.findById(parsedPartId).filter(Part::isActive).orElse(null);
+				Part part = partRepository.findByIdAndCompanyId(parsedPartId, principal.companyId())
+					.filter(Part::isActive)
+					.orElse(null);
 				if (part == null) {
 					return false;
 				}
@@ -92,13 +97,13 @@ public class ProjectBomController {
 			}));
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderAddLineError(model, id,
+			return renderAddLineError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.bom.error.duplicatePart", null, locale), partId,
 					quantityPerUnit);
 		}
 
 		if (!added) {
-			return renderAddLineError(model, id,
+			return renderAddLineError(model, id, principal.companyId(),
 					messageSource.getMessage("projects.bom.error.partUnavailable", null, locale), partId,
 					quantityPerUnit);
 		}
@@ -112,25 +117,27 @@ public class ProjectBomController {
 			@PathVariable Long id,
 			@PathVariable Long lineId,
 			@RequestParam(required = false) String quantityPerUnit,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		transactionTemplate.executeWithoutResult(status -> findLine(id, lineId));
+		transactionTemplate.executeWithoutResult(status -> findLine(id, principal.companyId(), lineId));
 
 		String quantityError = validateQuantity(quantityPerUnit, locale);
 		if (quantityError != null) {
-			return renderChangeQuantityError(model, id, lineId, quantityError, quantityPerUnit);
+			return renderChangeQuantityError(model, id, principal.companyId(), lineId, quantityError,
+					quantityPerUnit);
 		}
 		int parsedQuantity = Integer.parseInt(quantityPerUnit.trim());
 
 		try {
 			transactionTemplate.executeWithoutResult(status -> {
-				BomLine line = findLine(id, lineId);
+				BomLine line = findLine(id, principal.companyId(), lineId);
 				line.setQuantityPerUnit(parsedQuantity);
 				projectRepository.saveAndFlush(line.getProject());
 			});
 		}
 		catch (DataIntegrityViolationException ex) {
-			return renderChangeQuantityError(model, id, lineId,
+			return renderChangeQuantityError(model, id, principal.companyId(), lineId,
 					messageSource.getMessage("projects.bom.error.saveFailed", null, locale), quantityPerUnit);
 		}
 
@@ -139,9 +146,10 @@ public class ProjectBomController {
 
 	@PostMapping("/projects/{id}/bom/{lineId}/delete")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String removeLine(@PathVariable Long id, @PathVariable Long lineId) {
+	public String removeLine(@PathVariable Long id, @PathVariable Long lineId,
+			@AuthenticationPrincipal CompanyUser principal) {
 		transactionTemplate.executeWithoutResult(status -> {
-			BomLine line = findLine(id, lineId);
+			BomLine line = findLine(id, principal.companyId(), lineId);
 			Project project = line.getProject();
 			project.removeBomLine(line);
 			projectRepository.saveAndFlush(project);
@@ -150,12 +158,13 @@ public class ProjectBomController {
 	}
 
 	/**
-	 * Loads the line {@code lineId} of project {@code projectId} inside the
-	 * caller's transaction. Unknown project, unknown line, or a line of
-	 * another project is 404.
+	 * Loads the line {@code lineId} of company {@code companyId}'s project
+	 * {@code projectId} inside the caller's transaction. Unknown project,
+	 * another company's project, unknown line, or a line of another project
+	 * is 404.
 	 */
-	private BomLine findLine(Long projectId, Long lineId) {
-		Project project = projectRepository.findById(projectId)
+	private BomLine findLine(Long projectId, Long companyId, Long lineId) {
+		Project project = projectRepository.findByIdAndCompanyId(projectId, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		return project.getBomLines().stream()
 			.filter(line -> line.getId().equals(lineId))
@@ -193,16 +202,17 @@ public class ProjectBomController {
 		}
 	}
 
-	private String renderAddLineError(Model model, Long id, String error, String partId, String quantityPerUnit) {
-		projectDetailModel.render(model, id, true, error);
+	private String renderAddLineError(Model model, Long id, Long companyId, String error, String partId,
+			String quantityPerUnit) {
+		projectDetailModel.render(model, id, companyId, true, error);
 		model.addAttribute("partId", partId);
 		model.addAttribute("quantityPerUnit", quantityPerUnit);
 		return ProjectDetailModel.VIEW;
 	}
 
-	private String renderChangeQuantityError(Model model, Long id, Long lineId, String error,
+	private String renderChangeQuantityError(Model model, Long id, Long companyId, Long lineId, String error,
 			String quantityPerUnit) {
-		projectDetailModel.render(model, id, true, error);
+		projectDetailModel.render(model, id, companyId, true, error);
 		model.addAttribute("errorLineId", lineId);
 		model.addAttribute("quantityPerUnit", quantityPerUnit);
 		return ProjectDetailModel.VIEW;

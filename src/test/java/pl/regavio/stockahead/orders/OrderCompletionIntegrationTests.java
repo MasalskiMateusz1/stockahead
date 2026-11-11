@@ -13,14 +13,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +32,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,7 +64,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * deliberately not {@code @Transactional} so the V8 constraints fire for
  * real.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class OrderCompletionIntegrationTests {
@@ -114,7 +115,9 @@ class OrderCompletionIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -148,20 +151,20 @@ class OrderCompletionIntegrationTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("OrderCompletionIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private void seedAccount(String email, Role role) {
-		transactionTemplate.executeWithoutResult(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode(PASSWORD));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
-		});
+		companyFixtures.account(company(), email, PASSWORD, role, true);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -186,13 +189,13 @@ class OrderCompletionIntegrationTests {
 
 	private Long seedProject(String name) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, name));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class, name, company().getId()));
 	}
 
 	private Long seedPart(String name, int quantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class, name,
-				quantity));
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, name, quantity, company().getId()));
 	}
 
 	private Long seedOrder() {
@@ -206,17 +209,17 @@ class OrderCompletionIntegrationTests {
 	/** An OPEN order assigned to {@code assigneeId} ({@code null} leaves it unassigned). */
 	private Long seedOrder(Long orderProjectId, Long assigneeId) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at, assignee_id) "
-						+ "VALUES (?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
-				Long.class, orderProjectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at, assignee_id) "
+						+ "VALUES (?, ?, 1, 'NORMAL', ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderProjectId, LocalDate.now().plusDays(7), Timestamp.from(Instant.now()), assigneeId));
 	}
 
 	/** An OPEN order for {@code quantityUnits} units of the default project. */
 	private Long seedOrderWithUnits(int quantityUnits) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, ?, 'NORMAL', ?, ?) RETURNING id",
-				Long.class, projectId, quantityUnits, LocalDate.now().plusDays(7), Timestamp.from(Instant.now())));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, ?, 'NORMAL', ?, ?) RETURNING id",
+				Long.class, company().getId(), projectId, quantityUnits, LocalDate.now().plusDays(7), Timestamp.from(Instant.now())));
 	}
 
 	/**
@@ -225,16 +228,16 @@ class OrderCompletionIntegrationTests {
 	 */
 	private Long seedOrder(Long orderProjectId, Priority priority, Instant createdAt) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
-				Long.class, orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt)));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, 1, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderProjectId, priority.name(), LocalDate.now().plusDays(7), Timestamp.from(createdAt)));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, ?, ?) RETURNING id",
-				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
@@ -258,16 +261,28 @@ class OrderCompletionIntegrationTests {
 			.andExpect(header().string("Location", "/picking/" + orderId));
 	}
 
+	/** Confirms the order, asserting the redirect and the success flash naming its project. */
 	private void confirm(MockHttpSession session, Long orderId) throws Exception {
 		mockMvc.perform(post("/orders/{id}/confirm-completion", orderId).session(session).with(csrf()))
 			.andExpect(status().is3xxRedirection())
-			.andExpect(header().string("Location", "/orders"));
+			.andExpect(header().string("Location", "/orders"))
+			.andExpect(flash().attribute("success",
+					"Potwierdzono zakończenie zlecenia projektu " + projectNameOf(orderId) + "."));
 	}
 
+	/** Rejects the report, asserting the redirect and the neutral info flash naming the project. */
 	private void reject(MockHttpSession session, Long orderId) throws Exception {
 		mockMvc.perform(post("/orders/{id}/reject-completion", orderId).session(session).with(csrf()))
 			.andExpect(status().is3xxRedirection())
-			.andExpect(header().string("Location", "/orders"));
+			.andExpect(header().string("Location", "/orders"))
+			.andExpect(flash().attribute("info",
+					"Odrzucono zgłoszenie zakończenia zlecenia projektu " + projectNameOf(orderId) + "."));
+	}
+
+	private String projectNameOf(Long orderId) {
+		return jdbcTemplate.queryForObject(
+				"SELECT p.name FROM orders o JOIN projects p ON p.id = o.project_id WHERE o.id = ?", String.class,
+				orderId);
 	}
 
 	/**
@@ -616,7 +631,7 @@ class OrderCompletionIntegrationTests {
 			.andExpect(content().string(containsString("Brak braków.")));
 		mockMvc.perform(get("/orders").session(manager))
 			.andExpect(status().isOk())
-			.andExpect(content().string(not(containsString("Order Completion Board"))))
+			.andExpect(content().string(not(containsString("<td>Order Completion Board</td>"))))
 			.andExpect(content().string(containsString("Next In Line Board")));
 		mockMvc.perform(get("/picking").session(technician))
 			.andExpect(status().isOk())
@@ -723,7 +738,8 @@ class OrderCompletionIntegrationTests {
 			for (int attempt = 0; attempt < 2; attempt++) {
 				mockMvc.perform(post("/orders/{id}/" + action, orderId).session(manager).with(csrf()))
 					.andExpect(status().isOk())
-					.andExpect(content().string(containsString(NOT_REPORTED_ERROR)));
+					.andExpect(content().string(containsString(NOT_REPORTED_ERROR)))
+					.andExpect(flash().attributeCount(0));
 
 				assertThat(statusOf(orderId)).isEqualTo("OPEN");
 				assertThat(completedAtOf(orderId)).isNull();
@@ -765,6 +781,37 @@ class OrderCompletionIntegrationTests {
 			mockMvc.perform(post("/orders/{id}/" + action, 999_999_999L).session(manager).with(csrf()))
 				.andExpect(status().isNotFound());
 		}
+	}
+
+	@Test
+	void confirmAndRejectFlashesShowOnTheOrderList() throws Exception {
+		Long partId = seedPart("Flash Resistor", 10);
+		Long orderId = seedOrder();
+		Long lineId = seedOrderLine(orderId, partId, 5, 5);
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+		pick(technician, orderId, lineId, 5);
+
+		report(technician, orderId);
+		reject(manager, orderId);
+		// Following the redirect: the session carries the flash to the next GET /orders, which consumes it.
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(
+					"<p class=\"alert alert-info\" role=\"status\">Odrzucono zgłoszenie zakończenia zlecenia projektu Order Completion Board.</p>")));
+
+		report(technician, orderId);
+		confirm(manager, orderId);
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(
+					"<p class=\"alert alert-success\" role=\"status\">Potwierdzono zakończenie zlecenia projektu Order Completion Board.</p>")));
+
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("alert-success"))))
+			.andExpect(content().string(not(containsString("alert-info"))));
 	}
 
 	// ---- manager reject ---------------------------------------------------
@@ -1026,8 +1073,8 @@ class OrderCompletionIntegrationTests {
 		Long lineB = seedOrderLine(orderB, partId, 12, 4);
 		Long lowProjectId = seedProject("Late Low Board");
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit) VALUES (?, ?, 5)", lowProjectId,
-				partId));
+				"INSERT INTO bom_lines (project_id, part_id, quantity_per_unit, company_id) VALUES (?, ?, 5, ?)", lowProjectId,
+				partId, company().getId()));
 		seedAccount(MANAGER_EMAIL, Role.MANAGER);
 		MockHttpSession technician = technicianSession();
 		MockHttpSession manager = loginAs(MANAGER_EMAIL);

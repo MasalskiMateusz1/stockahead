@@ -40,20 +40,21 @@ class PickingDetailModel {
 	}
 
 	/**
-	 * Populates the detail page for {@code orderId}. An unknown order is 404.
+	 * Populates the detail page for {@code orderId} of company
+	 * {@code companyId}. An unknown order, or another company's, is 404.
 	 * @return the {@code picking-detail} view name
 	 */
-	String render(Model model, Long orderId) {
-		return render(model, orderId, null, null);
+	String render(Model model, Long companyId, Long orderId) {
+		return render(model, companyId, orderId, null, null);
 	}
 
 	/**
-	 * Same as {@link #render(Model, Long)}, with a page-level error message
-	 * shown at the top of the page ({@code null} for none) and the id of the
-	 * line whose pick form should show it.
+	 * Same as {@link #render(Model, Long, Long)}, with a page-level error
+	 * message shown at the top of the page ({@code null} for none) and the id
+	 * of the line whose pick form should show it.
 	 */
-	String render(Model model, Long orderId, String error, Long errorLineId) {
-		DetailData data = readTransaction.execute(status -> load(orderId));
+	String render(Model model, Long companyId, Long orderId, String error, Long errorLineId) {
+		DetailData data = readTransaction.execute(status -> load(companyId, orderId));
 		model.addAttribute("orderId", orderId);
 		model.addAttribute("order", data.order());
 		model.addAttribute("lines", data.lines());
@@ -64,8 +65,8 @@ class PickingDetailModel {
 		return VIEW;
 	}
 
-	private DetailData load(Long orderId) {
-		Order order = orderRepository.findByIdWithDetails(orderId)
+	private DetailData load(Long companyId, Long orderId) {
+		Order order = orderRepository.findByIdWithDetails(orderId, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		List<LineView> lines = order.getLines().stream()
 			.map(line -> new LineView(line.getId(), line.getPart().getName(), joinLocations(line.getPart()),

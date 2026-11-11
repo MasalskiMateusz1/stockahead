@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -18,7 +19,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -28,16 +29,17 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
-import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.account.Role;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
 import pl.regavio.stockahead.projects.BomLine;
 import pl.regavio.stockahead.projects.Project;
 import pl.regavio.stockahead.projects.ProjectRepository;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Manager-only order creation: a form picking an active project, a unit
@@ -68,6 +70,13 @@ import pl.regavio.stockahead.projects.ProjectRepository;
  * effect at once, and cancelling an {@code OPEN}, unreported order with the
  * picked units the manager hands back returned to stock. Reassigning or
  * unassigning an {@code OPEN} order uses it too, without reallocating.
+ * <p>
+ * Every route is scoped to the principal's company: the order list holds only
+ * that company's orders, another company's order id answers 404 and changes
+ * nothing, reservations are reallocated over that company's parts and orders
+ * only, and only that company's assignable accounts can be assignees (another
+ * company's account is {@code orders.error.assigneeUnavailable}, exactly like
+ * a missing one).
  */
 @Controller
 public class OrderController {
@@ -117,8 +126,9 @@ public class OrderController {
 
 	@GetMapping("/orders")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String list(Model model) {
-		List<Order> openOrders = orderRepository.findByStatusWithProject(OrderStatus.OPEN).stream()
+	public String list(@AuthenticationPrincipal CompanyUser principal, Model model) {
+		List<Order> openOrders = orderRepository.findByStatusWithProject(principal.companyId(), OrderStatus.OPEN)
+			.stream()
 			.sorted(ReservationAllocator.ALLOCATION_ORDER)
 			.toList();
 		model.addAttribute("pendingOrders", openOrders.stream().filter(Order::isCompletionReported).toList());
@@ -128,8 +138,8 @@ public class OrderController {
 
 	@GetMapping("/orders/{id}")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String detail(@PathVariable Long id, Model model) {
-		return orderDetailModel.render(model, id);
+	public String detail(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal, Model model) {
+		return orderDetailModel.render(model, principal.companyId(), id);
 	}
 
 	/**
@@ -146,15 +156,17 @@ public class OrderController {
 	 */
 	@PostMapping("/orders/{id}/confirm-completion")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String confirmCompletion(@PathVariable Long id, Model model, Locale locale) {
-		return transitionReportedOrder(id, model, locale, (order, partIds) -> {
+	public String confirmCompletion(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal,
+			Model model, RedirectAttributes redirectAttributes, Locale locale) {
+		Long companyId = principal.companyId();
+		return transitionReportedOrder(companyId, id, model, redirectAttributes, locale, "success", "orders.completion.confirmed", (order, partIds) -> {
 			order.setStatus(OrderStatus.COMPLETED);
 			order.setCompletedAt(Instant.now());
 			for (OrderLine line : order.getLines()) {
 				line.setReservedQuantity(0);
 			}
 			orderRepository.saveAndFlush(order);
-			reservationAllocator.reallocateForParts(partIds);
+			reservationAllocator.reallocateForParts(companyId, partIds);
 		});
 	}
 
@@ -172,13 +184,15 @@ public class OrderController {
 	 */
 	@PostMapping("/orders/{id}/reject-completion")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String rejectCompletion(@PathVariable Long id, Model model, Locale locale) {
-		return transitionReportedOrder(id, model, locale, (order, partIds) -> {
+	public String rejectCompletion(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal,
+			Model model, RedirectAttributes redirectAttributes, Locale locale) {
+		Long companyId = principal.companyId();
+		return transitionReportedOrder(companyId, id, model, redirectAttributes, locale, "info", "orders.completion.rejected", (order, partIds) -> {
 			order.setCompletionReportedAt(null);
 			order.setCompletionReportedBy(null);
 			order.setBuiltUnits(null);
 			orderRepository.saveAndFlush(order);
-			reservationAllocator.reallocateForParts(partIds);
+			reservationAllocator.reallocateForParts(companyId, partIds);
 		});
 	}
 
@@ -200,10 +214,12 @@ public class OrderController {
 	public String change(@PathVariable Long id,
 			@RequestParam(required = false) String priority,
 			@RequestParam(required = false) String requiredDate,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		Function<String, String> renderError = error -> orderDetailModel.render(model, id, error, priority,
-				requiredDate);
+		Long companyId = principal.companyId();
+		Function<String, String> renderError = error -> orderDetailModel.render(model, companyId, id, error,
+				priority, requiredDate);
 
 		Priority parsedPriority = parseStrictPriority(priority);
 		if (parsedPriority == null) {
@@ -214,7 +230,7 @@ public class OrderController {
 			return renderError.apply(messageSource.getMessage("orders.error.dateRequired", null, locale));
 		}
 
-		return transitionOrder(id, locale, "orders.error.changeFailed", renderError, "redirect:/orders/" + id,
+		return transitionOrder(companyId, id, locale, "orders.error.changeFailed", renderError, "redirect:/orders/" + id,
 				(order, partIds) -> {
 					if (order.getStatus() != OrderStatus.OPEN || order.isTaken()) {
 						return messageSource.getMessage("orders.error.notChangeable", null, locale);
@@ -226,7 +242,7 @@ public class OrderController {
 					order.setPriority(parsedPriority);
 					order.setRequiredDate(parsedRequiredDate);
 					orderRepository.saveAndFlush(order);
-					reservationAllocator.reallocateForParts(partIds);
+					reservationAllocator.reallocateForParts(companyId, partIds);
 					return null;
 				});
 	}
@@ -241,16 +257,19 @@ public class OrderController {
 	 * read under those part locks — a lighter lock would let either silently
 	 * undo the new assignee. Under the lock the order must still be
 	 * {@code OPEN} and the account must still be assignable (the
-	 * {@link AccountRepository#findAssignable()} rule). Assigning is not a
+	 * {@link AccountRepository#findAssignable(Long)} rule, within the
+	 * principal's company). Assigning is not a
 	 * reallocation event: reservations, picks and the schedule are untouched.
 	 */
 	@PostMapping("/orders/{id}/assign")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String assign(@PathVariable Long id,
 			@RequestParam(required = false) String assigneeId,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		Function<String, String> renderError = error -> orderDetailModel.render(model, id, error);
+		Long companyId = principal.companyId();
+		Function<String, String> renderError = error -> orderDetailModel.render(model, companyId, id, error);
 
 		boolean assigned = assigneeId != null && !assigneeId.isBlank();
 		Long parsedAssigneeId = assigned ? parseId(assigneeId) : null;
@@ -258,14 +277,14 @@ public class OrderController {
 			return renderError.apply(messageSource.getMessage("orders.error.assigneeUnavailable", null, locale));
 		}
 
-		return transitionOrder(id, locale, "orders.error.assignFailed", renderError, "redirect:/orders/" + id,
+		return transitionOrder(companyId, id, locale, "orders.error.assignFailed", renderError, "redirect:/orders/" + id,
 				(order, partIds) -> {
 					if (order.getStatus() != OrderStatus.OPEN) {
 						return messageSource.getMessage("orders.error.notAssignable", null, locale);
 					}
 					Account assignee = null;
 					if (parsedAssigneeId != null) {
-						assignee = accountRepository.findById(parsedAssigneeId)
+						assignee = accountRepository.findByIdAndCompanyId(parsedAssigneeId, companyId)
 							.filter(OrderController::isAssignable)
 							.orElse(null);
 						if (assignee == null) {
@@ -285,8 +304,8 @@ public class OrderController {
 	 */
 	@GetMapping("/orders/{id}/cancel")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String cancelForm(@PathVariable Long id, Model model) {
-		OrderDetailModel.CancelPage page = orderDetailModel.loadCancel(id);
+	public String cancelForm(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal, Model model) {
+		OrderDetailModel.CancelPage page = orderDetailModel.loadCancel(principal.companyId(), id);
 		if (!page.cancellable()) {
 			return "redirect:/orders/" + id;
 		}
@@ -316,10 +335,11 @@ public class OrderController {
 	@PostMapping("/orders/{id}/cancel")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String cancel(@PathVariable Long id, @RequestParam Map<String, String> params,
-			Authentication authentication, Model model, Locale locale) {
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale) {
+		Long companyId = principal.companyId();
 		Map<Long, String> rawReturns = paramsByLineId(params, RETURNED_PARAM_PREFIX);
 		Map<Long, String> rawSeenPicked = paramsByLineId(params, SEEN_PICKED_PARAM_PREFIX);
-		Function<String, String> renderError = error -> orderDetailModel.renderCancel(model, id, error,
+		Function<String, String> renderError = error -> orderDetailModel.renderCancel(model, companyId, id, error,
 				rawReturns);
 
 		Map<Long, Integer> returns = new HashMap<>();
@@ -343,7 +363,7 @@ public class OrderController {
 			seenPicked.put(entry.getKey(), parsed);
 		}
 
-		return transitionOrder(id, locale, "orders.error.cancelFailed", renderError, "redirect:/orders/" + id,
+		return transitionOrder(companyId, id, locale, "orders.error.cancelFailed", renderError, "redirect:/orders/" + id,
 				(order, partIds) -> {
 					if (!order.canCancel()) {
 						return messageSource.getMessage("orders.error.notCancellable", null, locale);
@@ -364,8 +384,7 @@ public class OrderController {
 						}
 					}
 
-					Account canceller = accountRepository
-						.findByCanonicalEmail(Emails.canonical(authentication.getName()))
+					Account canceller = accountRepository.findByIdAndCompanyId(principal.accountId(), companyId)
 						.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
 					for (OrderLine line : order.getLines()) {
 						int returned = returns.getOrDefault(line.getId(), 0);
@@ -382,7 +401,7 @@ public class OrderController {
 					// Flushes the whole persistence context: the order, its lines and the
 					// locked parts, so the allocator reads the returned stock.
 					orderRepository.saveAndFlush(order);
-					reservationAllocator.reallocateForParts(partIds);
+					reservationAllocator.reallocateForParts(companyId, partIds);
 					return null;
 				});
 	}
@@ -427,18 +446,34 @@ public class OrderController {
 	/**
 	 * Confirm/reject's precondition on top of {@link #transitionOrder}: the
 	 * order must still be {@code OPEN} and reported. Failures re-render the
-	 * detail page; success goes back to the order list.
+	 * detail page; success goes back to the order list with a {@code flashName}
+	 * flash ({@code success} for confirm, the neutral {@code info} for reject;
+	 * text from {@code successKey}, naming the order's project as read from the
+	 * order re-read under the lock). Scoped to company {@code companyId} like
+	 * {@link #transitionOrder}.
 	 */
-	private String transitionReportedOrder(Long orderId, Model model, Locale locale,
+	private String transitionReportedOrder(Long companyId, Long orderId, Model model,
+			RedirectAttributes redirectAttributes, Locale locale, String flashName, String successKey,
 			BiConsumer<Order, Set<Long>> transition) {
-		return transitionOrder(orderId, locale, "orders.error.completionFailed",
-				error -> orderDetailModel.render(model, orderId, error), "redirect:/orders", (order, partIds) -> {
-					if (order.getStatus() != OrderStatus.OPEN || !order.isCompletionReported()) {
-						return messageSource.getMessage("orders.error.notReported", null, locale);
-					}
-					transition.accept(order, partIds);
-					return null;
-				});
+		// Set by the last successful attempt; cleared if the transaction then fails, so only a committed change flashes.
+		AtomicReference<String> projectName = new AtomicReference<>();
+		String view = transitionOrder(companyId, orderId, locale, "orders.error.completionFailed", error -> {
+			projectName.set(null);
+			return orderDetailModel.render(model, companyId, orderId, error);
+		}, "redirect:/orders", (order, partIds) -> {
+			projectName.set(null);
+			if (order.getStatus() != OrderStatus.OPEN || !order.isCompletionReported()) {
+				return messageSource.getMessage("orders.error.notReported", null, locale);
+			}
+			transition.accept(order, partIds);
+			projectName.set(order.getProject().getName());
+			return null;
+		});
+		if (projectName.get() != null) {
+			redirectAttributes.addFlashAttribute(flashName,
+					messageSource.getMessage(successKey, new Object[] { projectName.get() }, locale));
+		}
+		return view;
 	}
 
 	/**
@@ -448,24 +483,26 @@ public class OrderController {
 	 * pick takes, and a fresh re-read of the order handed to
 	 * {@code transition} (with the locked part ids), which re-checks its
 	 * precondition and returns a localized business error, or {@code null}
-	 * after applying the change. An unknown order is 404; a business error or
-	 * a DB/lock failure ({@code failureKey}) goes to {@code renderError}, and
-	 * success returns {@code successView}.
+	 * after applying the change. Every lookup is scoped to company
+	 * {@code companyId}: another company's order yields no part ids and no
+	 * order, so it is 404 like an unknown one, before anything is locked or
+	 * mutated. A business error or a DB/lock failure ({@code failureKey}) goes
+	 * to {@code renderError}, and success returns {@code successView}.
 	 */
-	private String transitionOrder(Long orderId, Locale locale, String failureKey,
+	private String transitionOrder(Long companyId, Long orderId, Locale locale, String failureKey,
 			Function<String, String> renderError, String successView, OrderTransition transition) {
 		Set<Long> partIds = transactionTemplate
-			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId)));
+			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId, companyId)));
 
 		String businessError;
 		try {
 			businessError = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
 				if (!partIds.isEmpty()) {
-					partRepository.findByIdInForUpdate(partIds);
+					partRepository.findByIdInAndCompanyIdForUpdate(partIds, companyId);
 				}
 				// An order with no lines has no part rows to serialize on, so lock its own row instead.
-				Order order = (partIds.isEmpty() ? orderRepository.findByIdForUpdate(orderId)
-						: orderRepository.findById(orderId))
+				Order order = (partIds.isEmpty() ? orderRepository.findByIdForUpdate(orderId, companyId)
+						: orderRepository.findByIdAndCompanyId(orderId, companyId))
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 				return transition.apply(order, partIds);
 			}));
@@ -495,8 +532,8 @@ public class OrderController {
 
 	@GetMapping("/orders/new")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String newForm(Model model) {
-		populateFormModel(model);
+	public String newForm(@AuthenticationPrincipal CompanyUser principal, Model model) {
+		populateFormModel(model, principal.companyId());
 		return "orders-new";
 	}
 
@@ -508,31 +545,32 @@ public class OrderController {
 			@RequestParam(required = false) String priority,
 			@RequestParam(required = false) String requiredDate,
 			@RequestParam(required = false) String assigneeId,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
 		FormValues form = new FormValues(projectId, quantityUnits, priority, requiredDate, assigneeId);
 		String quantityError = validateQuantityUnits(quantityUnits, locale);
 		if (quantityError != null) {
-			return renderNewOrderError(model, quantityError, form);
+			return renderNewOrderError(model, principal.companyId(), quantityError, form);
 		}
 		int parsedQuantityUnits = Integer.parseInt(quantityUnits.trim());
 
 		String dateError = validateRequiredDate(requiredDate, locale);
 		if (dateError != null) {
-			return renderNewOrderError(model, dateError, form);
+			return renderNewOrderError(model, principal.companyId(), dateError, form);
 		}
 		LocalDate parsedRequiredDate = LocalDate.parse(requiredDate.trim());
 
 		Long parsedProjectId = parseProjectId(projectId);
 		if (parsedProjectId == null) {
-			return renderNewOrderError(model,
+			return renderNewOrderError(model, principal.companyId(),
 					messageSource.getMessage("orders.error.projectUnavailable", null, locale), form);
 		}
 
 		boolean assigned = assigneeId != null && !assigneeId.isBlank();
 		Long parsedAssigneeId = assigned ? parseId(assigneeId) : null;
 		if (assigned && parsedAssigneeId == null) {
-			return renderNewOrderError(model,
+			return renderNewOrderError(model, principal.companyId(),
 					messageSource.getMessage("orders.error.assigneeUnavailable", null, locale), form);
 		}
 
@@ -541,13 +579,15 @@ public class OrderController {
 		CreateOutcome outcome;
 		try {
 			outcome = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-				Project project = projectRepository.findById(parsedProjectId).filter(Project::isActive).orElse(null);
+				Project project = projectRepository.findByIdAndCompanyId(parsedProjectId, principal.companyId())
+					.filter(Project::isActive)
+					.orElse(null);
 				if (project == null) {
 					return CreateOutcome.error("orders.error.projectUnavailable");
 				}
 				Account assignee = null;
 				if (parsedAssigneeId != null) {
-					assignee = accountRepository.findById(parsedAssigneeId)
+					assignee = accountRepository.findByIdAndCompanyId(parsedAssigneeId, principal.companyId())
 						.filter(OrderController::isAssignable)
 						.orElse(null);
 					if (assignee == null) {
@@ -572,17 +612,18 @@ public class OrderController {
 				Set<Long> affectedPartIds = order.getLines().stream()
 					.map(line -> line.getPart().getId())
 					.collect(Collectors.toSet());
-				reservationAllocator.reallocateForParts(affectedPartIds);
+				reservationAllocator.reallocateForParts(principal.companyId(), affectedPartIds);
 				return new CreateOutcome(saved.getId(), null);
 			}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
-			return renderNewOrderError(model, messageSource.getMessage("orders.error.saveFailed", null, locale),
-					form);
+			return renderNewOrderError(model, principal.companyId(),
+					messageSource.getMessage("orders.error.saveFailed", null, locale), form);
 		}
 
 		if (outcome.errorKey() != null) {
-			return renderNewOrderError(model, messageSource.getMessage(outcome.errorKey(), null, locale), form);
+			return renderNewOrderError(model, principal.companyId(),
+					messageSource.getMessage(outcome.errorKey(), null, locale), form);
 		}
 
 		return "redirect:/orders/" + outcome.orderId();
@@ -591,7 +632,8 @@ public class OrderController {
 	/**
 	 * Whether an order may be assigned to {@code account}: an active
 	 * technician or the manager — the same rule as
-	 * {@link AccountRepository#findAssignable()}.
+	 * {@link AccountRepository#findAssignable(Long)}. Callers load the account
+	 * scoped to the principal's company first.
 	 */
 	private static boolean isAssignable(Account account) {
 		return account.isActive() && (account.getRole() == Role.TECHNICIAN || account.getRole() == Role.MANAGER);
@@ -722,14 +764,14 @@ public class OrderController {
 		}
 	}
 
-	private void populateFormModel(Model model) {
-		model.addAttribute("activeProjects", projectRepository.list(false));
+	private void populateFormModel(Model model, Long companyId) {
+		model.addAttribute("activeProjects", projectRepository.list(companyId, false));
 		model.addAttribute("today", LocalDate.now().toString());
-		model.addAttribute("assignableAccounts", accountRepository.findAssignable());
+		model.addAttribute("assignableAccounts", accountRepository.findAssignable(companyId));
 	}
 
-	private String renderNewOrderError(Model model, String error, FormValues form) {
-		populateFormModel(model);
+	private String renderNewOrderError(Model model, Long companyId, String error, FormValues form) {
+		populateFormModel(model, companyId);
 		model.addAttribute("error", error);
 		model.addAttribute("projectId", form.projectId());
 		model.addAttribute("quantityUnits", form.quantityUnits());

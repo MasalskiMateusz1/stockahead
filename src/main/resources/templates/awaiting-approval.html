@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments :: head(${blocked} ? #{awaiting.blocked.title} : #{awaiting.title})}">
+	<meta charset="UTF-8">
+	<title>Oczekiwanie na zatwierdzenie — Stockahead</title>
+</head>
+<body>
+	<main class="auth-page">
+		<div class="card">
+			<h1 th:text="${blocked} ? #{awaiting.blocked.title} : #{awaiting.title}">Oczekiwanie na zatwierdzenie</h1>
+
+			<p class="alert alert-info" role="status" th:text="${blocked} ? #{awaiting.status.blocked} : #{awaiting.status.pending}"></p>
+			<p><span th:text="#{awaiting.signedInAs}">Zalogowano jako</span> <strong sec:authentication="name"></strong></p>
+
+			<form th:action="@{/logout}" method="post">
+				<button type="submit" class="btn btn-secondary" th:text="#{awaiting.logout}">Wyloguj</button>
+			</form>
+		</div>
+	</main>
+</body>
+</html>

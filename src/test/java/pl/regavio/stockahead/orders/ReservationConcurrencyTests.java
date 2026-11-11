@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,16 +30,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  * the roadmap's {@code F-01} call for, which didn't exist anywhere in this
  * codebase before this test. Two threads race to insert a competing order
  * for the same scarce part and each call
- * {@link ReservationAllocator#reallocateForParts(Set)} inside its own
+ * {@link ReservationAllocator#reallocateForParts(Long, Set)} inside its own
  * transaction (mirroring the shape {@code OrderController}'s eventual
  * {@code POST /orders} handler will use, per {@code ProjectBomController
  * .addLine}), genuinely exercising
- * {@code PartRepository.findByIdInForUpdate(ids)}'s {@code PESSIMISTIC_WRITE}
+ * {@code PartRepository.findByIdInAndCompanyIdForUpdate(ids, companyId)}'s {@code PESSIMISTIC_WRITE}
  * row lock on Postgres, scoped to just the given part ids. The HTTP-level
  * version of "two concurrent order-creation POSTs" is naturally re-covered
  * once {@code OrderController} exists (Phase 3).
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 class ReservationConcurrencyTests {
 
@@ -51,6 +52,11 @@ class ReservationConcurrencyTests {
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 
+	@Autowired
+	private CompanyFixtures companyFixtures;
+
+	private Long companyId;
+
 	private Long projectId;
 
 	private Long partId;
@@ -58,12 +64,13 @@ class ReservationConcurrencyTests {
 	@BeforeEach
 	void setUp() {
 		cleanUp();
+		companyId = companyFixtures.company("ReservationConcurrencyTests Co").getId();
 		projectId = jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class,
-				"Concurrency Board");
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class,
+				"Concurrency Board", companyId);
 		partId = jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class,
-				"Scarce Resistor", 5);
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, "Scarce Resistor", 5, companyId);
 	}
 
 	@AfterEach
@@ -79,6 +86,7 @@ class ReservationConcurrencyTests {
 		jdbcTemplate.update("DELETE FROM projects");
 		jdbcTemplate.update("DELETE FROM part_locations");
 		jdbcTemplate.update("DELETE FROM parts");
+		companyFixtures.cleanUp();
 	}
 
 	@Test
@@ -92,13 +100,13 @@ class ReservationConcurrencyTests {
 			TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 			transactionTemplate.executeWithoutResult(status -> {
 				Long orderId = jdbcTemplate.queryForObject(
-						"INSERT INTO orders (project_id, quantity_units, priority, required_date) "
-								+ "VALUES (?, 1, 'NORMAL', ?) RETURNING id",
-						Long.class, projectId, LocalDate.now().plusDays(1));
+						"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date) "
+								+ "VALUES (?, ?, 1, 'NORMAL', ?) RETURNING id",
+						Long.class, companyId, projectId, LocalDate.now().plusDays(1));
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
-						partId, 5);
-				reservationAllocator.reallocateForParts(Set.of(partId));
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)",
+						companyId, orderId, partId, 5);
+				reservationAllocator.reallocateForParts(companyId, Set.of(partId));
 			});
 			return null;
 		};
@@ -126,11 +134,11 @@ class ReservationConcurrencyTests {
 	@Test
 	void twoConcurrentOrdersSharingATwoPartBomNeverDeadlockOrOverReserveEitherPart() throws Exception {
 		Long partAId = jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class,
-				"Scarce Capacitor A", 5);
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, "Scarce Capacitor A", 5, companyId);
 		Long partBId = jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active) VALUES (?, ?, true) RETURNING id", Long.class,
-				"Scarce Capacitor B", 5);
+				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+				Long.class, "Scarce Capacitor B", 5, companyId);
 
 		CountDownLatch bothReady = new CountDownLatch(2);
 		ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -141,16 +149,16 @@ class ReservationConcurrencyTests {
 			TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 			transactionTemplate.executeWithoutResult(status -> {
 				Long orderId = jdbcTemplate.queryForObject(
-						"INSERT INTO orders (project_id, quantity_units, priority, required_date) "
-								+ "VALUES (?, 1, 'NORMAL', ?) RETURNING id",
-						Long.class, projectId, LocalDate.now().plusDays(1));
+						"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date) "
+								+ "VALUES (?, ?, 1, 'NORMAL', ?) RETURNING id",
+						Long.class, companyId, projectId, LocalDate.now().plusDays(1));
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
-						partAId, 5);
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)",
+						companyId, orderId, partAId, 5);
 				jdbcTemplate.update(
-						"INSERT INTO order_lines (order_id, part_id, required_quantity) VALUES (?, ?, ?)", orderId,
-						partBId, 5);
-				reservationAllocator.reallocateForParts(Set.of(partAId, partBId));
+						"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity) VALUES (?, ?, ?, ?)",
+						companyId, orderId, partBId, 5);
+				reservationAllocator.reallocateForParts(companyId, Set.of(partAId, partBId));
 			});
 			return null;
 		};

@@ -33,8 +33,12 @@ class OrderCompletionSchemaTests {
 
 	private static final String REPORTER_EMAIL = "completion-schema-reporter@example.com";
 
+	private static final String COMPANY_NAME = "Completion Schema Company";
+
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	private long companyId;
 
 	private long reporterId;
 
@@ -43,11 +47,13 @@ class OrderCompletionSchemaTests {
 	@BeforeEach
 	void setUp() {
 		cleanUp();
+		companyId = jdbcTemplate.queryForObject("INSERT INTO companies (name) VALUES (?) RETURNING id",
+			Long.class, COMPANY_NAME);
 		reporterId = jdbcTemplate.queryForObject(
-			"INSERT INTO accounts (email, password_hash, role) VALUES (?, 'x', 'TECHNICIAN') RETURNING id",
-			Long.class, REPORTER_EMAIL);
+			"INSERT INTO accounts (email, password_hash, role, company_id) VALUES (?, 'x', 'TECHNICIAN', ?) RETURNING id",
+			Long.class, REPORTER_EMAIL, companyId);
 		projectId = jdbcTemplate.queryForObject(
-			"INSERT INTO projects (name) VALUES ('Completion Schema Board') RETURNING id", Long.class);
+			"INSERT INTO projects (name, company_id) VALUES ('Completion Schema Board', ?) RETURNING id", Long.class, companyId);
 	}
 
 	@AfterEach
@@ -62,6 +68,7 @@ class OrderCompletionSchemaTests {
 		jdbcTemplate.update("DELETE FROM bom_lines");
 		jdbcTemplate.update("DELETE FROM projects");
 		jdbcTemplate.update("DELETE FROM accounts WHERE email = ?", REPORTER_EMAIL);
+		jdbcTemplate.update("DELETE FROM companies WHERE name = ?", COMPANY_NAME);
 	}
 
 	private long insertOrder(Instant takenAt) {
@@ -70,9 +77,9 @@ class OrderCompletionSchemaTests {
 
 	private long insertOrder(Instant takenAt, int quantityUnits) {
 		return jdbcTemplate.queryForObject(
-			"INSERT INTO orders (project_id, quantity_units, priority, required_date, taken_at) "
-					+ "VALUES (?, ?, 'NORMAL', CURRENT_DATE, ?) RETURNING id",
-			Long.class, projectId, quantityUnits, takenAt == null ? null : Timestamp.from(takenAt));
+			"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, taken_at) "
+					+ "VALUES (?, ?, ?, 'NORMAL', CURRENT_DATE, ?) RETURNING id",
+			Long.class, companyId, projectId, quantityUnits, takenAt == null ? null : Timestamp.from(takenAt));
 	}
 
 	private long insertReportedOrder(int quantityUnits) {

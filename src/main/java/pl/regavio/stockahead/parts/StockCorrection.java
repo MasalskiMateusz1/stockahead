@@ -30,6 +30,14 @@ public class StockCorrection {
 	@JoinColumn(name = "part_id", nullable = false)
 	private Part part;
 
+	/**
+	 * The part's company, set by {@link #setPart}. A plain column:
+	 * {@link #part} stays the only writer of {@code part_id}, and the
+	 * {@code (part_id, company_id)} foreign key keeps the two in step.
+	 */
+	@Column(name = "company_id", nullable = false)
+	private Long companyId;
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "account_id", nullable = false)
 	private Account account;
@@ -58,8 +66,14 @@ public class StockCorrection {
 		return part;
 	}
 
+	/** Sets the corrected part and takes its company, since a correction always carries its part's company. */
 	public void setPart(Part part) {
 		this.part = part;
+		this.companyId = part == null || part.getCompany() == null ? null : part.getCompany().getId();
+	}
+
+	public Long getCompanyId() {
+		return companyId;
 	}
 
 	public Account getAccount() {

@@ -7,22 +7,22 @@
 <body>
 	<main class="auth-page">
 		<div class="card">
-			<h1>Załóż konto kierownika</h1>
+			<h1>Załóż konto operatora</h1>
 
 			<div th:replace="~{fragments :: alerts}"></div>
 
 			<form th:action="@{/setup}" method="post">
 				<div class="form-field">
 					<label for="email">E-mail</label>
-					<input type="email" id="email" name="email" th:value="${email}" required>
+					<input type="email" id="email" name="email" th:value="${email}" maxlength="255" required>
 				</div>
 				<div class="form-field">
 					<label for="password">Hasło</label>
-					<input type="password" id="password" name="password" required>
+					<input type="password" id="password" name="password" minlength="12" required>
 				</div>
 				<div class="form-field">
 					<label for="confirmPassword">Potwierdź hasło</label>
-					<input type="password" id="confirmPassword" name="confirmPassword" required>
+					<input type="password" id="confirmPassword" name="confirmPassword" minlength="12" required>
 				</div>
 				<div class="form-field">
 					<label for="token">Token konfiguracyjny</label>

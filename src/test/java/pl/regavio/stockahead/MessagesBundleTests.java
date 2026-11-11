@@ -32,18 +32,6 @@ class MessagesBundleTests {
 	}
 
 	@Test
-	void setupErrorPasswordMismatch() {
-		assertThat(messageSource.getMessage("setup.error.passwordMismatch", null, PL))
-			.isEqualTo("Hasła nie są identyczne.");
-	}
-
-	@Test
-	void setupErrorAccountCreationFailed() {
-		assertThat(messageSource.getMessage("setup.error.accountCreationFailed", null, PL))
-			.isEqualTo("Nie udało się założyć konta. Spróbuj ponownie.");
-	}
-
-	@Test
 	void partsErrorNameRequired() {
 		assertThat(messageSource.getMessage("parts.error.nameRequired", null, PL))
 			.isEqualTo("Nazwa jest wymagana.");
@@ -121,9 +109,21 @@ class MessagesBundleTests {
 	}
 
 	@Test
-	void loginStatusManagerCreated() {
-		assertThat(messageSource.getMessage("login.status.managerCreated", null, PL))
-			.isEqualTo("Konto kierownika zostało założone. Zaloguj się.");
+	void loginStatusOperatorCreated() {
+		assertThat(messageSource.getMessage("login.status.operatorCreated", null, PL))
+			.isEqualTo("Konto operatora zostało założone. Zaloguj się.");
+	}
+
+	@Test
+	void accountsErrorRoleInvalid() {
+		assertThat(messageSource.getMessage("accounts.error.roleInvalid", null, PL))
+			.isEqualTo("Wybierz rolę konta.");
+	}
+
+	@Test
+	void accountsErrorLastActiveManager() {
+		assertThat(messageSource.getMessage("accounts.error.lastActiveManager", null, PL))
+			.isEqualTo("Nie można dezaktywować ani zmienić roli ostatniego aktywnego kierownika firmy.");
 	}
 
 	@Test
@@ -220,6 +220,18 @@ class MessagesBundleTests {
 	void ordersErrorCompletionFailed() {
 		assertThat(messageSource.getMessage("orders.error.completionFailed", null, PL))
 			.isEqualTo("Nie udało się zapisać decyzji o zakończeniu zlecenia. Spróbuj ponownie.");
+	}
+
+	@Test
+	void ordersCompletionConfirmed() {
+		assertThat(messageSource.getMessage("orders.completion.confirmed", new Object[] { "Płytka Główna" }, PL))
+			.isEqualTo("Potwierdzono zakończenie zlecenia projektu Płytka Główna.");
+	}
+
+	@Test
+	void ordersCompletionRejected() {
+		assertThat(messageSource.getMessage("orders.completion.rejected", new Object[] { "Płytka Główna" }, PL))
+			.isEqualTo("Odrzucono zgłoszenie zakończenia zlecenia projektu Płytka Główna.");
 	}
 
 	@Test
@@ -482,6 +494,30 @@ class MessagesBundleTests {
 	void partsImportImported() {
 		assertThat(messageSource.getMessage("partsImport.imported", new Object[] { 2, 1234, 10_000L }, PL))
 			.isEqualTo("Zaimportowano: 2 nowych części, 1234 zaktualizowanych, 10000 szt.");
+	}
+
+	@Test
+	void operatorCompaniesApproved() {
+		assertThat(messageSource.getMessage("operator.companies.approved", new Object[] { "Elektro Sp. z o.o." }, PL))
+			.isEqualTo("Firma Elektro Sp. z o.o. została zatwierdzona.");
+	}
+
+	@Test
+	void operatorCompaniesRejected() {
+		assertThat(messageSource.getMessage("operator.companies.rejected", new Object[] { "Elektro Sp. z o.o." }, PL))
+			.isEqualTo("Firma Elektro Sp. z o.o. została odrzucona.");
+	}
+
+	@Test
+	void operatorCompaniesStatusChanged() {
+		assertThat(messageSource.getMessage("operator.companies.statusChanged", null, PL))
+			.isEqualTo("Status firmy zmienił się — odświeżono listę.");
+	}
+
+	@Test
+	void operatorCompaniesActionFailed() {
+		assertThat(messageSource.getMessage("operator.companies.actionFailed", null, PL))
+			.isEqualTo("Nie udało się zmienić statusu firmy. Spróbuj ponownie.");
 	}
 
 }

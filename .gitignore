@@ -50,3 +50,5 @@ build/
 .agents/.10x-cli-manifest.json
 .agents/.10x-cli-manifest.json.bak
 .claude/prompts/
+### Local UI screenshots (never committed)
+context/**/screenshots/

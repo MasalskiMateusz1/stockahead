@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -27,9 +28,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
-import pl.regavio.stockahead.account.Emails;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
+import pl.regavio.stockahead.security.CompanyUser;
 
 /**
  * Picking screen for both MANAGER and TECHNICIAN: the OPEN-order list, a
@@ -43,19 +44,27 @@ import pl.regavio.stockahead.parts.PartRepository;
  * against future preemption (see {@code ReservationAllocator}). The
  * validate-then-lock-then-write shape mirrors {@code OrderController}/
  * {@code ProjectBomController}: the pre-lock partId lookup uses
- * {@link OrderLineRepository#findPartIdForLine(Long, Long)} — a scalar
- * projection, not {@link #findLine(Long, Long)} — specifically so it does
+ * {@link OrderLineRepository#findPartIdForLine(Long, Long, Long)} — a scalar
+ * projection, not {@link #findLine(Long, Long, Long)} — specifically so it does
  * NOT hydrate {@code Order}/{@code OrderLine} entities into the
  * request-scoped persistence context. With {@code spring.jpa.open-in-view}
  * enabled (the default), every {@code TransactionTemplate.execute} call in
  * this request shares the SAME persistence context, so an entity loaded
  * before the lock would still be sitting in Hibernate's first-level cache
- * afterward: the supposedly fresh {@link #findLine(Long, Long)} call made
+ * afterward: the supposedly fresh {@link #findLine(Long, Long, Long)} call made
  * after acquiring the part lock would silently return that same stale cached
  * instance instead of re-querying the database, defeating the whole point of
  * locking before reading. Keeping the pre-lock lookup to a scalar query
  * avoids that trap; only {@code findLine}'s call made after the lock is held
  * ever turns into a managed {@code Order}/{@code OrderLine}.
+ * <p>
+ * Every by-id lookup and lock (detail, pick, report-completion) is scoped to
+ * the principal's company: another company's order or line is 404, exactly
+ * like an unknown id, before any lock, write or rendered output. On detail
+ * and pick the first scoped lookup is that 404; on report-completion a
+ * foreign order yields no part ids, so nothing is locked, and the 404 comes
+ * from the scoped order load (or the scoped error re-render when
+ * {@code builtUnits} is invalid).
  */
 @Controller
 public class PickingController {
@@ -94,10 +103,10 @@ public class PickingController {
 	}
 
 	/**
-	 * The OPEN-order list, per viewer. A technician sees only the orders
-	 * assigned to them. The manager sees every open order, optionally
-	 * narrowed by {@code assignee}: an assignable account's id (see
-	 * {@link AccountRepository#findAssignable()}), or {@value #UNASSIGNED_FILTER}
+	 * The OPEN-order list, per viewer, limited to the viewer's company. A
+	 * technician sees only the orders assigned to them. The manager sees every
+	 * open order of the company, optionally narrowed by {@code assignee}: an
+	 * assignable account's id (see {@link AccountRepository#findAssignable(Long)}), or {@value #UNASSIGNED_FILTER}
 	 * for orders with no assignee or an inactive one. It is only a view
 	 * filter, so a malformed value or an id that isn't assignable falls back
 	 * to every open order instead of an error page.
@@ -105,39 +114,39 @@ public class PickingController {
 	@GetMapping("/picking")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
 	public String list(@RequestParam(name = "assignee", required = false) String assignee,
-			Authentication authentication, Model model) {
+			Authentication authentication, @AuthenticationPrincipal CompanyUser principal, Model model) {
+		Long companyId = principal.companyId();
 		boolean isManager = authentication.getAuthorities().stream()
 			.map(GrantedAuthority::getAuthority)
 			.anyMatch("ROLE_MANAGER"::equals);
 
 		List<Order> orders;
 		if (isManager) {
-			List<Account> assignableAccounts = accountRepository.findAssignable();
+			List<Account> assignableAccounts = accountRepository.findAssignable(companyId);
 			String selectedAssignee = resolveAssigneeFilter(assignee, assignableAccounts);
 			if (selectedAssignee == null) {
-				orders = orderRepository.findByStatusWithProject(OrderStatus.OPEN);
+				orders = orderRepository.findByStatusWithProject(companyId, OrderStatus.OPEN);
 			}
 			else if (UNASSIGNED_FILTER.equals(selectedAssignee)) {
-				orders = orderRepository.findByStatusUnassignedWithProject(OrderStatus.OPEN);
+				orders = orderRepository.findByStatusUnassignedWithProject(companyId, OrderStatus.OPEN);
 			}
 			else {
-				orders = orderRepository.findByStatusAndAssigneeWithProject(OrderStatus.OPEN,
+				orders = orderRepository.findByStatusAndAssigneeWithProject(companyId, OrderStatus.OPEN,
 						Long.valueOf(selectedAssignee));
 			}
 			model.addAttribute("assignableAccounts", assignableAccounts);
 			model.addAttribute("selectedAssignee", selectedAssignee);
 		}
 		else {
-			Account self = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
-			orders = orderRepository.findByStatusAndAssigneeWithProject(OrderStatus.OPEN, self.getId());
+			orders = orderRepository.findByStatusAndAssigneeWithProject(companyId, OrderStatus.OPEN,
+					principal.accountId());
 		}
 		model.addAttribute("isManager", isManager);
 		model.addAttribute("orders", orders.stream()
 			.sorted(ReservationAllocator.ALLOCATION_ORDER)
 			.toList());
 		Map<Long, Long> toPickByOrderId = new HashMap<>();
-		for (Object[] row : orderLineRepository.reservedQuantitiesByOpenOrder()) {
+		for (Object[] row : orderLineRepository.reservedQuantitiesByOpenOrder(companyId)) {
 			toPickByOrderId.put((Long) row[0], (Long) row[1]);
 		}
 		model.addAttribute("toPickByOrderId", toPickByOrderId);
@@ -146,8 +155,8 @@ public class PickingController {
 
 	@GetMapping("/picking/{id}")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
-	public String detail(@PathVariable Long id, Model model) {
-		return pickingDetailModel.render(model, id);
+	public String detail(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal, Model model) {
+		return pickingDetailModel.render(model, principal.companyId(), id);
 	}
 
 	@PostMapping("/picking/{orderId}/lines/{lineId}/pick")
@@ -156,22 +165,25 @@ public class PickingController {
 			@PathVariable Long orderId,
 			@PathVariable Long lineId,
 			@RequestParam(required = false) String quantity,
+			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
-		Long partId = transactionTemplate.execute(status -> orderLineRepository.findPartIdForLine(orderId, lineId)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
+		Long companyId = principal.companyId();
+		Long partId = transactionTemplate
+			.execute(status -> orderLineRepository.findPartIdForLine(orderId, lineId, companyId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
 
 		String quantityError = validateQuantity(quantity, locale);
 		if (quantityError != null) {
-			return renderPickError(model, orderId, lineId, quantityError, quantity);
+			return renderPickError(model, companyId, orderId, lineId, quantityError, quantity);
 		}
 		int parsedQuantity = Integer.parseInt(quantity.trim());
 
 		String businessError;
 		try {
 			businessError = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-				partRepository.findByIdInForUpdate(Set.of(partId));
-				OrderLine line = findLine(orderId, lineId);
+				partRepository.findByIdInAndCompanyIdForUpdate(Set.of(partId), companyId);
+				OrderLine line = findLine(companyId, orderId, lineId);
 				Order order = line.getOrder();
 
 				if (order.getStatus() != OrderStatus.OPEN) {
@@ -202,12 +214,12 @@ public class PickingController {
 			}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
-			return renderPickError(model, orderId, lineId, messageSource.getMessage("picking.error.saveFailed", null,
-					locale), quantity);
+			return renderPickError(model, companyId, orderId, lineId,
+					messageSource.getMessage("picking.error.saveFailed", null, locale), quantity);
 		}
 
 		if (businessError != null) {
-			return renderPickError(model, orderId, lineId, businessError, quantity);
+			return renderPickError(model, companyId, orderId, lineId, businessError, quantity);
 		}
 
 		return "redirect:/picking/" + orderId;
@@ -221,12 +233,15 @@ public class PickingController {
 	 * it) or runs after it and is rejected by the pick's
 	 * {@code picking.error.completionReported} check — never a pick recorded
 	 * after the report. The pre-lock lookup is the scalar
-	 * {@link OrderLineRepository#findPartIdsForOrder(Long)} for the same
+	 * {@link OrderLineRepository#findPartIdsForOrder(Long, Long)} for the same
 	 * open-in-view stale-cache reason as {@link #pick}; the {@code Order}
-	 * entity is only loaded after the locks are held. An empty part-id list
-	 * (unknown order, or an order without lines — which can't be taken, and
-	 * so can't race a pick) skips the lock; an unknown order is then 404 from
-	 * the in-transaction {@code findById}. The reported built count
+	 * entity is only loaded after the locks are held. Every lookup and lock is
+	 * scoped to the principal's company. An empty part-id list (unknown or
+	 * another company's order, or an order without lines — which can't be
+	 * taken, and so can't race a pick) skips the lock; an unknown or foreign
+	 * order is then 404 from the in-transaction {@code findByIdAndCompanyId}
+	 * or, when {@code builtUnits} is invalid, from the scoped error re-render,
+	 * before anything is written. The reported built count
 	 * ({@code builtUnits}) must parse to an integer of at least 0 before any
 	 * lock is taken; its upper bound ({@code quantityUnits}) is checked under
 	 * the lock, after the state checks.
@@ -234,14 +249,15 @@ public class PickingController {
 	@PostMapping("/picking/{orderId}/report-completion")
 	@PreAuthorize("hasAnyRole('MANAGER','TECHNICIAN')")
 	public String reportCompletion(@PathVariable Long orderId,
-			@RequestParam(required = false) String builtUnits, Authentication authentication, Model model,
-			Locale locale) {
+			@RequestParam(required = false) String builtUnits, @AuthenticationPrincipal CompanyUser principal,
+			Model model, Locale locale) {
+		Long companyId = principal.companyId();
 		Set<Long> partIds = transactionTemplate
-			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId)));
+			.execute(status -> new HashSet<>(orderLineRepository.findPartIdsForOrder(orderId, companyId)));
 
 		Integer parsedBuiltUnits = parseBuiltUnits(builtUnits);
 		if (parsedBuiltUnits == null) {
-			return renderReportError(model, orderId,
+			return renderReportError(model, companyId, orderId,
 					messageSource.getMessage("picking.error.builtUnitsNotInteger", null, locale), builtUnits);
 		}
 
@@ -249,9 +265,9 @@ public class PickingController {
 		try {
 			businessError = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
 				if (!partIds.isEmpty()) {
-					partRepository.findByIdInForUpdate(partIds);
+					partRepository.findByIdInAndCompanyIdForUpdate(partIds, companyId);
 				}
-				Order order = orderRepository.findById(orderId)
+				Order order = orderRepository.findByIdAndCompanyId(orderId, companyId)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
 				if (order.getStatus() != OrderStatus.OPEN) {
@@ -268,7 +284,7 @@ public class PickingController {
 							new Object[] { order.getQuantityUnits() }, locale);
 				}
 
-				Account reporter = accountRepository.findByCanonicalEmail(Emails.canonical(authentication.getName()))
+				Account reporter = accountRepository.findByIdAndCompanyId(principal.accountId(), companyId)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
 				order.setCompletionReportedAt(Instant.now());
 				order.setCompletionReportedBy(reporter);
@@ -278,12 +294,12 @@ public class PickingController {
 			}));
 		}
 		catch (DataIntegrityViolationException | PessimisticLockingFailureException ex) {
-			return renderReportError(model, orderId,
+			return renderReportError(model, companyId, orderId,
 					messageSource.getMessage("picking.error.reportFailed", null, locale), builtUnits);
 		}
 
 		if (businessError != null) {
-			return renderReportError(model, orderId, businessError, builtUnits);
+			return renderReportError(model, companyId, orderId, businessError, builtUnits);
 		}
 
 		return "redirect:/picking/" + orderId;
@@ -314,12 +330,13 @@ public class PickingController {
 	}
 
 	/**
-	 * Loads the line {@code lineId} of order {@code orderId} inside the
-	 * caller's transaction. Unknown order, unknown line, or a line of another
-	 * order is 404.
+	 * Loads the line {@code lineId} of order {@code orderId} of company
+	 * {@code companyId} inside the caller's transaction. Unknown order,
+	 * another company's order, unknown line, or a line of another order is
+	 * 404.
 	 */
-	private OrderLine findLine(Long orderId, Long lineId) {
-		Order order = orderRepository.findById(orderId)
+	private OrderLine findLine(Long companyId, Long orderId, Long lineId) {
+		Order order = orderRepository.findByIdAndCompanyId(orderId, companyId)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 		return order.getLines().stream()
 			.filter(line -> line.getId().equals(lineId))
@@ -364,14 +381,16 @@ public class PickingController {
 		return parsed < 0 ? null : parsed;
 	}
 
-	private String renderPickError(Model model, Long orderId, Long lineId, String error, String rawQuantity) {
-		pickingDetailModel.render(model, orderId, error, lineId);
+	private String renderPickError(Model model, Long companyId, Long orderId, Long lineId, String error,
+			String rawQuantity) {
+		pickingDetailModel.render(model, companyId, orderId, error, lineId);
 		model.addAttribute("quantity", rawQuantity);
 		return PickingDetailModel.VIEW;
 	}
 
-	private String renderReportError(Model model, Long orderId, String error, String rawBuiltUnits) {
-		pickingDetailModel.render(model, orderId, error, null);
+	private String renderReportError(Model model, Long companyId, Long orderId, String error,
+			String rawBuiltUnits) {
+		pickingDetailModel.render(model, companyId, orderId, error, null);
 		model.addAttribute("builtUnits", rawBuiltUnits);
 		return PickingDetailModel.VIEW;
 	}

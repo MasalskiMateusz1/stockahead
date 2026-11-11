@@ -12,13 +12,17 @@ import org.springframework.stereotype.Component;
 import pl.regavio.stockahead.parts.PartRepository;
 
 /**
- * Recomputes {@code OrderLine.reservedQuantity} for the {@code OPEN} orders
- * touching a caller-supplied set of parts, following the priority (desc) -&gt;
- * required date (asc) -&gt; created-at/id (asc) allocation order from the
- * PRD's Business Logic section. Locks exactly the given {@link Part} ids via
- * {@code PartRepository.findByIdInForUpdate(ids)}'s {@code PESSIMISTIC_WRITE}
- * (ascending id order), so callers must invoke
- * {@link #reallocateForParts(Set)} inside the same transaction that creates
+ * Recomputes {@code OrderLine.reservedQuantity} for one company's
+ * {@code OPEN} orders touching a caller-supplied set of parts, following the
+ * priority (desc) -&gt; required date (asc) -&gt; created-at/id (asc)
+ * allocation order from the PRD's Business Logic section. Allocation is per
+ * company: only that company's parts are locked and read, and only its open
+ * order lines are allocated, so two companies never compete for stock or
+ * wait on each other's part locks. Locks exactly the given {@link Part} ids
+ * of that company via
+ * {@code PartRepository.findByIdInAndCompanyIdForUpdate(ids, companyId)}'s
+ * {@code PESSIMISTIC_WRITE} (ascending id order), so callers must invoke
+ * {@link #reallocateForParts(Long, Set)} inside the same transaction that creates
  * or modifies the triggering row, passing every part id their own
  * already-loaded writes touch — never derive the set from a separate query.
  * The part locks and the order writes then commit atomically together.
@@ -45,7 +49,7 @@ import pl.regavio.stockahead.parts.PartRepository;
  * cannot take them back — the order in which events happen decides it. Top-up
  * only happens when an event calls this allocator, so every write that raises
  * a part's stock (delivery, correction, import) must call
- * {@link #reallocateForParts(Set)} for that part under its row lock, or short
+ * {@link #reallocateForParts(Long, Set)} for that part under its row lock, or short
  * taken orders never receive the new units.
  */
 @Component
@@ -67,9 +71,12 @@ public class ReservationAllocator {
 	}
 
 	/**
-	 * Recomputes {@code reservedQuantity} for the {@code OPEN} order lines
-	 * touching one of {@code partIds}, from a running per-part stock pool
-	 * seeded with each part's current {@code quantity} (picking may have
+	 * Recomputes {@code reservedQuantity} for company {@code companyId}'s
+	 * {@code OPEN} order lines touching one of {@code partIds}. A part id of
+	 * another company in {@code partIds} is ignored: it is not locked, its
+	 * stock is not read and its lines are not allocated. The rest works from
+	 * a running per-part stock pool seeded with each part's current
+	 * {@code quantity} (picking may have
 	 * already drawn it down), minus the current reservation of every taken
 	 * order's lines on those parts (reported or not) — that floor leaves the
 	 * pool before any order is processed, so no order can absorb units a
@@ -88,24 +95,24 @@ public class ReservationAllocator {
 	 * which is safe because {@code UNIQUE(order_id, part_id)} guarantees each
 	 * line of an order touches a distinct part.
 	 */
-	public void reallocateForParts(Set<Long> partIds) {
+	public void reallocateForParts(Long companyId, Set<Long> partIds) {
 		if (partIds.isEmpty()) {
 			return;
 		}
-		// findByIdInForUpdate's own entities are NOT read from below: a caller may
+		// findByIdInAndCompanyIdForUpdate's own entities are NOT read from below: a caller may
 		// already have a stale Part managed in this transaction's persistence context
 		// (e.g. OrderController.create resolves BomLine.getPart() before this call),
 		// in which case this query's own row data would be discarded in favor of
 		// that already-managed, possibly outdated instance by Hibernate's identity
 		// map. The lock it takes is still required; the quantities come from the
 		// separate scalar read below, which always reflects the just-locked row.
-		partRepository.findByIdInForUpdate(partIds);
+		partRepository.findByIdInAndCompanyIdForUpdate(partIds, companyId);
 		Map<Long, Integer> remainingStockByPartId = new HashMap<>();
-		for (Object[] row : partRepository.findCurrentQuantities(partIds)) {
+		for (Object[] row : partRepository.findCurrentQuantities(companyId, partIds)) {
 			remainingStockByPartId.put((Long) row[0], (Integer) row[1]);
 		}
 
-		List<OrderLine> affectedLines = orderLineRepository.findOpenLinesForParts(partIds);
+		List<OrderLine> affectedLines = orderLineRepository.findOpenLinesForParts(companyId, partIds);
 		List<OrderLine> takenLines = affectedLines.stream().filter(line -> line.getOrder().isTaken()).toList();
 		List<OrderLine> allocatableLines = affectedLines.stream()
 			.filter(line -> !line.getOrder().isTaken() || !line.getOrder().isCompletionReported())

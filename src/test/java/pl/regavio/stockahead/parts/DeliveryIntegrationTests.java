@@ -16,16 +16,16 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import pl.regavio.stockahead.CompanyFixtures;
 import pl.regavio.stockahead.TestcontainersConfiguration;
-import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
+import pl.regavio.stockahead.account.Company;
 import pl.regavio.stockahead.account.Role;
 import pl.regavio.stockahead.orders.Priority;
 
@@ -56,7 +56,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@code /parts} with the summary. Against a real Postgres via
  * Testcontainers, deliberately not {@code @Transactional}.
  */
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CompanyFixtures.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class DeliveryIntegrationTests {
@@ -74,7 +74,9 @@ class DeliveryIntegrationTests {
 	private AccountRepository accountRepository;
 
 	@Autowired
-	private PasswordEncoder passwordEncoder;
+	private CompanyFixtures companyFixtures;
+
+	private Company company;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -116,20 +118,20 @@ class DeliveryIntegrationTests {
 		jdbcTemplate.update("DELETE FROM parts");
 		accountRepository.findByEmail(TECHNICIAN_EMAIL).ifPresent(accountRepository::delete);
 		accountRepository.findByEmail(MANAGER_EMAIL).ifPresent(accountRepository::delete);
+		companyFixtures.cleanUp();
 	}
 
 	// ---- fixtures -----------------------------------------------------
 
+	private Company company() {
+		if (company == null) {
+			company = companyFixtures.company("DeliveryIntegrationTests Co");
+		}
+		return company;
+	}
+
 	private void seedAccount(String email, Role role) {
-		transactionTemplate.executeWithoutResult(status -> {
-			Account account = new Account();
-			account.setEmail(email);
-			account.setPasswordHash(passwordEncoder.encode("correct-password"));
-			account.setRole(role);
-			account.setActive(true);
-			account.setCreatedAt(Instant.now());
-			accountRepository.save(account);
-		});
+		companyFixtures.account(company(), email, "correct-password", role, true);
 	}
 
 	private MockHttpSession loginAs(String email) throws Exception {
@@ -151,30 +153,31 @@ class DeliveryIntegrationTests {
 	private Long seedPart(String name, int quantity, boolean active, String location) {
 		return transactionTemplate.execute(status -> {
 			Long id = jdbcTemplate.queryForObject(
-					"INSERT INTO parts (name, quantity, active) VALUES (?, ?, ?) RETURNING id", Long.class, name,
-					quantity, active);
-			jdbcTemplate.update("INSERT INTO part_locations (part_id, location) VALUES (?, ?)", id, location);
+					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, ?, ?) RETURNING id",
+					Long.class, name, quantity, active, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
+					id, location, company().getId());
 			return id;
 		});
 	}
 
 	private Long seedProject(String name) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO projects (name, active) VALUES (?, true) RETURNING id", Long.class, name));
+				"INSERT INTO projects (name, active, company_id) VALUES (?, true, ?) RETURNING id", Long.class, name, company().getId()));
 	}
 
 	private Long seedOrder(Long projectId, Priority priority, LocalDate requiredDate, Instant createdAt) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO orders (project_id, quantity_units, priority, required_date, created_at) "
-						+ "VALUES (?, 1, ?, ?, ?) RETURNING id",
-				Long.class, projectId, priority.name(), requiredDate, Timestamp.from(createdAt)));
+				"INSERT INTO orders (company_id, project_id, quantity_units, priority, required_date, created_at) "
+						+ "VALUES (?, ?, 1, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), projectId, priority.name(), requiredDate, Timestamp.from(createdAt)));
 	}
 
 	private Long seedOrderLine(Long orderId, Long partId, int requiredQuantity, int reservedQuantity) {
 		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO order_lines (order_id, part_id, required_quantity, reserved_quantity) "
-						+ "VALUES (?, ?, ?, ?) RETURNING id",
-				Long.class, orderId, partId, requiredQuantity, reservedQuantity));
+				"INSERT INTO order_lines (company_id, order_id, part_id, required_quantity, reserved_quantity) "
+						+ "VALUES (?, ?, ?, ?, ?) RETURNING id",
+				Long.class, company().getId(), orderId, partId, requiredQuantity, reservedQuantity));
 	}
 
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {

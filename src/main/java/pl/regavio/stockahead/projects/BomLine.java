@@ -27,6 +27,16 @@ public class BomLine {
 	@JoinColumn(name = "part_id", nullable = false)
 	private Part part;
 
+	/**
+	 * The project's company, set by {@link Project#addBomLine}. A plain column:
+	 * {@link #project} and {@link #part} stay the only writers of
+	 * {@code project_id}/{@code part_id}, and the composite
+	 * {@code (project_id, company_id)} and {@code (part_id, company_id)}
+	 * foreign keys keep the three in step.
+	 */
+	@Column(name = "company_id", nullable = false)
+	private Long companyId;
+
 	@Column(name = "quantity_per_unit", nullable = false)
 	private int quantityPerUnit;
 
@@ -52,6 +62,14 @@ public class BomLine {
 
 	public void setPart(Part part) {
 		this.part = part;
+	}
+
+	public Long getCompanyId() {
+		return companyId;
+	}
+
+	void setCompanyId(Long companyId) {
+		this.companyId = companyId;
 	}
 
 	public int getQuantityPerUnit() {

@@ -28,6 +28,25 @@ Stockahead is a parts-warehouse and production-reservation web app for a small e
 - The Thymeleaf security dialect artifact is `thymeleaf-extras-springsecurity6` even on Security 7; do not rename it to `…springsecurity7`.
 - Patch a vulnerable transitive library by overriding its BOM property (`tomcat.version`, `jackson-bom.version`) in @pom.xml, never with an explicit `<version>` on a starter. Remove the override once the Boot parent catches up.
 
+## Company isolation (prd-v2)
+
+- Every table holding warehouse data (parts, locations, projects, BOM lines, orders, reservations, stock movements, corrections, accounts except the operator) carries a non-null `company_id`; add it in a new Flyway migration, never by editing V1–V13.
+- Uniqueness that is global today (part name, project name, location spelling) becomes `UNIQUE (company_id, …)` per FR-028; email stays globally unique (FR-029).
+- Load records by `(id, company_id)` — never a bare `findById` on a company-owned entity from a controller. A record of another company answers 404, exactly like a missing id.
+- Hibernate 7.4 `@TenantId` does not filter native SQL and has no automatic row-level security. A native query that reads company-owned rows must include `company_id = :companyId`. Exceptions: the login email lookup in `AccountRepository` (intentionally cross-company) and the advisory locks in `PartRepository`/`LocationSpellings` (no data read); `LocationSpellings`' shelf and part-name lock keys include the company, so two companies never wait on each other's lock.
+- Pessimistic-lock (`PESSIMISTIC_WRITE` / `FOR UPDATE`) and allocation queries in `PartRepository`, `OrderRepository` and `ReservationAllocator` scope to the current company; allocation never reads another company's orders or stock.
+- The current company comes from the authenticated principal, never from a request parameter or form field.
+- The operator account has no company and no route to any warehouse controller; its access is limited to the company list and approve/reject/block.
+- URL authorization denies by default (`security/SecurityConfig`): `/operator/**` requires OPERATOR, and every other non-public route (everything except `/login`, `/setup/**`, `/register`, health, static resources, `/` and `/error`) requires MANAGER or TECHNICIAN. Keep `@PreAuthorize` on new routes anyway; the URL rule is the backstop. `OperatorAccessIntegrationTests` holds one operator→403 test per warehouse controller; add a case when you add a controller.
+- Users of a company that is not ACTIVE are redirected to `/awaiting-approval` by `security/AccountActivityFilter`, on every route except that page, `/error` and static resources. `PendingCompanyAccessIntegrationTests` holds one case per warehouse controller; add a case when you add a controller.
+- The operator principal has `companyId() == null`; reload it with `AccountRepository.findByIdAndCompanyIdIsNull(accountId)`, never with `findByIdAndCompanyId`.
+- `CompanyRepository.findAllForOperatorList()` and its by-id variant `findOperatorRowById(id)` are intentional cross-company reads, used only by the operator's company screens; never call them from a company-scoped route.
+- An account with `email_released_at` set belongs to a rejected registration: it is excluded from login and from email uniqueness (`accounts_email_canonical_idx` is partial). Any new email lookup must filter `email_released_at IS NULL`.
+- Status changes of an existing company go through `account/CompanyLifecycle` (approve, reject, block, unblock), which locks the company row with `CompanyRepository.findByIdForUpdate` before re-reading the status; add any new transition there, never change `Company.status` elsewhere.
+- A BLOCKED company's users are refused at login by the post-authentication check in `security/SecurityConfig` (`/login?blocked`, shown only after the password matches); its open sessions are gated to `/awaiting-approval`. Block and unblock never touch account `active` flags or `email_released_at`, so unblocking restores exactly the accounts that were active before.
+- Every company-scoped route ships with a test: a user of company B requesting company A's record id gets 404 (and cannot mutate it), alongside the existing wrong-role 403 test.
+- Shared pieces: take the company from `security/CompanyUser.companyId()` (`@AuthenticationPrincipal CompanyUser`) and the current account id from `security/CompanyUser.accountId()`, loading the account with `AccountRepository.findByIdAndCompanyId(accountId, companyId)` — never by email (`findByCanonicalEmail` is login-only, enforced by `AccountLookupConventionTests`); seed companies and accounts with the test bean `CompanyFixtures` (`@Import` it next to `TestcontainersConfiguration`), and copy the two-company test pattern from `account/CompanyAccountIntegrationTests`.
+
 ## Coding style
 
 - Indent Java and XML with tabs, matching the generated sources. No formatter or linter is configured yet.
