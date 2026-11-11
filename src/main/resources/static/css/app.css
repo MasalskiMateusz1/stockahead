@@ -187,43 +187,75 @@ textarea:focus-visible,
 
 /* ---------- Tables ---------- */
 
+/* Every table is a clean list table: text reads left, the header is a small muted label on the
+   card surface, rows get a subtle hover fill. Cells carry no classes (tests match bare cells),
+   so column alignment comes from classes on <table> and from position. */
 table {
 	width: 100%;
 	border-collapse: collapse;
-	margin: 0 0 1rem;
+	margin: 0 0 var(--space-4);
 	background: var(--card);
 	color: var(--card-foreground);
 }
 
-/* Restates the old per-template rule: table cell content is centered. */
-td,
-th {
-	text-align: center;
-}
-
 th,
 td {
-	padding: 0.5rem 0.75rem;
+	text-align: left;
+	padding: var(--space-2) var(--space-3);
 	border-bottom: 1px solid var(--border);
 	vertical-align: middle;
 }
 
+/* --muted-foreground on --card: light 5.48:1 / dark 6.78:1 (on --muted it would be 4.68:1). */
 th {
-	background: var(--muted);
-	color: var(--foreground);
+	background: var(--card);
+	color: var(--muted-foreground);
+	font-size: var(--text-xs);
 	font-weight: 600;
-	font-size: var(--text-sm);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	white-space: nowrap;
 }
 
+/* Pending rows keep their tint (it is painted on the cells). On the fill: --card-foreground
+   light 13.18:1 / dark 11.62:1; --destructive light 5.91:1 / dark 5.37:1. */
 tbody tr:hover {
-	background: var(--accent);
-	color: var(--accent-foreground);
+	background: color-mix(in oklab, var(--muted) 60%, var(--card));
+}
+
+/* Action column: the last column of a table whose rows hold buttons sits at the right edge.
+   Tables whose last column is data (inputs, links, text) stay left-aligned. */
+table:has(td:last-child :is(.actions, .btn, button)) :is(th, td):last-child {
+	text-align: right;
+}
+
+/* Numeric and date columns, marked by position on <table> (class="num-2 num-4"). */
+table.num-2 :is(th, td):nth-child(2),
+table.num-3 :is(th, td):nth-child(3),
+table.num-4 :is(th, td):nth-child(4),
+table.num-5 :is(th, td):nth-child(5),
+table.num-6 :is(th, td):nth-child(6),
+table.num-7 :is(th, td):nth-child(7),
+table.num-8 :is(th, td):nth-child(8) {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+/* class="data-table" is kept as a no-op alias: its rules are now the defaults above. */
+
+/* Numeric and date columns of orders-list.html, selected by position. If a column is added to
+   or moved in either table, update these positions. */
+#pending-orders table.data-table :is(th, td):is(:nth-child(2), :nth-child(4), :nth-child(6), :nth-child(7)),
+#open-orders table.data-table :is(th, td):is(:nth-child(2), :nth-child(4)) {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
 }
 
 .table-wrap {
 	width: 100%;
 	overflow-x: auto;
-	margin: 0 0 1rem;
+	margin: 0 0 var(--space-4);
+	background: var(--card);
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
 	box-shadow: var(--shadow-sm);
@@ -237,60 +269,24 @@ tbody tr:hover {
 	border-bottom: 0;
 }
 
-/* Row awaiting a manager decision (completion reported): amber tint plus a leading bar. */
+/* Row awaiting a manager decision (completion reported): amber tint plus a leading bar.
+   Mixed in oklab: --card is near-achromatic, so an oklch mix drifts the hue to pink.
+   --card-foreground on the tint: light 13.11:1 / dark 9.78:1. */
 tr.row-pending > td {
-	background: color-mix(in oklch, var(--warning) 14%, var(--card));
+	background: color-mix(in oklab, var(--warning) 14%, var(--card));
 }
 
 tr.row-pending > td:first-child {
 	box-shadow: inset 3px 0 0 var(--warning);
 }
 
-/* Opt-in list table (class="data-table"): text reads left, numbers and dates line up on the
-   right, the action column sits at the right edge. Tables without the class stay centred. */
-table.data-table th,
-table.data-table td {
-	text-align: left;
-	padding: var(--space-2) var(--space-3);
-}
-
-/* Header on the card surface: --muted-foreground on --muted would drop below 4.5:1 in light. */
-table.data-table th {
-	background: var(--card);
-	color: var(--muted-foreground);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	white-space: nowrap;
-}
-
-/* Subtler than the default row hover; pending rows keep their tint (it is painted on the cells). */
-table.data-table tbody tr:hover {
-	background: color-mix(in oklch, var(--muted) 60%, var(--card));
-}
-
-/* Action column (always the last one). */
-table.data-table th:last-child,
-table.data-table td:last-child {
-	text-align: right;
-}
-
-/* Numeric and date columns of orders-list.html, selected by position because cells carry no
-   classes. If a column is added to or moved in either table, update these positions. */
-#pending-orders table.data-table :is(th, td):is(:nth-child(2), :nth-child(4), :nth-child(6), :nth-child(7)),
-#open-orders table.data-table :is(th, td):is(:nth-child(2), :nth-child(4)) {
-	text-align: right;
-	font-variant-numeric: tabular-nums;
-}
-
-/* Inline row actions: forms and buttons on one line inside a cell. */
+/* Inline row actions: forms and buttons on one line inside a cell, flush with the right edge. */
 .actions {
 	display: inline-flex;
 	flex-wrap: wrap;
 	gap: 0.375rem;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-end;
 }
 
 .actions form {
@@ -362,6 +358,47 @@ textarea:focus-visible {
 	margin: 0;
 }
 
+/* A checkbox in a field row: its label sits on the inputs' line instead of the label row. The
+   height matches a text input (line-height 1.5 + 0.45rem padding twice + 1px border twice). */
+.form-inline > div:not(.form-field) {
+	display: flex;
+	align-items: center;
+	min-height: calc(1.5em + 0.9rem + 2px);
+}
+
+.form-inline > div:not(.form-field) > label {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+/* Search forms on list pages (GET .form-inline) become a filter card: the first field takes
+   the flexible column, further fields and the submit button size to their content, and the
+   button lines up with the bottom edge of the inputs (anki .library-search). */
+.form-inline[method="get"] {
+	display: grid;
+	grid-template-columns: minmax(12rem, 24rem);
+	grid-auto-flow: column;
+	grid-auto-columns: max-content;
+	justify-content: start;
+	align-items: end;
+	gap: var(--space-3) var(--space-4);
+	padding: var(--space-4);
+	background: var(--card);
+	color: var(--card-foreground);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow-sm);
+}
+
+.form-inline[method="get"] .form-field :is(input, select) {
+	width: 100%;
+}
+
+.form-inline[method="get"] > button {
+	min-height: calc(1.5em + 0.9rem + 2px);
+}
+
 /* Honeypot field on the public registration form: kept in the DOM for naive
    form-fillers but moved off-screen (not display:none) so humans never see it. */
 .form-trap {
@@ -383,7 +420,7 @@ button,
 	gap: var(--space-2);
 	font: inherit;
 	font-size: var(--text-base);
-	font-weight: 500;
+	font-weight: 600;
 	line-height: 1.25;
 	padding: var(--space-2) var(--space-4);
 	border: 1px solid var(--primary);
@@ -402,17 +439,20 @@ button:hover,
 	color: var(--primary-foreground);
 }
 
+/* Tinted neutral fill (anki #e8eee7): --secondary-foreground on --secondary 12.37:1 light / 10.87:1 dark. */
 .btn-secondary {
 	background: var(--secondary);
 	color: var(--secondary-foreground);
-	border-color: var(--border);
+	border-color: var(--secondary);
 }
 
 .btn-secondary:hover {
 	background: var(--accent);
 	color: var(--accent-foreground);
+	border-color: var(--accent);
 }
 
+/* Solid destructive button, used outside tables (confirmation pages). */
 .btn-danger {
 	background: var(--destructive);
 	color: var(--destructive-foreground);
@@ -420,7 +460,8 @@ button:hover,
 }
 
 .btn-danger:hover {
-	background: color-mix(in oklch, var(--destructive) 88%, var(--foreground));
+	/* Shifted toward --foreground (darker in light, lighter in dark), so the label gains contrast. */
+	background: color-mix(in oklab, var(--destructive) 88%, var(--foreground));
 	color: var(--destructive-foreground);
 }
 
@@ -445,6 +486,43 @@ button:hover,
 	padding: var(--space-1) var(--space-3);
 	font-size: var(--text-sm);
 	gap: var(--space-1);
+}
+
+/* Buttons inside table rows are compact and quiet whatever their class, so a row of actions
+   never competes with the page's main button. Context selectors, not classes: row button markup
+   is pinned by tests. td .btn (0,1,1) outranks .btn-secondary/.btn-danger (0,1,0);
+   td button (0,1,2 on hover) outranks button:hover (0,1,1). */
+td .btn,
+td button {
+	min-height: 1.75rem;
+	padding: var(--space-1) var(--space-3);
+	font-size: var(--text-sm);
+	gap: var(--space-1);
+	background: transparent;
+	color: var(--foreground);
+	border-color: var(--border);
+}
+
+/* --accent-foreground on --accent: light 10.88:1 / dark 9.55:1. */
+td .btn:hover,
+td button:hover {
+	background: var(--accent);
+	color: var(--accent-foreground);
+	border-color: var(--border);
+}
+
+/* Destructive row action: red text on no fill (--destructive on --card light 6.48:1 / dark 5.90:1),
+   a red tint on hover (--destructive-text on --destructive-surface light 6.29:1 / dark 7.51:1). */
+td .btn-danger {
+	background: transparent;
+	color: var(--destructive);
+	border-color: var(--border);
+}
+
+td .btn-danger:hover {
+	background: var(--destructive-surface);
+	color: var(--destructive-text);
+	border-color: color-mix(in oklab, var(--destructive) 40%, var(--border));
 }
 
 /* ---------- Layout ---------- */
@@ -686,6 +764,40 @@ body:has(> header.topbar) > .container {
 	padding: 4.25rem var(--space-8) 3rem;
 }
 
+/* Page header: the h1 (plus an optional muted .page-subtitle under it) on the left, the
+   .page-actions group on the right. Stacks under 48rem (see the narrow-screen block). */
+.page-header {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--space-1) var(--space-4);
+	margin: 0 0 var(--space-5);
+}
+
+.page-header > h1 {
+	grid-column: 1;
+	margin: 0;
+}
+
+/* --muted-foreground on --background: light 5.08:1 / dark 7.83:1. */
+.page-subtitle {
+	grid-column: 1;
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+}
+
+.page-header > .page-actions {
+	grid-column: 2;
+	grid-row: 1;
+	justify-content: flex-end;
+	margin: 0;
+}
+
+.page-header:has(> .page-subtitle) > .page-actions {
+	grid-row: 1 / span 2;
+}
+
 /* Page-level actions under the heading (links styled as .btn, small forms). */
 .page-actions {
 	display: flex;
@@ -835,14 +947,15 @@ body:has(> header.topbar) > .container {
 	color: var(--secondary-foreground);
 }
 
+/* Status pills: tinted surface + dark text, on the status token pairs. */
 .badge-high {
-	background: var(--destructive);
-	color: var(--destructive-foreground);
+	background: var(--destructive-surface);
+	color: var(--destructive-text); /* light 6.29:1 / dark 7.51:1 */
 }
 
 .badge-normal {
-	background: var(--warning);
-	color: var(--warning-foreground);
+	background: var(--warning-surface);
+	color: var(--warning-text); /* light 8.07:1 / dark 8.64:1 */
 }
 
 /* --foreground on --muted: 12.37:1 light, 10.87:1 dark. */
@@ -850,14 +963,12 @@ body:has(> header.topbar) > .container {
 .badge-muted {
 	background: var(--muted);
 	color: var(--foreground);
-	border-color: var(--border);
 }
 
-/* Workflow state (e.g. "Zgłoszone"), kept apart from the priority colours. --info as text on --background: 6.28:1 light, 7.14:1 dark. */
+/* Workflow state (e.g. "Zgłoszone"), kept apart from the priority colours. */
 .badge-info {
-	background: var(--background);
-	color: var(--info);
-	border-color: var(--info);
+	background: var(--info-surface);
+	color: var(--info-text); /* light 7.65:1 / dark 8.22:1 */
 }
 
 .stats {
@@ -887,12 +998,14 @@ body:has(> header.topbar) > .container {
 	border-radius: var(--radius);
 }
 
+/* Empty list: a dashed, centred block in place of the table (anki pattern).
+   --muted-foreground on --background: light 5.08:1 / dark 7.83:1. */
 .empty {
-	padding: 1.25rem;
-	margin: 0 0 1rem;
+	padding: var(--space-8) var(--space-4);
+	margin: 0 0 var(--space-4);
 	text-align: center;
 	color: var(--muted-foreground);
-	border: 1px dashed var(--border);
+	border: 1px dashed color-mix(in oklab, var(--input) 50%, var(--border));
 	border-radius: var(--radius);
 }
 
@@ -963,6 +1076,29 @@ main {
 
 	h1 {
 		font-size: calc(var(--text-xl) * 0.875);
+	}
+
+	.page-header {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.page-header > .page-actions,
+	.page-header:has(> .page-subtitle) > .page-actions {
+		grid-column: 1;
+		grid-row: auto;
+		justify-content: flex-start;
+		margin-top: var(--space-2);
+	}
+
+	/* Filter card: fields stack, the button stays content-sized. */
+	.form-inline[method="get"] {
+		grid-template-columns: minmax(0, 1fr);
+		grid-auto-flow: row;
+		justify-items: start;
+	}
+
+	.form-inline[method="get"] > .form-field {
+		justify-self: stretch;
 	}
 
 	/* Shell collapses to one column with a compact top bar: brand and session on one row

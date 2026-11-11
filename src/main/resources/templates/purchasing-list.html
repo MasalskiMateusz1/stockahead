@@ -8,16 +8,17 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Lista zakupów</h1>
-
-		<div class="page-actions">
-			<a class="btn" th:href="@{/purchasing/export}">Eksportuj do CSV</a>
+		<div class="page-header">
+			<h1>Lista zakupów</h1>
+			<div class="page-actions">
+				<a class="btn" th:href="@{/purchasing/export}">Eksportuj do CSV</a>
+			</div>
 		</div>
 
 		<p th:if="${#lists.isEmpty(rows)}" class="empty">Brak braków.</p>
 
 		<div class="table-wrap" th:unless="${#lists.isEmpty(rows)}">
-			<table>
+			<table class="num-2">
 				<thead>
 					<tr>
 						<th>Część</th>

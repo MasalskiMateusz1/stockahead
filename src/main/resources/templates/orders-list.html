@@ -8,15 +8,16 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Zlecenia</h1>
+		<div class="page-header">
+			<h1>Zlecenia</h1>
+			<div class="page-actions">
+				<a class="btn" th:href="@{/orders/new}">Nowe zlecenie</a>
+			</div>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 		<p th:if="${success}" class="alert alert-success" role="status" th:text="${success}"></p>
 		<p th:if="${info}" class="alert alert-info" role="status" th:text="${info}"></p>
-
-		<div class="page-actions">
-			<a class="btn" th:href="@{/orders/new}">Nowe zlecenie</a>
-		</div>
 
 		<section id="pending-orders" th:unless="${#lists.isEmpty(pendingOrders)}">
 			<h2>Do potwierdzenia</h2>

@@ -484,31 +484,31 @@ Add the role-based count cards to the dashboard, restyle the tiles, remove the p
 
 #### Automated
 
-- [x] 1.1 Full build and tests pass: `./mvnw verify`
-- [x] 1.2 `TemplateConventionTests` passes, so no inline style was introduced
-- [x] 1.3 The 23 authenticated templates each carry `data-section`
-- [x] 1.4 `fragments.html` nav `<a>` lines are unchanged
+- [x] 1.1 Full build and tests pass: `./mvnw verify` — b62133e
+- [x] 1.2 `TemplateConventionTests` passes, so no inline style was introduced — b62133e
+- [x] 1.3 The 23 authenticated templates each carry `data-section` — b62133e
+- [x] 1.4 `fragments.html` nav `<a>` lines are unchanged — b62133e
 
 #### Manual
 
-- [x] 1.5 Sidebar at 1280px shows all manager links with icons and highlights the current section
-- [x] 1.6 At 390px the top bar is compact and the nav scrolls horizontally
-- [x] 1.7 Light and dark both read correctly (surfaces, teal button, focus ring)
-- [x] 1.8 With reduced motion on, no animation plays
+- [x] 1.5 Sidebar at 1280px shows all manager links with icons and highlights the current section — b62133e
+- [x] 1.6 At 390px the top bar is compact and the nav scrolls horizontally — b62133e
+- [x] 1.7 Light and dark both read correctly (surfaces, teal button, focus ring) — b62133e
+- [x] 1.8 With reduced motion on, no animation plays — b62133e
 
 ### Phase 2: List views
 
 #### Automated
 
-- [ ] 2.1 Full build and tests pass: `./mvnw verify`
-- [ ] 2.2 No attribute was added to table cells or rows
-- [ ] 2.3 The operator companies table is still bare
+- [x] 2.1 Full build and tests pass: `./mvnw verify`
+- [x] 2.2 No attribute was added to table cells or rows
+- [x] 2.3 The operator companies table is still bare
 
 #### Manual
 
-- [ ] 2.4 parts-list shows aligned columns, quiet row buttons, header row and filter card
-- [ ] 2.5 orders-list pending rows read amber and priority pills are tinted
-- [ ] 2.6 Other list views look consistent with parts-list in light and dark
+- [x] 2.4 parts-list shows aligned columns, quiet row buttons, header row and filter card
+- [x] 2.5 orders-list pending rows read amber and priority pills are tinted
+- [x] 2.6 Other list views look consistent with parts-list in light and dark
 - [ ] 2.7 Empty parts-list and accounts-list show the dashed empty state
 
 ### Phase 3: Forms, detail and auth pages

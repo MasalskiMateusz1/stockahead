@@ -8,7 +8,9 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Lista kompletacyjna</h1>
+		<div class="page-header">
+			<h1>Lista kompletacyjna</h1>
+		</div>
 
 		<form class="form-inline" th:if="${isManager}" th:action="@{/picking}" method="get">
 			<div class="form-field">
@@ -28,7 +30,7 @@
 		<p th:if="${#lists.isEmpty(orders)}" class="empty">Brak zleceń.</p>
 
 		<div class="table-wrap" th:unless="${#lists.isEmpty(orders)}">
-			<table>
+			<table class="num-2 num-4" th:classappend="${isManager} ? 'num-6' : 'num-5'">
 				<thead>
 					<tr>
 						<th>Projekt</th>

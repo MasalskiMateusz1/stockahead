@@ -8,19 +8,20 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Kartoteka części</h1>
+		<div class="page-header">
+			<h1>Kartoteka części</h1>
+			<div class="page-actions">
+				<a class="btn" th:href="@{/deliveries/new}">Przyjmij dostawę</a>
+				<a sec:authorize="hasRole('MANAGER')" class="btn btn-secondary" th:href="@{/parts/new}">Dodaj część</a>
+				<a sec:authorize="hasRole('MANAGER')" class="btn btn-secondary" th:href="@{/parts/import}">Importuj części z CSV</a>
+			</div>
+		</div>
 
 		<p th:if="${deliveryReceived}" class="alert alert-success" role="status" th:text="${deliveryReceived}"></p>
 
 		<p th:if="${stockCorrected}" class="alert alert-success" role="status" th:text="${stockCorrected}"></p>
 
 		<p th:if="${partsImported}" class="alert alert-success" role="status" th:text="${partsImported}"></p>
-
-		<div class="page-actions">
-			<a class="btn" th:href="@{/deliveries/new}">Przyjmij dostawę</a>
-			<a sec:authorize="hasRole('MANAGER')" class="btn btn-secondary" th:href="@{/parts/new}">Dodaj część</a>
-			<a sec:authorize="hasRole('MANAGER')" class="btn btn-secondary" th:href="@{/parts/import}">Importuj części z CSV</a>
-		</div>
 
 		<form class="form-inline" th:action="@{/parts}" method="get">
 			<div class="form-field">
@@ -36,8 +37,10 @@
 			<button type="submit" class="btn">Szukaj</button>
 		</form>
 
-		<div class="table-wrap">
-			<table>
+		<p th:if="${#lists.isEmpty(parts)}" class="empty">Brak części.</p>
+
+		<div class="table-wrap" th:unless="${#lists.isEmpty(parts)}">
+			<table class="num-2 num-3 num-4">
 				<thead>
 					<tr>
 						<th>Nazwa</th>
