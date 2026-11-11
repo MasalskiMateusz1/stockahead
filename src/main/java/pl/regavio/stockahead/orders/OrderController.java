@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
@@ -155,9 +157,9 @@ public class OrderController {
 	@PostMapping("/orders/{id}/confirm-completion")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String confirmCompletion(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal,
-			Model model, Locale locale) {
+			Model model, RedirectAttributes redirectAttributes, Locale locale) {
 		Long companyId = principal.companyId();
-		return transitionReportedOrder(companyId, id, model, locale, (order, partIds) -> {
+		return transitionReportedOrder(companyId, id, model, redirectAttributes, locale, "success", "orders.completion.confirmed", (order, partIds) -> {
 			order.setStatus(OrderStatus.COMPLETED);
 			order.setCompletedAt(Instant.now());
 			for (OrderLine line : order.getLines()) {
@@ -183,9 +185,9 @@ public class OrderController {
 	@PostMapping("/orders/{id}/reject-completion")
 	@PreAuthorize("hasRole('MANAGER')")
 	public String rejectCompletion(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal,
-			Model model, Locale locale) {
+			Model model, RedirectAttributes redirectAttributes, Locale locale) {
 		Long companyId = principal.companyId();
-		return transitionReportedOrder(companyId, id, model, locale, (order, partIds) -> {
+		return transitionReportedOrder(companyId, id, model, redirectAttributes, locale, "info", "orders.completion.rejected", (order, partIds) -> {
 			order.setCompletionReportedAt(null);
 			order.setCompletionReportedBy(null);
 			order.setBuiltUnits(null);
@@ -444,20 +446,34 @@ public class OrderController {
 	/**
 	 * Confirm/reject's precondition on top of {@link #transitionOrder}: the
 	 * order must still be {@code OPEN} and reported. Failures re-render the
-	 * detail page; success goes back to the order list. Scoped to company
-	 * {@code companyId} like {@link #transitionOrder}.
+	 * detail page; success goes back to the order list with a {@code flashName}
+	 * flash ({@code success} for confirm, the neutral {@code info} for reject;
+	 * text from {@code successKey}, naming the order's project as read from the
+	 * order re-read under the lock). Scoped to company {@code companyId} like
+	 * {@link #transitionOrder}.
 	 */
-	private String transitionReportedOrder(Long companyId, Long orderId, Model model, Locale locale,
+	private String transitionReportedOrder(Long companyId, Long orderId, Model model,
+			RedirectAttributes redirectAttributes, Locale locale, String flashName, String successKey,
 			BiConsumer<Order, Set<Long>> transition) {
-		return transitionOrder(companyId, orderId, locale, "orders.error.completionFailed",
-				error -> orderDetailModel.render(model, companyId, orderId, error), "redirect:/orders",
-				(order, partIds) -> {
-					if (order.getStatus() != OrderStatus.OPEN || !order.isCompletionReported()) {
-						return messageSource.getMessage("orders.error.notReported", null, locale);
-					}
-					transition.accept(order, partIds);
-					return null;
-				});
+		// Set by the last successful attempt; cleared if the transaction then fails, so only a committed change flashes.
+		AtomicReference<String> projectName = new AtomicReference<>();
+		String view = transitionOrder(companyId, orderId, locale, "orders.error.completionFailed", error -> {
+			projectName.set(null);
+			return orderDetailModel.render(model, companyId, orderId, error);
+		}, "redirect:/orders", (order, partIds) -> {
+			projectName.set(null);
+			if (order.getStatus() != OrderStatus.OPEN || !order.isCompletionReported()) {
+				return messageSource.getMessage("orders.error.notReported", null, locale);
+			}
+			transition.accept(order, partIds);
+			projectName.set(order.getProject().getName());
+			return null;
+		});
+		if (projectName.get() != null) {
+			redirectAttributes.addFlashAttribute(flashName,
+					messageSource.getMessage(successKey, new Object[] { projectName.get() }, locale));
+		}
+		return view;
 	}
 
 	/**

@@ -10,6 +10,10 @@
 	<main class="container">
 		<h1>Zlecenia</h1>
 
+		<div th:replace="~{fragments :: alerts}"></div>
+		<p th:if="${success}" class="alert alert-success" role="status" th:text="${success}"></p>
+		<p th:if="${info}" class="alert alert-info" role="status" th:text="${info}"></p>
+
 		<div class="page-actions">
 			<a class="btn" th:href="@{/orders/new}">Nowe zlecenie</a>
 		</div>

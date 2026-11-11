@@ -32,6 +32,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -260,16 +261,28 @@ class OrderCompletionIntegrationTests {
 			.andExpect(header().string("Location", "/picking/" + orderId));
 	}
 
+	/** Confirms the order, asserting the redirect and the success flash naming its project. */
 	private void confirm(MockHttpSession session, Long orderId) throws Exception {
 		mockMvc.perform(post("/orders/{id}/confirm-completion", orderId).session(session).with(csrf()))
 			.andExpect(status().is3xxRedirection())
-			.andExpect(header().string("Location", "/orders"));
+			.andExpect(header().string("Location", "/orders"))
+			.andExpect(flash().attribute("success",
+					"Potwierdzono zakończenie zlecenia projektu " + projectNameOf(orderId) + "."));
 	}
 
+	/** Rejects the report, asserting the redirect and the neutral info flash naming the project. */
 	private void reject(MockHttpSession session, Long orderId) throws Exception {
 		mockMvc.perform(post("/orders/{id}/reject-completion", orderId).session(session).with(csrf()))
 			.andExpect(status().is3xxRedirection())
-			.andExpect(header().string("Location", "/orders"));
+			.andExpect(header().string("Location", "/orders"))
+			.andExpect(flash().attribute("info",
+					"Odrzucono zgłoszenie zakończenia zlecenia projektu " + projectNameOf(orderId) + "."));
+	}
+
+	private String projectNameOf(Long orderId) {
+		return jdbcTemplate.queryForObject(
+				"SELECT p.name FROM orders o JOIN projects p ON p.id = o.project_id WHERE o.id = ?", String.class,
+				orderId);
 	}
 
 	/**
@@ -618,7 +631,7 @@ class OrderCompletionIntegrationTests {
 			.andExpect(content().string(containsString("Brak braków.")));
 		mockMvc.perform(get("/orders").session(manager))
 			.andExpect(status().isOk())
-			.andExpect(content().string(not(containsString("Order Completion Board"))))
+			.andExpect(content().string(not(containsString("<td>Order Completion Board</td>"))))
 			.andExpect(content().string(containsString("Next In Line Board")));
 		mockMvc.perform(get("/picking").session(technician))
 			.andExpect(status().isOk())
@@ -725,7 +738,8 @@ class OrderCompletionIntegrationTests {
 			for (int attempt = 0; attempt < 2; attempt++) {
 				mockMvc.perform(post("/orders/{id}/" + action, orderId).session(manager).with(csrf()))
 					.andExpect(status().isOk())
-					.andExpect(content().string(containsString(NOT_REPORTED_ERROR)));
+					.andExpect(content().string(containsString(NOT_REPORTED_ERROR)))
+					.andExpect(flash().attributeCount(0));
 
 				assertThat(statusOf(orderId)).isEqualTo("OPEN");
 				assertThat(completedAtOf(orderId)).isNull();
@@ -767,6 +781,37 @@ class OrderCompletionIntegrationTests {
 			mockMvc.perform(post("/orders/{id}/" + action, 999_999_999L).session(manager).with(csrf()))
 				.andExpect(status().isNotFound());
 		}
+	}
+
+	@Test
+	void confirmAndRejectFlashesShowOnTheOrderList() throws Exception {
+		Long partId = seedPart("Flash Resistor", 10);
+		Long orderId = seedOrder();
+		Long lineId = seedOrderLine(orderId, partId, 5, 5);
+		seedAccount(MANAGER_EMAIL, Role.MANAGER);
+		MockHttpSession technician = technicianSession();
+		MockHttpSession manager = loginAs(MANAGER_EMAIL);
+		pick(technician, orderId, lineId, 5);
+
+		report(technician, orderId);
+		reject(manager, orderId);
+		// Following the redirect: the session carries the flash to the next GET /orders, which consumes it.
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(
+					"<p class=\"alert alert-info\" role=\"status\">Odrzucono zgłoszenie zakończenia zlecenia projektu Order Completion Board.</p>")));
+
+		report(technician, orderId);
+		confirm(manager, orderId);
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString(
+					"<p class=\"alert alert-success\" role=\"status\">Potwierdzono zakończenie zlecenia projektu Order Completion Board.</p>")));
+
+		mockMvc.perform(get("/orders").session(manager))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("alert-success"))))
+			.andExpect(content().string(not(containsString("alert-info"))));
 	}
 
 	// ---- manager reject ---------------------------------------------------

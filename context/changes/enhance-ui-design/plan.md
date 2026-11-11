@@ -420,28 +420,28 @@ No data or schema migration. Rollback is a revert of `app.css`, `orders-list.htm
 
 #### Automated
 
-- [x] 2.1 Full build and tests pass: `./mvnw verify`
-- [x] 2.2 No attributes on table rows or cells in orders-list
+- [x] 2.1 Full build and tests pass: `./mvnw verify` — 3c5d93f
+- [x] 2.2 No attributes on table rows or cells in orders-list — 3c5d93f
 
 #### Manual
 
-- [x] 2.3 In both tables, text columns are left-aligned and quantity, built and dates are right-aligned with aligned digits
-- [x] 2.4 "Sprawdź" and "Szczegóły" look identical, and "Nowe zlecenie" is the only filled blue button on the page
-- [x] 2.5 Pending rows still show the amber tint and leading bar
-- [x] 2.6 Other list views are unchanged in layout, and their tables are still centred
+- [x] 2.3 In both tables, text columns are left-aligned and quantity, built and dates are right-aligned with aligned digits — 3c5d93f
+- [x] 2.4 "Sprawdź" and "Szczegóły" look identical, and "Nowe zlecenie" is the only filled blue button on the page — 3c5d93f
+- [x] 2.5 Pending rows still show the amber tint and leading bar — 3c5d93f
+- [x] 2.6 Other list views are unchanged in layout, and their tables are still centred — 3c5d93f
 
 ### Phase 3: Feedback after confirm/reject (C5)
 
 #### Automated
 
-- [ ] 3.1 New and updated tests pass: `./mvnw test -Dtest=OrderCompletionIntegrationTests,MessagesBundleTests`
-- [ ] 3.2 Full build and tests pass: `./mvnw verify`
+- [x] 3.1 New and updated tests pass: `./mvnw test -Dtest=OrderCompletionIntegrationTests,MessagesBundleTests`
+- [x] 3.2 Full build and tests pass: `./mvnw verify`
 
 #### Manual
 
-- [ ] 3.3 Confirming a reported order lands on `/orders` with a green success alert naming the project, and a refresh removes it
-- [ ] 3.4 Rejecting a reported order shows the reject message the same way
-- [ ] 3.5 The alert reads well in light and dark and at 390px
+- [x] 3.3 Confirming a reported order lands on `/orders` with a green success alert naming the project, and a refresh removes it
+- [x] 3.4 Rejecting a reported order shows the reject message the same way
+- [x] 3.5 The alert reads well in light and dark and at 390px
 
 ### Phase 4: Visual gate
 

@@ -223,6 +223,18 @@ class MessagesBundleTests {
 	}
 
 	@Test
+	void ordersCompletionConfirmed() {
+		assertThat(messageSource.getMessage("orders.completion.confirmed", new Object[] { "Płytka Główna" }, PL))
+			.isEqualTo("Potwierdzono zakończenie zlecenia projektu Płytka Główna.");
+	}
+
+	@Test
+	void ordersCompletionRejected() {
+		assertThat(messageSource.getMessage("orders.completion.rejected", new Object[] { "Płytka Główna" }, PL))
+			.isEqualTo("Odrzucono zgłoszenie zakończenia zlecenia projektu Płytka Główna.");
+	}
+
+	@Test
 	void purchasingCsvHeaderPartName() {
 		assertThat(messageSource.getMessage("purchasing.csv.header.partName", null, PL)).isEqualTo("Część");
 	}
