@@ -1,21 +1,24 @@
 /*
  * Stockahead design system: the single stylesheet for every template.
  *
- * Base tokens come from the shadcn/ui default theme (base colour "Neutral", oklch),
- * https://ui.shadcn.com/docs/theming, fetched 2026-10-03. --popover*, --chart-* and
- * --sidebar-* are skipped because nothing in the app uses them.
+ * Token source: anki.pl app-side style.css, fetched 2026-11-11 (ink #142c34, muted #586c72,
+ * paper #f5f6f0, card #fffefb, line #dce4dd, teal, tinted status pairs, radius ladder,
+ * near-invisible ink-tinted .surface shadow). Two anki values fail WCAG and are darkened:
+ * teal #087f77 -> #077a72 and input border #c8d6d1 -> #778b85. Dark values are our own,
+ * in the same teal-navy family. Status surface/text pairs follow anki's rating pairs and
+ * boost's status pairs; --info sits in anki's lavender family, away from the teal primary.
+ * Earlier base: shadcn/ui "Neutral" (2026-10-03); its token names are kept.
  *
- * Own tokens (status colours, --destructive-foreground) use hues near Tailwind
- * red/green/amber/blue. Contrast ratios in the comments are WCAG 2.x, computed from
- * the oklch values converted to sRGB. Every text/background pair is >= 4.5:1.
+ * Contrast ratios in the comments are WCAG 2.x (sRGB relative luminance). Every
+ * text/background pair is >= 4.5:1; control borders are >= 3:1 (WCAG 1.4.11).
  *
  * Theme selection: every colour token is written once, as light-dark(<light>, <dark>).
  * The value used follows color-scheme, which theme.js drives through data-theme on <html>:
  *   :root                       color-scheme: light dark   auto, follows the OS
  *   :root[data-theme="light"]   color-scheme: light        light, forced by the toggle
  *   :root[data-theme="dark"]    color-scheme: dark         dark, forced by the toggle
- * Non-colour tokens (type, spacing, radius) are theme-independent; shadows pick their
- * colour with light-dark(). Colours are used only through var(--…).
+ * Non-colour tokens (type, spacing, radius, motion) are theme-independent; shadows pick
+ * their colour with light-dark(). Colours are used only through var(--…).
  */
 
 :root {
@@ -40,36 +43,56 @@
 	--space-7: 1.75rem;
 	--space-8: 2rem;
 
-	/* Elevation: subtle in light, stronger alpha in dark so it still reads on a dark page. */
-	--shadow-sm: 0 1px 2px 0 light-dark(oklch(0 0 0 / 5%), oklch(0 0 0 / 40%));
-	--shadow-md: 0 4px 6px -1px light-dark(oklch(0 0 0 / 8%), oklch(0 0 0 / 50%)),
-		0 2px 4px -2px light-dark(oklch(0 0 0 / 6%), oklch(0 0 0 / 40%));
+	/* Elevation: depth comes from hairline borders; shadows are a near-invisible ink tint in
+	   light (anki .surface), plain black with stronger alpha in dark. --shadow-md is the hover lift. */
+	--shadow-sm: 0 1px 2px 0 light-dark(rgb(29 54 48 / 4%), rgb(0 0 0 / 35%)),
+		0 4px 10px -4px light-dark(rgb(29 54 48 / 5%), rgb(0 0 0 / 30%));
+	--shadow-md: 0 2px 4px -1px light-dark(rgb(29 54 48 / 6%), rgb(0 0 0 / 40%)),
+		0 12px 24px -10px light-dark(rgb(29 54 48 / 16%), rgb(0 0 0 / 55%));
 
-	--radius: 0.5rem;
+	/* Radius ladder (anki): controls, cards, large surfaces, pills. */
+	--radius-sm: 10px;
+	--radius: 14px;
+	--radius-lg: 20px;
+	--radius-pill: 999px;
 
-	/* Colours: light-dark(<light>, <dark>). */
-	--background: light-dark(oklch(1 0 0), oklch(0.145 0 0));
-	--foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
-	--card: light-dark(oklch(1 0 0), oklch(0.205 0 0));
-	--card-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
-	--primary: light-dark(oklch(0.546 0.245 262.881), oklch(0.707 0.165 254.624)); /* Tailwind blue-600 / blue-400 */
-	--primary-foreground: light-dark(oklch(0.985 0 0), oklch(0.145 0 0)); /* on --primary: light 5.03:1 / dark 7.51:1 */
-	--secondary: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
-	--secondary-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
-	--muted: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
-	--muted-foreground: light-dark(oklch(0.556 0 0), oklch(0.708 0 0)); /* on --background: light 4.73:1 / dark 7.63:1 */
-	--accent: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
-	--accent-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
-	--destructive: light-dark(oklch(0.577 0.245 27.325), oklch(0.704 0.191 22.216)); /* as text on --background: light 4.76:1 / dark 6.84:1 */
-	--destructive-foreground: light-dark(oklch(0.985 0 0), oklch(0.145 0 0)); /* on --destructive: light 4.56:1 / dark 6.84:1 */
-	--success: light-dark(oklch(0.527 0.154 150.069), oklch(0.792 0.209 151.711)); /* Tailwind green-700 / green-400 */
-	--success-foreground: light-dark(oklch(0.985 0 0), oklch(0.145 0 0)); /* on --success: light 4.73:1 / dark 11.15:1 */
-	--warning: light-dark(oklch(0.769 0.188 70.08), oklch(0.828 0.189 84.429)); /* Tailwind amber-500 / amber-400 */
-	--warning-foreground: light-dark(oklch(0.205 0 0), oklch(0.145 0 0)); /* on --warning: light 8.35:1 / dark 11.53:1 */
-	--info: light-dark(oklch(0.488 0.243 264.376), oklch(0.707 0.165 254.624)); /* Tailwind blue-700 / blue-400; as text on --background: light 6.82:1 / dark 7.51:1 (dark 6.79:1 on --card) */
-	--border: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 10%));
-	--input: light-dark(oklch(0.64 0 0), oklch(0.52 0 0)); /* on --background: light 3.36:1 / dark 3.59:1 (dark 3.25:1 on --card); WCAG 1.4.11 needs >= 3:1 */
-	--ring: light-dark(oklch(0.546 0.245 262.881), oklch(0.707 0.165 254.624)); /* same blue as --primary; on --background: light 5.26:1 / dark 7.51:1 (WCAG 1.4.11 needs >= 3:1) */
+	/* Motion: short state fades; everything is switched off under prefers-reduced-motion. */
+	--ease: cubic-bezier(0.4, 0, 0.2, 1);
+	--dur-fast: 150ms;
+	--dur-base: 250ms;
+
+	/* Colours: light-dark(<light>, <dark>). Light page = paper, dark page = deep teal-navy. */
+	--background: light-dark(#f5f6f0, #0f1d22);
+	--foreground: light-dark(#142c34, #e8efe9); /* on --background: light 13.42:1 / dark 14.73:1 */
+	--card: light-dark(#fffefb, #162a30);
+	--card-foreground: light-dark(#142c34, #e8efe9); /* on --card: light 14.46:1 / dark 12.75:1 */
+	--primary: light-dark(#077a72, #3cbfb2); /* as text on --background: light 4.79:1 / dark 7.62:1; on --card: light 5.16:1 / dark 6.60:1 */
+	--primary-foreground: light-dark(#fff, #0f1d22); /* on --primary: light 5.20:1 / dark 7.62:1 */
+	--primary-surface: light-dark(#ebf3f0, #1b3f42); /* teal-tinted fill (active nav); --primary on it: light 4.61:1 / dark 5.06:1 */
+	--secondary: light-dark(#e8eee7, #1f363c);
+	--secondary-foreground: light-dark(#142c34, #e8efe9); /* on --secondary: light 12.37:1 / dark 10.87:1 */
+	--muted: light-dark(#e8eee7, #1f363c);
+	--muted-foreground: light-dark(#586c72, #9fb3b0); /* on --background: light 5.08:1 / dark 7.83:1; on --card: light 5.48:1 / dark 6.78:1; on --muted: light 4.68:1 / dark 5.78:1 */
+	--accent: light-dark(#d4e2d7, #24403f); /* hover fill */
+	--accent-foreground: light-dark(#142c34, #e8efe9); /* on --accent: light 10.88:1 / dark 9.55:1 */
+	--destructive: light-dark(#b3261e, #f08572); /* as text on --background: light 6.01:1; on --card: light 6.48:1 / dark 5.90:1 */
+	--destructive-foreground: light-dark(#fff, #0f1d22); /* on --destructive: light 6.54:1 / dark 6.81:1 */
+	--destructive-surface: light-dark(#f9e2dc, #3d1f1b);
+	--destructive-text: light-dark(#8b3828, #f2a596); /* on --destructive-surface: light 6.29:1 / dark 7.51:1 */
+	--success: light-dark(#1d7a4c, #5fcf94); /* as text on --card: light 5.28:1 / dark 7.70:1 */
+	--success-foreground: light-dark(#fff, #0f1d22); /* on --success: light 5.33:1 / dark 8.89:1 */
+	--success-surface: light-dark(#e2eee6, #17352a);
+	--success-text: light-dark(#154b3b, #8fd6ae); /* on --success-surface: light 8.38:1 / dark 7.85:1 */
+	--warning: light-dark(#e0a43a, #e9b44c); /* amber: fills, bars and tints, not text */
+	--warning-foreground: light-dark(#142c34, #0f1d22); /* on --warning: light 6.63:1 / dark 9.10:1 */
+	--warning-surface: light-dark(#fff0d8, #3a2c12);
+	--warning-text: light-dark(#634211, #f1c97a); /* on --warning-surface: light 8.07:1 / dark 8.64:1 */
+	--info: light-dark(#5b4bb0, #a99cf0); /* lavender; as text on --background: light 6.28:1 / dark 7.14:1; on --card: light 6.76:1 / dark 6.18:1 */
+	--info-surface: light-dark(#ece8f8, #28233f);
+	--info-text: light-dark(#4b3a8c, #c4b8f5); /* on --info-surface: light 7.65:1 / dark 8.22:1 */
+	--border: light-dark(#dce4dd, rgb(255 255 255 / 10%)); /* hairline, decorative */
+	--input: light-dark(#778b85, #5f7d78); /* control border: on --background light 3.32:1 / dark 3.85:1; on --card light 3.58:1 / dark 3.33:1 (WCAG 1.4.11 needs >= 3:1) */
+	--ring: light-dark(#077a72, #3cbfb2); /* same teal as --primary; on --background: light 4.79:1 / dark 7.62:1 */
 }
 
 :root[data-theme="light"] {
@@ -293,7 +316,7 @@ textarea {
 	color: var(--foreground);
 	background: var(--background);
 	border: 1px solid var(--input);
-	border-radius: calc(var(--radius) - 2px);
+	border-radius: var(--radius-sm);
 	padding: 0.45rem 0.65rem;
 	max-width: 100%;
 }
@@ -364,7 +387,7 @@ button,
 	line-height: 1.25;
 	padding: var(--space-2) var(--space-4);
 	border: 1px solid var(--primary);
-	border-radius: calc(var(--radius) - 2px);
+	border-radius: var(--radius-sm);
 	background: var(--primary);
 	color: var(--primary-foreground);
 	text-decoration: none;
@@ -374,7 +397,7 @@ button,
 
 button:hover,
 .btn:hover {
-	/* Shifted toward --foreground so the label keeps >= 4.5:1 (light 6.12:1 / dark 8.52:1). */
+	/* Shifted toward --foreground so the label keeps >= 4.5:1 (light 5.92:1 / dark 8.30:1). */
 	background: color-mix(in oklab, var(--primary) 88%, var(--foreground));
 	color: var(--primary-foreground);
 }
@@ -426,48 +449,163 @@ button:hover,
 
 /* ---------- Layout ---------- */
 
+/* App shell: on authenticated pages <header class="topbar"> sits directly before
+   <main class="container">, so body becomes a two-column grid (sidebar + content) without a
+   wrapper element. Pages without a topbar (login, register, setup, awaiting approval) keep
+   the centred .auth-page layout. */
+body:has(> header.topbar) {
+	display: grid;
+	grid-template-columns: 15rem minmax(0, 1fr);
+	min-height: 100vh;
+}
+
+/* Sidebar: brand at the top, nav as a vertical list, session block pushed to the bottom. */
 .topbar {
+	position: sticky;
+	top: 0;
+	height: 100vh;
+	overflow-y: auto;
 	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--space-2) var(--space-5);
-	padding: var(--space-3) var(--space-4);
+	flex-direction: column;
+	gap: var(--space-5);
+	padding: var(--space-5) var(--space-3);
 	background: var(--card);
 	color: var(--card-foreground);
-	border-bottom: 1px solid var(--border);
+	border-right: 1px solid var(--border);
 }
 
 .topbar .brand {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: 0 var(--space-3);
 	font-weight: 700;
 	font-size: var(--text-lg);
+	letter-spacing: -0.01em;
 	text-decoration: none;
+}
+
+/* Brand mark: a small teal rounded square. */
+.topbar .brand::before {
+	content: "";
+	flex: none;
+	width: 1.375rem;
+	height: 1.375rem;
+	border-radius: 7px;
+	background: var(--primary);
+	box-shadow: inset 0 0 0 5px color-mix(in oklab, var(--primary) 70%, var(--primary-foreground));
 }
 
 .topbar nav {
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--space-1) var(--space-4);
+	flex-direction: column;
+	gap: 2px;
 	flex: 1 1 auto;
 }
 
+/* Nav links stay bare <a> elements (tests match their exact markup); icon and active state
+   come from href selectors only. Muted text on --card: light 5.48:1 / dark 6.78:1. */
 .topbar nav a {
-	text-decoration: none;
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-sm);
 	color: var(--muted-foreground);
 	font-size: var(--text-sm);
-	padding: var(--space-1) 0;
+	font-weight: 500;
+	text-decoration: none;
+	line-height: 1.3;
+}
+
+.topbar nav a::before {
+	content: "";
+	flex: none;
+	width: 1.125rem;
+	height: 1.125rem;
+	background-color: currentColor;
+	-webkit-mask: var(--nav-icon) center / contain no-repeat;
+	mask: var(--nav-icon) center / contain no-repeat;
 }
 
 .topbar nav a:hover {
+	background: var(--secondary);
 	color: var(--foreground);
+}
+
+/* Nav icons: Lucide outlines (ISC licence), same paths as the icon fragment in fragments.html;
+   /operator/companies uses Lucide "building-2". */
+.topbar nav a[href="/parts"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z'/%3E%3Cpath d='M12 22V12'/%3E%3Cpath d='m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7'/%3E%3Cpath d='m7.5 4.27 9 5.15'/%3E%3C/svg%3E");
+}
+
+.topbar nav a[href="/parts/import"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/%3E%3Cpath d='M14 2v4a2 2 0 0 0 2 2h4'/%3E%3Cpath d='M12 12v6'/%3E%3Cpath d='m15 15-3-3-3 3'/%3E%3C/svg%3E");
+}
+
+.topbar nav a[href="/deliveries/new"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2'/%3E%3Cpath d='M15 18H9'/%3E%3Cpath d='M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14'/%3E%3Ccircle cx='17' cy='18' r='2'/%3E%3Ccircle cx='7' cy='18' r='2'/%3E%3C/svg%3E");
+}
+
+.topbar nav a[href="/projects"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='16' height='16' x='4' y='4' rx='2'/%3E%3Crect width='6' height='6' x='9' y='9' rx='1'/%3E%3Cpath d='M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2'/%3E%3C/svg%3E");
+}
+
+.topbar nav a[href="/orders"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M17 18h1M12 18h1M7 18h1'/%3E%3C/svg%3E");
+}
+
+.topbar nav a[href="/picking"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 17 2 2 4-4'/%3E%3Cpath d='m3 7 2 2 4-4'/%3E%3Cpath d='M13 6h8M13 12h8M13 18h8'/%3E%3C/svg%3E");
+}
+
+.topbar nav a[href="/purchasing"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='21' r='1'/%3E%3Ccircle cx='19' cy='21' r='1'/%3E%3Cpath d='M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12'/%3E%3C/svg%3E");
+}
+
+.topbar nav a[href="/manager/accounts"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+}
+
+.topbar nav a[href="/operator/companies"] {
+	--nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z'/%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'/%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'/%3E%3Cpath d='M10 6h4'/%3E%3Cpath d='M10 10h4'/%3E%3Cpath d='M10 14h4'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
+}
+
+/* Current section: <body data-section="…"> names it, mapped here to the nav href.
+   --primary on --primary-surface: light 4.61:1 / dark 5.06:1. The dashboard ("/") has no
+   nav link, so it gets no highlight. */
+body[data-section="parts"] .topbar nav a[href="/parts"],
+body[data-section="import"] .topbar nav a[href="/parts/import"],
+body[data-section="deliveries"] .topbar nav a[href="/deliveries/new"],
+body[data-section="projects"] .topbar nav a[href="/projects"],
+body[data-section="orders"] .topbar nav a[href="/orders"],
+body[data-section="picking"] .topbar nav a[href="/picking"],
+body[data-section="purchasing"] .topbar nav a[href="/purchasing"],
+body[data-section="accounts"] .topbar nav a[href="/manager/accounts"],
+body[data-section="companies"] .topbar nav a[href="/operator/companies"] {
+	background: var(--primary-surface);
+	color: var(--primary);
+	font-weight: 600;
+	box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .topbar .session {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: var(--space-2) var(--space-3);
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-3) 0;
+	border-top: 1px solid var(--border);
 	font-size: var(--text-sm);
 	color: var(--muted-foreground);
+}
+
+/* Signed-in email: its own line, truncated in the narrow column. */
+.topbar .session > span:first-child {
+	flex: 1 0 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .topbar .session form {
@@ -500,16 +638,52 @@ button:hover,
 	display: none;
 }
 
-[data-theme-toggle][data-mode="auto"] .icon-auto,
 [data-theme-toggle][data-mode="light"] .icon-light,
 [data-theme-toggle][data-mode="dark"] .icon-dark {
 	display: block;
+}
+
+/* Menu button for the compact bar (nav.js); never shown in the wide sidebar layout.
+   It shows the menu icon when closed and the close icon when open. */
+.topbar .nav-toggle {
+	display: none;
+}
+
+.nav-toggle svg {
+	display: none;
+}
+
+.nav-toggle[aria-expanded="false"] .icon-menu,
+.nav-toggle[aria-expanded="true"] .icon-close {
+	display: block;
+}
+
+/* On wide screens the toggle leaves the sidebar's session block and sits in the
+   top-right corner of the viewport; the shell's content column starts low enough
+   (see the .container rule below) that it never covers the page header. */
+.topbar [data-theme-toggle] {
+	position: fixed;
+	top: var(--space-4);
+	right: var(--space-4);
+	z-index: 10;
+	background: var(--card);
+	border: 1px solid var(--border);
+	box-shadow: var(--shadow-sm);
 }
 
 .container {
 	max-width: 72rem;
 	margin: 0 auto;
 	padding: 1.5rem 1rem 3rem;
+}
+
+/* Inside the shell the content column is wide and starts next to the sidebar. */
+body:has(> header.topbar) > .container {
+	width: 100%;
+	max-width: 80rem;
+	margin: 0;
+	/* Top padding clears the fixed theme toggle (1rem offset + 2.25rem button + 1rem gap). */
+	padding: 4.25rem var(--space-8) 3rem;
 }
 
 /* Page-level actions under the heading (links styled as .btn, small forms). */
@@ -584,7 +758,7 @@ button:hover,
 	flex: none;
 	width: 2.5rem;
 	height: 2.5rem;
-	border-radius: calc(var(--radius) - 2px);
+	border-radius: var(--radius-sm);
 	background: var(--muted);
 	color: var(--foreground);
 }
@@ -615,7 +789,7 @@ button:hover,
 }
 
 .alert-error {
-	color: var(--destructive); /* on --card: 4.76:1 light, 6.19:1 dark */
+	color: var(--destructive); /* on --card: 6.48:1 light, 5.90:1 dark */
 	border-color: color-mix(in oklab, var(--destructive) 40%, var(--border));
 }
 
@@ -636,11 +810,11 @@ button:hover,
 }
 
 .alert-success {
-	color: var(--success); /* on --card: 4.94:1 light, 10.09:1 dark */
+	color: var(--success); /* on --card: 5.28:1 light, 7.70:1 dark */
 	border-color: color-mix(in oklab, var(--success) 40%, var(--border));
 }
 
-/* Neutral notice: muted surface, regular text (18.15:1 light, 14.48:1 dark). */
+/* Neutral notice: muted surface, regular text (12.37:1 light, 10.87:1 dark). */
 .alert-info {
 	background: var(--muted);
 	color: var(--foreground);
@@ -651,7 +825,7 @@ button:hover,
 .badge {
 	display: inline-block;
 	padding: calc(var(--space-1) / 2) var(--space-2);
-	border-radius: 999px;
+	border-radius: var(--radius-pill);
 	border: 1px solid transparent;
 	font-size: var(--text-xs);
 	font-weight: 600;
@@ -671,7 +845,7 @@ button:hover,
 	color: var(--warning-foreground);
 }
 
-/* --foreground on --muted: 18.15:1 light, 14.48:1 dark (--muted-foreground would be 4.34:1 in light). */
+/* --foreground on --muted: 12.37:1 light, 10.87:1 dark. */
 .badge-low,
 .badge-muted {
 	background: var(--muted);
@@ -679,7 +853,7 @@ button:hover,
 	border-color: var(--border);
 }
 
-/* Workflow state (e.g. "Zgłoszone"), kept apart from the priority colours. --info as text: 6.82:1 light, 7.51:1 dark. */
+/* Workflow state (e.g. "Zgłoszone"), kept apart from the priority colours. --info as text on --background: 6.28:1 light, 7.14:1 dark. */
 .badge-info {
 	background: var(--background);
 	color: var(--info);
@@ -722,6 +896,64 @@ button:hover,
 	border-radius: var(--radius);
 }
 
+/* ---------- Motion ---------- */
+
+/* State changes fade instead of snapping. */
+a,
+button,
+.btn,
+input,
+select,
+textarea,
+tbody tr,
+.badge {
+	transition-property: background-color, color, border-color, box-shadow;
+	transition-duration: var(--dur-fast);
+	transition-timing-function: var(--ease);
+}
+
+/* Entrance: content fades up on every page load; alerts slide in. Only opacity and transform
+   animate, and the fill mode is backwards so no transform lingers after the animation. */
+@keyframes fade-up {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+main {
+	animation: fade-up var(--dur-base) var(--ease) backwards;
+}
+
+.alert {
+	animation: fade-up 200ms var(--ease) backwards;
+}
+
+/* Clickable cards lift on hover. */
+.tiles a {
+	transition-property: background-color, color, border-color, box-shadow, transform;
+	transition-duration: var(--dur-base);
+}
+
+.tiles a:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+		transition: none !important;
+	}
+}
+
 /* ---------- Narrow screens (tablet ~768px and below) ---------- */
 
 @media (max-width: 48rem) {
@@ -733,8 +965,150 @@ button:hover,
 		font-size: calc(var(--text-xl) * 0.875);
 	}
 
+	/* Shell collapses to one column with a compact top bar: brand and session on one row
+	   (email hidden), the nav as a horizontally scrolling row below. */
+	body:has(> header.topbar) {
+		display: block;
+	}
+
 	.topbar {
+		position: static;
+		height: auto;
+		overflow: visible;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			"brand session"
+			"nav nav";
+		align-items: center;
+		gap: var(--space-2) var(--space-3);
+		padding: var(--space-2) var(--space-3) 0;
+		border-right: 0;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.topbar .brand {
+		grid-area: brand;
+		padding: 0;
+	}
+
+	.topbar nav {
+		grid-area: nav;
+		flex-direction: row;
+		gap: var(--space-1);
+		overflow-x: auto;
+		margin: 0 calc(-1 * var(--space-3));
+		padding: 0 var(--space-3) var(--space-2);
+		scrollbar-width: none;
+	}
+
+	.topbar nav a {
+		flex: none;
+		white-space: nowrap;
+		gap: var(--space-2);
+		padding: var(--space-1) var(--space-2);
+	}
+
+	/* Active link: underline bar instead of the leading bar. */
+	body[data-section="parts"] .topbar nav a[href="/parts"],
+	body[data-section="import"] .topbar nav a[href="/parts/import"],
+	body[data-section="deliveries"] .topbar nav a[href="/deliveries/new"],
+	body[data-section="projects"] .topbar nav a[href="/projects"],
+	body[data-section="orders"] .topbar nav a[href="/orders"],
+	body[data-section="picking"] .topbar nav a[href="/picking"],
+	body[data-section="purchasing"] .topbar nav a[href="/purchasing"],
+	body[data-section="accounts"] .topbar nav a[href="/manager/accounts"],
+	body[data-section="companies"] .topbar nav a[href="/operator/companies"] {
+		box-shadow: inset 0 -2px 0 var(--primary);
+	}
+
+	.topbar .session {
+		grid-area: session;
+		flex-wrap: nowrap;
+		padding: 0;
+		border-top: 0;
+	}
+
+	.topbar .session > span:first-child {
+		display: none;
+	}
+
+	/* With JavaScript (nav.js puts .js-nav on <html>) the nav becomes a dropdown behind the
+	   menu button: bar row = menu button, brand, session; the open nav drops over the page
+	   as a vertical list. The bar stays pinned so the menu is always one tap away. */
+	html.js-nav .topbar {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-areas: "menu brand session";
 		padding: var(--space-2) var(--space-3);
+	}
+
+	html.js-nav .topbar .nav-toggle:not([hidden]) {
+		grid-area: menu;
+		display: inline-flex;
+		width: 2rem;
+		height: 2rem;
+	}
+
+	html.js-nav .topbar nav {
+		display: none;
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		margin: 0;
+		flex-direction: column;
+		gap: var(--space-1);
+		max-height: calc(100vh - 4rem);
+		overflow-y: auto;
+		padding: var(--space-2) var(--space-3) var(--space-3);
+		background: var(--card);
+		border-bottom: 1px solid var(--border);
+		box-shadow: var(--shadow-md);
+	}
+
+	html.js-nav .topbar:has(.nav-toggle[aria-expanded="true"]) nav {
+		display: flex;
+		animation: fade-up var(--dur-fast) var(--ease) backwards;
+	}
+
+	html.js-nav .topbar nav a {
+		white-space: normal;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-3);
+	}
+
+	/* Active link in the dropdown: leading bar, as in the sidebar (beats the underline above). */
+	html.js-nav body[data-section="parts"] .topbar nav a[href="/parts"],
+	html.js-nav body[data-section="import"] .topbar nav a[href="/parts/import"],
+	html.js-nav body[data-section="deliveries"] .topbar nav a[href="/deliveries/new"],
+	html.js-nav body[data-section="projects"] .topbar nav a[href="/projects"],
+	html.js-nav body[data-section="orders"] .topbar nav a[href="/orders"],
+	html.js-nav body[data-section="picking"] .topbar nav a[href="/picking"],
+	html.js-nav body[data-section="purchasing"] .topbar nav a[href="/purchasing"],
+	html.js-nav body[data-section="accounts"] .topbar nav a[href="/manager/accounts"],
+	html.js-nav body[data-section="companies"] .topbar nav a[href="/operator/companies"] {
+		box-shadow: inset 3px 0 0 var(--primary);
+	}
+
+	/* Compact bar: the toggle goes back into the session row, last, i.e. the top-right corner. */
+	.topbar .session .btn-icon {
+		position: static;
+		order: 1;
+		width: 2rem;
+		height: 2rem;
+		box-shadow: none;
+	}
+
+	.topbar .session form .btn {
+		padding: var(--space-1) var(--space-3);
+		min-height: 2rem;
+	}
+
+	body:has(> header.topbar) > .container {
+		padding: 1rem 0.75rem 2rem;
 	}
 
 	.card {
