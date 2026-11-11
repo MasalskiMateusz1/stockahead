@@ -600,7 +600,9 @@ button:hover,
 
 /* ---------- Messages ---------- */
 
-/* shadcn-style alert: card surface, thin border; status shown by text and border colour only. */
+/* shadcn-style alert: card surface, thin border; status shown by text and border colour only.
+ * Border mixes use oklab: --border is achromatic with hue 0, so an oklch mix would drag the
+ * status hue toward red (green came out amber). */
 .alert {
 	padding: var(--space-3) var(--space-4);
 	margin: 0 0 var(--space-4);
@@ -614,7 +616,7 @@ button:hover,
 
 .alert-error {
 	color: var(--destructive); /* on --card: 4.76:1 light, 6.19:1 dark */
-	border-color: color-mix(in oklch, var(--destructive) 40%, var(--border));
+	border-color: color-mix(in oklab, var(--destructive) 40%, var(--border));
 }
 
 /* Error list rendered inside an error alert (e.g. CSV import errors): cells stay red too. */
@@ -635,7 +637,7 @@ button:hover,
 
 .alert-success {
 	color: var(--success); /* on --card: 4.94:1 light, 10.09:1 dark */
-	border-color: color-mix(in oklch, var(--success) 40%, var(--border));
+	border-color: color-mix(in oklab, var(--success) 40%, var(--border));
 }
 
 /* Neutral notice: muted surface, regular text (18.15:1 light, 14.48:1 dark). */

@@ -23,6 +23,7 @@ and `open-orders` stay.
   sit at near-random sizes, and spacing rhythm changes from block to block, so nothing guides the eye to what matters.
 - **Fix**: add `--font-sans`, `--font-mono` (tabular numbers), a 5-step `--text-*` scale, a 4px-based `--space-*`
   scale and one `--shadow-*` pair to the token blocks; make base elements and the components orders-list uses read them.
+- **Status (2026-11-11)**: resolved. `--font-sans`/`--font-mono`, a 5-step `--text-*` scale, a 4px `--space-*` scale and `--shadow-sm`/`--shadow-md` were added, and base elements read them. Evidence: `visual-gate.md` default rows plus the dashboard/parts-list comparison, commit 6df09e9.
 
 ## C2 — Missing tokens: no accent; "primary" is a black slab (Missing tokens)
 
@@ -33,6 +34,7 @@ and `open-orders` stay.
 - **Fix**: one accent value (Linear-style, solid, no gradient) published through the existing `--primary` /
   `--ring` roles in both themes; dedupe the dark block first so the value is set once per theme. Contrast ≥4.5:1
   for `--primary-foreground` on `--primary`, ≥3:1 for `--ring`, in both themes.
+- **Status (2026-11-11)**: resolved. The dark palette is merged into `light-dark()` (one value per theme), `--primary`/`--ring` are blue (blue-600 / blue-400), and `--input` is raised to ≥3:1. Evidence: `visual-gate.md` contrast table, commit 6df09e9.
 
 ## C3 — Missing shared component: row actions use full buttons, with two different roles (Missing shared component)
 
@@ -43,6 +45,7 @@ and `open-orders` stay.
   same action looks important in one table and secondary in the next, so the manager can't learn what colour means.
 - **Fix**: add `.btn-sm` and `.btn-ghost` to `app.css` (one place, reusable by every list view); both row links use
   the same variant. Pending rows keep their emphasis through `tr.row-pending`, not through the button.
+- **Status (2026-11-11)**: resolved. `.btn-sm` + `.btn-ghost` were added, and both row links use `btn btn-ghost btn-sm`. Evidence: `visual-gate.md` hover/focus rows, commit 3c5d93f.
 
 ## C4 — Missing tokens: centred table cells, no numeric alignment (Missing tokens)
 
@@ -54,6 +57,7 @@ and `open-orders` stay.
   cells cannot carry classes (tests), target columns from the table: a class on `<table>` (e.g. `data-table`) plus
   column selectors scoped to `#pending-orders` / `#open-orders`. Global change to `td, th` alignment touches every
   list view — the plan must decide whether to scope it to `.data-table` first and roll out later.
+- **Status (2026-11-11)**: resolved for orders-list. `table.data-table` is left-aligned, with numeric/date columns right-aligned in tabular digits by column position. Other tables stay centred (scoped decision). Evidence: `visual-gate.md` default rows, commit 3c5d93f.
 
 ## C5 — Accidental architecture: arrivals on /orders give no feedback (Accidental architecture)
 
@@ -69,6 +73,7 @@ and `open-orders` stay.
 - **Fix**: include the alerts fragment on orders-list and extend it with a success flash (`${success}`); add flash
   messages to the order POSTs that redirect here. The error page is a global entry-point fix — **proposed deferred**
   to its own change (touches every view), unless the plan pulls it in.
+- **Status (2026-11-11)**: partially resolved. **Scope correction**: only confirm-completion and reject-completion redirect to `/orders`. Create, change, assign and cancel land on `/orders/{id}`, which already shows alerts, so the success flash covers those two. orders-list now includes `fragments :: alerts` plus its own success `<p>`. The visual gate found and fixed an amber success-alert border (`visual-gate.md` F1). The styled error page and the technician Whitelabel case are deferred. Evidence: commit 8a89bf1, `visual-gate.md` success rows.
 
 ## Deferred / out of scope (kept visible)
 
@@ -79,6 +84,14 @@ and `open-orders` stay.
 - Order status/priority badge coupling to enum names via `th:classappend` (`orders-list.html:38,71`) — documented
   risk, no change.
 - React / build step (research Part 2, options C/D) — rejected for this change by the user on 2026-11-09.
+- Styled error page (`templates/error.html`) and the technician-sees-Whitelabel case on `/orders` — a global entry-point
+  change, deferred to its own change (plan, "What We're NOT Doing").
+- Flash on detail-page actions (create, change, assign, cancel land on `/orders/{id}`) — no success message yet; deferred.
+- `--info` (blue-700) vs the blue `--primary` — close in hue and told apart only by form (outlined badge vs. solid button).
+  Unused on orders-list; revisit if a view puts both side by side.
+- `--border` contrast — kept subtle on purpose (decorative hairlines). Only `--input` was raised to ≥3:1.
+- Remaining `color-mix(in oklch, …)` against achromatic tokens: the `tr.row-pending` tint renders pink/maroon rather than
+  amber, and the `.btn`/`.btn-destructive` hover fills shift hue (`visual-gate.md` N1).
 
 ## States to cover in the visual gate (orders-list)
 

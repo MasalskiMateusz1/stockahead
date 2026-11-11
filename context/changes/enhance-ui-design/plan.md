@@ -434,26 +434,26 @@ No data or schema migration. Rollback is a revert of `app.css`, `orders-list.htm
 
 #### Automated
 
-- [x] 3.1 New and updated tests pass: `./mvnw test -Dtest=OrderCompletionIntegrationTests,MessagesBundleTests`
-- [x] 3.2 Full build and tests pass: `./mvnw verify`
+- [x] 3.1 New and updated tests pass: `./mvnw test -Dtest=OrderCompletionIntegrationTests,MessagesBundleTests` — 8a89bf1
+- [x] 3.2 Full build and tests pass: `./mvnw verify` — 8a89bf1
 
 #### Manual
 
-- [x] 3.3 Confirming a reported order lands on `/orders` with a green success alert naming the project, and a refresh removes it
-- [x] 3.4 Rejecting a reported order shows the reject message the same way
-- [x] 3.5 The alert reads well in light and dark and at 390px
+- [x] 3.3 Confirming a reported order lands on `/orders` with a green success alert naming the project, and a refresh removes it — 8a89bf1
+- [x] 3.4 Rejecting a reported order shows the reject message the same way — 8a89bf1
+- [x] 3.5 The alert reads well in light and dark and at 390px — 8a89bf1
 
 ### Phase 4: Visual gate
 
 #### Automated
 
-- [ ] 4.1 Full build and tests pass: `./mvnw verify`
-- [ ] 4.2 Gate artefacts exist: `screenshots/after/` and `visual-gate.md`
+- [x] 4.1 Full build and tests pass: `./mvnw verify`
+- [x] 4.2 Gate artefacts exist: `screenshots/after/` and `visual-gate.md`
 
 #### Manual
 
-- [ ] 4.3 Every state × theme × width row in `visual-gate.md` is pass or has an accepted note
-- [ ] 4.4 Side by side with `before/`, orders-list reads as clearly more modern
-- [ ] 4.5 Dashboard and parts-list show only token-level differences and no broken layout
-- [ ] 4.6 At 390px the tables scroll inside `.table-wrap` without breaking the page, and the header button stays reachable
-- [ ] 4.7 The recorded contrast numbers meet the thresholds (4.5:1 text, 3:1 ring and input)
+- [x] 4.3 Every state × theme × width row in `visual-gate.md` is pass or has an accepted note
+- [x] 4.4 Side by side with `before/`, orders-list reads as clearly more modern
+- [x] 4.5 Dashboard and parts-list show only token-level differences and no broken layout
+- [x] 4.6 At 390px the tables scroll inside `.table-wrap` without breaking the page, and the header button stays reachable
+- [x] 4.7 The recorded contrast numbers meet the thresholds (4.5:1 text, 3:1 ring and input)
