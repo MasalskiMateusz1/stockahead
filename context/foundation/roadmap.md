@@ -9,7 +9,7 @@ main_goal: quality
 top_blocker: capacity
 milestone_id: multi-company-isolation
 milestone_seq: 2
-milestone_status: open
+milestone_status: done
 ---
 
 # Roadmap: Stockahead
@@ -20,7 +20,7 @@ milestone_status: open
 
 ## Milestone
 
-**M-2: Many companies share one instance, each sees only its own warehouse** — Status: open
+**M-2: Many companies share one instance, each sees only its own warehouse** — Status: done
 
 - **Intent:** Companies register themselves on one website, the platform operator approves them, and each company runs the full existing Stockahead flow without ever seeing another company's parts, orders or people.
 - **Source materials:** `context/foundation/prd-v2.md` (v2)
@@ -283,6 +283,7 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 ## Milestone History
 
 - **M-1: Zakład prowadzi pełny cykl zlecenia w systemie** (`mvp-production-loop`) — closed 2026-10-05. All 18 must-have FRs of prd.md v1 delivered across S-01…S-13 (archived 2026-09-26…2026-10-03); F-01 (`migration-and-invariant-harness`) closed as absorbed — its migration path and concurrency-test pattern landed inside the slices rather than as a separate change.
+- **M-2: Many companies share one instance, each sees only its own warehouse** (`multi-company-isolation`) — closed 2026-11-09. All nine must-have FRs of prd-v2 plus the nice-to-have block/unblock (FR-027) delivered across F-01 and S-01…S-12 (archived 2026-10-06…2026-11-09); every company-scoped route ships with a company-B→404 test.
 
 ## Done
 
