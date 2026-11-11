@@ -1,7 +1,7 @@
 ---
 change_id: enhance-ui-design
 title: Enhance ui design
-status: implementing
+status: implemented
 created: 2026-11-09
 updated: 2026-11-11
 archived_at: null

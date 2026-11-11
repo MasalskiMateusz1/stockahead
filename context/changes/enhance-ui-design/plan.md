@@ -447,13 +447,13 @@ No data or schema migration. Rollback is a revert of `app.css`, `orders-list.htm
 
 #### Automated
 
-- [x] 4.1 Full build and tests pass: `./mvnw verify`
-- [x] 4.2 Gate artefacts exist: `screenshots/after/` and `visual-gate.md`
+- [x] 4.1 Full build and tests pass: `./mvnw verify` — 8ee09bb
+- [x] 4.2 Gate artefacts exist: `screenshots/after/` and `visual-gate.md` — 8ee09bb
 
 #### Manual
 
-- [x] 4.3 Every state × theme × width row in `visual-gate.md` is pass or has an accepted note
-- [x] 4.4 Side by side with `before/`, orders-list reads as clearly more modern
-- [x] 4.5 Dashboard and parts-list show only token-level differences and no broken layout
-- [x] 4.6 At 390px the tables scroll inside `.table-wrap` without breaking the page, and the header button stays reachable
-- [x] 4.7 The recorded contrast numbers meet the thresholds (4.5:1 text, 3:1 ring and input)
+- [x] 4.3 Every state × theme × width row in `visual-gate.md` is pass or has an accepted note — 8ee09bb
+- [x] 4.4 Side by side with `before/`, orders-list reads as clearly more modern — 8ee09bb
+- [x] 4.5 Dashboard and parts-list show only token-level differences and no broken layout — 8ee09bb
+- [x] 4.6 At 390px the tables scroll inside `.table-wrap` without breaking the page, and the header button stays reachable — 8ee09bb
+- [x] 4.7 The recorded contrast numbers meet the thresholds (4.5:1 text, 3:1 ring and input) — 8ee09bb
