@@ -8,19 +8,34 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1 th:text="${order.projectName}"></h1>
+		<div class="page-header">
+			<h1 th:text="${order.projectName}"></h1>
+			<div class="page-actions">
+				<a class="btn btn-secondary" th:href="@{/orders}">Powrót do listy zleceń</a>
+				<a th:if="${order.status.name() == 'OPEN'}" class="btn btn-secondary" th:href="@{/picking/{id}(id=${orderId})}">Przejdź do kompletacji</a>
+				<a th:if="${order.canCancel()}" class="btn btn-danger" th:href="@{/orders/{id}/cancel(id=${orderId})}">Anuluj zlecenie</a>
+			</div>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
 		<dl class="stats">
-			<dt>Liczba sztuk:</dt>
-			<dd th:text="${order.quantityUnits}"></dd>
-			<dt>Priorytet:</dt>
-			<dd><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></dd>
-			<dt>Wymagany termin:</dt>
-			<dd th:text="${order.requiredDate}"></dd>
-			<dt>Technik:</dt>
-			<dd th:text="${order.assigneeEmail == null ? '—' : order.assigneeEmail + (order.assigneeActive ? '' : ' (nieaktywny)')}"></dd>
+			<div>
+				<dt>Liczba sztuk:</dt>
+				<dd th:text="${order.quantityUnits}"></dd>
+			</div>
+			<div>
+				<dt>Priorytet:</dt>
+				<dd><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></dd>
+			</div>
+			<div>
+				<dt>Wymagany termin:</dt>
+				<dd th:text="${order.requiredDate}"></dd>
+			</div>
+			<div>
+				<dt>Technik:</dt>
+				<dd th:text="${order.assigneeEmail == null ? '—' : order.assigneeEmail + (order.assigneeActive ? '' : ' (nieaktywny)')}"></dd>
+			</div>
 		</dl>
 		<p th:if="${order.status.name() == 'COMPLETED'}"
 			th:text="${order.builtUnits == null}
@@ -29,73 +44,72 @@
 					? 'Zakończone częściowo: zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} + ', ' + ${order.completedAt}
 					: 'Zakończone ' + ${order.completedAt})">Zakończone</p>
 		<p th:if="${order.status.name() == 'CANCELLED'}">Anulowane <span th:text="${order.cancelledAt}"></span>, <span th:text="${order.cancelledByEmail}"></span></p>
-		<div class="page-actions" th:if="${order.canCancel()}">
-			<a class="btn btn-danger" th:href="@{/orders/{id}/cancel(id=${orderId})}">Anuluj zlecenie</a>
+
+		<div class="detail-grid">
+			<section id="order-change" th:if="${order.changeable()}">
+				<h2>Zmiana priorytetu i terminu</h2>
+				<form class="card" th:action="@{/orders/{id}/change(id=${orderId})}" method="post">
+					<div class="form-field">
+						<label for="priority">Priorytet</label>
+						<select id="priority" name="priority" required>
+							<option value="LOW" th:selected="${changePriority == 'LOW'}" th:text="#{orders.priority.low}"></option>
+							<option value="NORMAL" th:selected="${changePriority == 'NORMAL'}" th:text="#{orders.priority.normal}"></option>
+							<option value="HIGH" th:selected="${changePriority == 'HIGH'}" th:text="#{orders.priority.high}"></option>
+						</select>
+					</div>
+					<div class="form-field">
+						<label for="requiredDate">Wymagany termin</label>
+						<input type="date" id="requiredDate" name="requiredDate" th:min="${changeMinDate}" th:value="${changeRequiredDate}" required>
+					</div>
+					<button type="submit" class="btn">Zapisz zmiany</button>
+				</form>
+			</section>
+
+			<section id="order-assign" th:if="${order.status.name() == 'OPEN'}">
+				<h2>Przypisany technik</h2>
+				<form class="card" th:action="@{/orders/{id}/assign(id=${orderId})}" method="post">
+					<div class="form-field">
+						<label for="assigneeId">Technik</label>
+						<select id="assigneeId" name="assigneeId">
+							<option value="">— nieprzypisane —</option>
+							<option th:each="account : ${assignableAccounts}"
+								th:value="${account.id}"
+								th:text="${account.email}"
+								th:selected="${assigneeId != null and assigneeId == account.id}"></option>
+						</select>
+					</div>
+					<button type="submit" class="btn">Zapisz technika</button>
+				</form>
+			</section>
+
+			<section id="completion-report" th:if="${order.completionReported and order.status.name() == 'OPEN'}">
+				<h2>Zgłoszenie zakończenia</h2>
+				<div class="card">
+					<p class="report-meta">Zgłoszono <strong th:text="${order.reportedAt}"></strong> przez <strong th:text="${order.reportedByEmail}"></strong></p>
+					<p th:text="${order.builtUnits != null}
+						? 'Zbudowano: ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits}
+						: 'Zbudowano: — (liczba zbudowanych sztuk nie została zapisana)'">Zbudowano</p>
+					<p th:if="${order.partiallyCompleted()}" class="hint">Pozostałe sztuki nie zostaną zbudowane — po potwierdzeniu ich braki znikną z listy zakupów.</p>
+
+					<div class="alert alert-info" th:unless="${#lists.isEmpty(unmetLines)}">
+						<p>Uwaga: nie wszystkie pozycje zostały w pełni pobrane:</p>
+						<ul>
+							<li th:each="line : ${unmetLines}"
+								th:text="${line.partName} + ': pobrano ' + ${line.pickedQuantity} + ' z ' + ${line.requiredQuantity}"></li>
+						</ul>
+					</div>
+
+					<div class="actions">
+						<form th:action="@{/orders/{id}/confirm-completion(id=${orderId})}" method="post">
+							<button type="submit" class="btn">Potwierdź zakończenie</button>
+						</form>
+						<form th:action="@{/orders/{id}/reject-completion(id=${orderId})}" method="post">
+							<button type="submit" class="btn btn-danger">Odrzuć zgłoszenie</button>
+						</form>
+					</div>
+				</div>
+			</section>
 		</div>
-
-		<section id="order-change" th:if="${order.changeable()}">
-			<h2>Zmiana priorytetu i terminu</h2>
-			<form class="card" th:action="@{/orders/{id}/change(id=${orderId})}" method="post">
-				<div class="form-field">
-					<label for="priority">Priorytet</label>
-					<select id="priority" name="priority" required>
-						<option value="LOW" th:selected="${changePriority == 'LOW'}" th:text="#{orders.priority.low}"></option>
-						<option value="NORMAL" th:selected="${changePriority == 'NORMAL'}" th:text="#{orders.priority.normal}"></option>
-						<option value="HIGH" th:selected="${changePriority == 'HIGH'}" th:text="#{orders.priority.high}"></option>
-					</select>
-				</div>
-				<div class="form-field">
-					<label for="requiredDate">Wymagany termin</label>
-					<input type="date" id="requiredDate" name="requiredDate" th:min="${changeMinDate}" th:value="${changeRequiredDate}" required>
-				</div>
-				<button type="submit" class="btn">Zapisz zmiany</button>
-			</form>
-		</section>
-
-		<section id="order-assign" th:if="${order.status.name() == 'OPEN'}">
-			<h2>Przypisany technik</h2>
-			<form class="card" th:action="@{/orders/{id}/assign(id=${orderId})}" method="post">
-				<div class="form-field">
-					<label for="assigneeId">Technik</label>
-					<select id="assigneeId" name="assigneeId">
-						<option value="">— nieprzypisane —</option>
-						<option th:each="account : ${assignableAccounts}"
-							th:value="${account.id}"
-							th:text="${account.email}"
-							th:selected="${assigneeId != null and assigneeId == account.id}"></option>
-					</select>
-				</div>
-				<button type="submit" class="btn">Zapisz technika</button>
-			</form>
-		</section>
-
-		<section id="completion-report" th:if="${order.completionReported and order.status.name() == 'OPEN'}">
-			<h2>Zgłoszenie zakończenia</h2>
-			<div class="card">
-				<p>Zgłosił(a): <span th:text="${order.reportedByEmail}"></span>, <span th:text="${order.reportedAt}"></span></p>
-				<p th:text="${order.builtUnits != null}
-					? 'Zbudowano: ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits}
-					: 'Zbudowano: — (liczba zbudowanych sztuk nie została zapisana)'">Zbudowano</p>
-				<p th:if="${order.partiallyCompleted()}" class="hint">Pozostałe sztuki nie zostaną zbudowane — po potwierdzeniu ich braki znikną z listy zakupów.</p>
-
-				<div class="alert alert-info" th:unless="${#lists.isEmpty(unmetLines)}">
-					<p>Uwaga: nie wszystkie pozycje zostały w pełni pobrane:</p>
-					<ul>
-						<li th:each="line : ${unmetLines}"
-							th:text="${line.partName} + ': pobrano ' + ${line.pickedQuantity} + ' z ' + ${line.requiredQuantity}"></li>
-					</ul>
-				</div>
-
-				<div class="actions">
-					<form th:action="@{/orders/{id}/confirm-completion(id=${orderId})}" method="post">
-						<button type="submit" class="btn">Potwierdź zakończenie</button>
-					</form>
-					<form th:action="@{/orders/{id}/reject-completion(id=${orderId})}" method="post">
-						<button type="submit" class="btn btn-danger">Odrzuć zgłoszenie</button>
-					</form>
-				</div>
-			</div>
-		</section>
 
 		<h2>Pozycje</h2>
 
@@ -124,10 +138,6 @@
 					</tr>
 				</tbody>
 			</table>
-		</div>
-
-		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/orders}">Powrót do listy zleceń</a>
 		</div>
 	</main>
 </body>

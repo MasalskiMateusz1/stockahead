@@ -8,7 +8,9 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Nowa część</h1>
+		<div class="page-header">
+			<h1>Nowa część</h1>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
@@ -19,18 +21,17 @@
 			</div>
 			<div class="form-field">
 				<label for="quantity">Stan magazynowy</label>
-				<input type="text" id="quantity" name="quantity" th:value="${quantity}" required>
+				<input type="number" min="0" id="quantity" name="quantity" th:value="${quantity}" required>
 			</div>
 			<div class="form-field">
 				<label for="locations">Lokalizacje (jedna na linię)</label>
 				<textarea id="locations" name="locations" rows="5" th:text="${locations}"></textarea>
 			</div>
-			<button type="submit" class="btn">Dodaj część</button>
+			<div class="form-actions">
+				<button type="submit" class="btn">Dodaj część</button>
+				<a class="btn btn-secondary" th:href="@{/parts}">Anuluj</a>
+			</div>
 		</form>
-
-		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/parts}">Powrót do kartoteki</a>
-		</div>
 	</main>
 </body>
 </html>

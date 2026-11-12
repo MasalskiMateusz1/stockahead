@@ -8,7 +8,9 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Nowe zlecenie</h1>
+		<div class="page-header">
+			<h1>Nowe zlecenie</h1>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
@@ -25,7 +27,7 @@
 			</div>
 			<div class="form-field">
 				<label for="quantityUnits">Liczba sztuk</label>
-				<input type="text" id="quantityUnits" name="quantityUnits" size="6" th:value="${quantityUnits}" required>
+				<input type="number" min="1" id="quantityUnits" name="quantityUnits" size="6" th:value="${quantityUnits}" required>
 			</div>
 			<div class="form-field">
 				<label for="priority">Priorytet</label>
@@ -49,12 +51,11 @@
 						th:selected="${assigneeId != null and assigneeId == ('' + account.id)}"></option>
 				</select>
 			</div>
-			<button type="submit" class="btn">Utwórz zlecenie</button>
+			<div class="form-actions">
+				<button type="submit" class="btn">Utwórz zlecenie</button>
+				<a class="btn btn-secondary" th:href="@{/projects}">Anuluj</a>
+			</div>
 		</form>
-
-		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/projects}">Powrót do listy projektów</a>
-		</div>
 	</main>
 </body>
 </html>

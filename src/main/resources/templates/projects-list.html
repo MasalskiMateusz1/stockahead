@@ -15,45 +15,47 @@
 			</div>
 		</div>
 
-		<form class="form-inline" sec:authorize="hasRole('MANAGER')" th:action="@{/projects}" method="get">
-			<div>
-				<label for="showInactive">
-					<input type="checkbox" id="showInactive" name="showInactive" value="true" th:checked="${showInactive}">
-					pokaż nieaktywne
-				</label>
+		<div class="list-panel">
+			<form class="form-inline" sec:authorize="hasRole('MANAGER')" th:action="@{/projects}" method="get">
+				<div>
+					<label for="showInactive">
+						<input type="checkbox" id="showInactive" name="showInactive" value="true" th:checked="${showInactive}">
+						pokaż nieaktywne
+					</label>
+				</div>
+				<button type="submit" class="btn btn-secondary">Pokaż</button>
+			</form>
+
+			<p th:if="${#lists.isEmpty(projects)}" class="empty">Brak projektów.</p>
+
+			<div class="table-wrap" th:unless="${#lists.isEmpty(projects)}">
+				<table>
+					<thead>
+						<tr>
+							<th>Nazwa</th>
+							<th>Status</th>
+							<th sec:authorize="hasRole('MANAGER')">Akcje</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:each="project : ${projects}">
+							<td><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}"></a></td>
+							<td><span class="badge" th:classappend="${project.active} ? '' : 'badge-muted'" th:text="${project.active} ? 'aktywny' : 'nieaktywny'"></span></td>
+							<td sec:authorize="hasRole('MANAGER')">
+								<div class="actions">
+									<a class="btn btn-secondary" th:href="@{/projects/{id}(id=${project.id})}">Edytuj</a>
+									<form th:if="${project.active}" th:action="@{/projects/{id}/deactivate(id=${project.id})}" method="post">
+										<button type="submit" class="btn btn-danger">Dezaktywuj</button>
+									</form>
+									<form th:unless="${project.active}" th:action="@{/projects/{id}/reactivate(id=${project.id})}" method="post">
+										<button type="submit" class="btn btn-secondary">Reaktywuj</button>
+									</form>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
 			</div>
-			<button type="submit" class="btn btn-secondary">Pokaż</button>
-		</form>
-
-		<p th:if="${#lists.isEmpty(projects)}" class="empty">Brak projektów.</p>
-
-		<div class="table-wrap" th:unless="${#lists.isEmpty(projects)}">
-			<table>
-				<thead>
-					<tr>
-						<th>Nazwa</th>
-						<th>Status</th>
-						<th sec:authorize="hasRole('MANAGER')">Akcje</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr th:each="project : ${projects}">
-						<td><a th:href="@{/projects/{id}(id=${project.id})}" th:text="${project.name}"></a></td>
-						<td><span class="badge" th:classappend="${project.active} ? '' : 'badge-muted'" th:text="${project.active} ? 'aktywny' : 'nieaktywny'"></span></td>
-						<td sec:authorize="hasRole('MANAGER')">
-							<div class="actions">
-								<a class="btn btn-secondary" th:href="@{/projects/{id}(id=${project.id})}">Edytuj</a>
-								<form th:if="${project.active}" th:action="@{/projects/{id}/deactivate(id=${project.id})}" method="post">
-									<button type="submit" class="btn btn-danger">Dezaktywuj</button>
-								</form>
-								<form th:unless="${project.active}" th:action="@{/projects/{id}/reactivate(id=${project.id})}" method="post">
-									<button type="submit" class="btn btn-secondary">Reaktywuj</button>
-								</form>
-							</div>
-						</td>
-					</tr>
-				</tbody>
-			</table>
 		</div>
 	</main>
 </body>

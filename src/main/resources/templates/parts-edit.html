@@ -8,7 +8,9 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Edytuj część</h1>
+		<div class="page-header">
+			<h1>Edytuj część</h1>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
@@ -25,12 +27,11 @@
 				<label for="locations">Lokalizacje (jedna na linię)</label>
 				<textarea id="locations" name="locations" rows="5" th:text="${locations}"></textarea>
 			</div>
-			<button type="submit" class="btn">Zapisz zmiany</button>
+			<div class="form-actions">
+				<button type="submit" class="btn">Zapisz zmiany</button>
+				<a class="btn btn-secondary" th:href="@{/parts}">Anuluj</a>
+			</div>
 		</form>
-
-		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/parts}">Powrót do kartoteki</a>
-		</div>
 	</main>
 </body>
 </html>

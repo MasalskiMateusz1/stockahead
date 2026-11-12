@@ -23,56 +23,58 @@
 
 		<p th:if="${partsImported}" class="alert alert-success" role="status" th:text="${partsImported}"></p>
 
-		<form class="form-inline" th:action="@{/parts}" method="get">
-			<div class="form-field">
-				<label for="q">Szukaj</label>
-				<input type="text" id="q" name="q" th:value="${q}">
-			</div>
-			<div sec:authorize="hasRole('MANAGER')">
-				<label for="showInactive">
-					<input type="checkbox" id="showInactive" name="showInactive" value="true" th:checked="${showInactive}">
-					pokaż nieaktywne
-				</label>
-			</div>
-			<button type="submit" class="btn">Szukaj</button>
-		</form>
+		<div class="list-panel">
+			<form class="form-inline" th:action="@{/parts}" method="get">
+				<div class="form-field">
+					<label for="q">Szukaj</label>
+					<input type="text" id="q" name="q" th:value="${q}">
+				</div>
+				<div sec:authorize="hasRole('MANAGER')">
+					<label for="showInactive">
+						<input type="checkbox" id="showInactive" name="showInactive" value="true" th:checked="${showInactive}">
+						pokaż nieaktywne
+					</label>
+				</div>
+				<button type="submit" class="btn">Szukaj</button>
+			</form>
 
-		<p th:if="${#lists.isEmpty(parts)}" class="empty">Brak części.</p>
+			<p th:if="${#lists.isEmpty(parts)}" class="empty">Brak części.</p>
 
-		<div class="table-wrap" th:unless="${#lists.isEmpty(parts)}">
-			<table class="num-2 num-3 num-4">
-				<thead>
-					<tr>
-						<th>Nazwa</th>
-						<th>Stan</th>
-						<th>Zarezerwowane</th>
-						<th>Dostępne</th>
-						<th>Lokalizacje</th>
-						<th sec:authorize="hasRole('MANAGER')">Akcje</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr th:each="row : ${parts}">
-						<td th:text="${row.part.name}"></td>
-						<td th:text="${row.part.quantity}"></td>
-						<td th:text="${row.reserved}"></td>
-						<td th:text="${row.available}"></td>
-						<td th:text="${#strings.listJoin(row.part.locations.![location], ', ')}"></td>
-						<td sec:authorize="hasRole('MANAGER')">
-							<div class="actions">
-								<a class="btn btn-secondary" th:href="@{/parts/{id}/edit(id=${row.part.id})}">Edytuj</a>
-								<a class="btn btn-secondary" th:href="@{/parts/{id}/correction(id=${row.part.id})}">Koryguj stan</a>
-								<form th:if="${row.part.active}" th:action="@{/parts/{id}/deactivate(id=${row.part.id})}" method="post">
-									<button type="submit" class="btn btn-danger">Dezaktywuj</button>
-								</form>
-								<form th:unless="${row.part.active}" th:action="@{/parts/{id}/reactivate(id=${row.part.id})}" method="post">
-									<button type="submit" class="btn btn-secondary">Reaktywuj</button>
-								</form>
-							</div>
-						</td>
-					</tr>
-				</tbody>
-			</table>
+			<div class="table-wrap" th:unless="${#lists.isEmpty(parts)}">
+				<table class="num-2 num-3 num-4">
+					<thead>
+						<tr>
+							<th>Nazwa</th>
+							<th>Stan</th>
+							<th>Zarezerwowane</th>
+							<th>Dostępne</th>
+							<th>Lokalizacje</th>
+							<th sec:authorize="hasRole('MANAGER')">Akcje</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:each="row : ${parts}">
+							<td th:text="${row.part.name}"></td>
+							<td th:text="${row.part.quantity}"></td>
+							<td th:text="${row.reserved}"></td>
+							<td th:text="${row.available}"></td>
+							<td th:text="${#strings.listJoin(row.part.locations.![location], ', ')}"></td>
+							<td sec:authorize="hasRole('MANAGER')">
+								<div class="actions">
+									<a class="btn btn-secondary" th:href="@{/parts/{id}/edit(id=${row.part.id})}">Edytuj</a>
+									<a class="btn btn-secondary" th:href="@{/parts/{id}/correction(id=${row.part.id})}">Koryguj stan</a>
+									<form th:if="${row.part.active}" th:action="@{/parts/{id}/deactivate(id=${row.part.id})}" method="post">
+										<button type="submit" class="btn btn-danger">Dezaktywuj</button>
+									</form>
+									<form th:unless="${row.part.active}" th:action="@{/parts/{id}/reactivate(id=${row.part.id})}" method="post">
+										<button type="submit" class="btn btn-secondary">Reaktywuj</button>
+									</form>
+								</div>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
 		</div>
 	</main>
 </body>

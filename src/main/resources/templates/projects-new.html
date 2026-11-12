@@ -8,7 +8,9 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Nowy projekt</h1>
+		<div class="page-header">
+			<h1>Nowy projekt</h1>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
@@ -17,12 +19,11 @@
 				<label for="name">Nazwa</label>
 				<input type="text" id="name" name="name" th:value="${name}" required>
 			</div>
-			<button type="submit" class="btn">Dodaj projekt</button>
+			<div class="form-actions">
+				<button type="submit" class="btn">Dodaj projekt</button>
+				<a class="btn btn-secondary" th:href="@{/projects}">Anuluj</a>
+			</div>
 		</form>
-
-		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/projects}">Powrót do listy projektów</a>
-		</div>
 	</main>
 </body>
 </html>

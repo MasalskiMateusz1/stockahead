@@ -8,11 +8,15 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1 th:text="${project.name}"></h1>
+		<div class="page-header">
+			<h1 th:text="${project.name}"></h1>
+			<p class="page-subtitle">Status: <span class="badge" th:classappend="${project.active} ? '' : 'badge-muted'" th:text="${project.active} ? 'aktywny' : 'nieaktywny'"></span></p>
+			<div class="page-actions">
+				<a class="btn btn-secondary" th:href="@{/projects}">Powrót do listy projektów</a>
+			</div>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
-
-		<p>Status: <span class="badge" th:classappend="${project.active} ? '' : 'badge-muted'" th:text="${project.active} ? 'aktywny' : 'nieaktywny'"></span></p>
 
 		<form class="form-inline" sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}(id=${project.id})}" method="post">
 			<div class="form-field">
@@ -22,98 +26,98 @@
 			<button type="submit" class="btn">Zmień nazwę</button>
 		</form>
 
-		<h2>Lista materiałowa</h2>
+		<div class="panel-stack">
+			<h2>Lista materiałowa</h2>
 
-		<p th:if="${#lists.isEmpty(lines)}" class="empty">Brak pozycji w liście materiałowej.</p>
+			<div class="list-panel panel-fit">
+				<p th:if="${#lists.isEmpty(lines)}" class="empty">Brak pozycji w liście materiałowej.</p>
 
-		<div class="table-wrap" th:unless="${#lists.isEmpty(lines)}">
-			<table>
-				<thead>
-					<tr>
-						<th>Część</th>
-						<th>Ilość na sztukę</th>
-						<th sec:authorize="hasRole('MANAGER')">Akcje</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr th:each="line : ${lines}">
-						<td>
-							<span th:text="${line.partName}"></span>
-							<span th:unless="${line.partActive}" class="badge badge-muted">(nieaktywna)</span>
-						</td>
-						<td sec:authorize="!hasRole('MANAGER')" th:text="${line.quantityPerUnit}"></td>
-						<td sec:authorize="hasRole('MANAGER')">
-							<div class="actions">
-								<form th:action="@{/projects/{id}/bom/{lineId}(id=${project.id},lineId=${line.id})}" method="post">
-									<input type="text" name="quantityPerUnit" size="6" required
-										th:id="'quantityPerUnit-' + ${line.id}"
-										th:value="${errorLineId != null and errorLineId == line.id} ? ${quantityPerUnit} : ${line.quantityPerUnit}">
-									<button type="submit" class="btn btn-secondary">Zmień ilość</button>
-								</form>
-							</div>
-						</td>
-						<td sec:authorize="hasRole('MANAGER')">
-							<div class="actions">
-								<form th:action="@{/projects/{id}/bom/{lineId}/delete(id=${project.id},lineId=${line.id})}" method="post">
-									<button type="submit" class="btn btn-danger">Usuń</button>
-								</form>
-							</div>
-						</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-
-		<form class="card" sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/bom(id=${project.id})}" method="post">
-			<h3>Dodaj pozycję</h3>
-			<div class="form-field">
-				<label for="partId">Część</label>
-				<select id="partId" name="partId" required>
-					<option value="">— wybierz część —</option>
-					<option th:each="option : ${activeParts}"
-						th:value="${option.id}"
-						th:text="${option.name}"
-						th:selected="${partId != null and partId == ('' + option.id)}"></option>
-				</select>
-			</div>
-			<div class="form-field">
-				<label for="quantityPerUnit">Ilość na sztukę</label>
-				<input type="text" id="quantityPerUnit" name="quantityPerUnit" size="6" required
-					th:value="${errorLineId == null} ? ${quantityPerUnit} : ''">
-			</div>
-			<button type="submit" class="btn">Dodaj pozycję</button>
-		</form>
-
-		<h2>Dokumentacja</h2>
-
-		<p th:if="${#lists.isEmpty(links)}" class="empty">Brak linków do dokumentacji.</p>
-
-		<ul th:unless="${#lists.isEmpty(links)}">
-			<li th:each="link : ${links}">
-				<div class="actions">
-					<a th:href="${link.url}" th:text="${link.label != null and !#strings.isEmpty(link.label)} ? ${link.label} : ${link.url}" rel="noopener noreferrer" target="_blank"></a>
-					<form sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/links/{linkId}/delete(id=${project.id},linkId=${link.id})}" method="post">
-						<button type="submit" class="btn btn-danger">Usuń link</button>
-					</form>
+				<div class="table-wrap" th:unless="${#lists.isEmpty(lines)}">
+					<table>
+						<thead>
+							<tr>
+								<th>Część</th>
+								<th>Ilość na sztukę</th>
+								<th sec:authorize="hasRole('MANAGER')">Akcje</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr th:each="line : ${lines}">
+								<td>
+									<span th:text="${line.partName}"></span>
+									<span th:unless="${line.partActive}" class="badge badge-muted">(nieaktywna)</span>
+								</td>
+								<td sec:authorize="!hasRole('MANAGER')" th:text="${line.quantityPerUnit}"></td>
+								<td sec:authorize="hasRole('MANAGER')">
+									<div class="actions">
+										<form th:action="@{/projects/{id}/bom/{lineId}(id=${project.id},lineId=${line.id})}" method="post">
+											<input type="number" min="1" name="quantityPerUnit" size="6" required
+												th:id="'quantityPerUnit-' + ${line.id}"
+												th:value="${errorLineId != null and errorLineId == line.id} ? ${quantityPerUnit} : ${line.quantityPerUnit}">
+											<button type="submit" class="btn btn-secondary">Zmień ilość</button>
+										</form>
+									</div>
+								</td>
+								<td sec:authorize="hasRole('MANAGER')">
+									<div class="actions">
+										<form th:action="@{/projects/{id}/bom/{lineId}/delete(id=${project.id},lineId=${line.id})}" method="post">
+											<button type="submit" class="btn btn-danger">Usuń</button>
+										</form>
+									</div>
+								</td>
+							</tr>
+						</tbody>
+					</table>
 				</div>
-			</li>
-		</ul>
 
-		<form class="card" sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/links(id=${project.id})}" method="post">
-			<h3>Dodaj link</h3>
-			<div class="form-field">
-				<label for="linkUrl">Adres (http:// lub https://)</label>
-				<input type="url" id="linkUrl" name="url" size="60" maxlength="2048" required th:value="${linkUrl}">
+				<form class="form-row" sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/bom(id=${project.id})}" method="post">
+					<div class="form-field">
+						<label for="partId">Część</label>
+						<select id="partId" name="partId" required>
+							<option value="">— wybierz część —</option>
+							<option th:each="option : ${activeParts}"
+								th:value="${option.id}"
+								th:text="${option.name}"
+								th:selected="${partId != null and partId == ('' + option.id)}"></option>
+						</select>
+					</div>
+					<div class="form-field">
+						<label for="quantityPerUnit">Ilość na sztukę</label>
+						<input type="number" min="1" id="quantityPerUnit" name="quantityPerUnit" size="6" required
+							th:value="${errorLineId == null} ? ${quantityPerUnit} : ''">
+					</div>
+					<button type="submit" class="btn">Dodaj pozycję</button>
+				</form>
 			</div>
-			<div class="form-field">
-				<label for="linkLabel">Opis (opcjonalnie)</label>
-				<input type="text" id="linkLabel" name="label" size="40" maxlength="255" th:value="${linkLabel}">
-			</div>
-			<button type="submit" class="btn">Dodaj link</button>
-		</form>
 
-		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/projects}">Powrót do listy projektów</a>
+			<h2>Dokumentacja</h2>
+
+			<div class="list-panel panel-fit">
+				<p th:if="${#lists.isEmpty(links)}" class="empty">Brak linków do dokumentacji.</p>
+
+				<ul class="link-list" th:unless="${#lists.isEmpty(links)}">
+					<li th:each="link : ${links}">
+						<div class="actions">
+							<a th:href="${link.url}" th:text="${link.label != null and !#strings.isEmpty(link.label)} ? ${link.label} : ${link.url}" rel="noopener noreferrer" target="_blank"></a>
+							<form sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/links/{linkId}/delete(id=${project.id},linkId=${link.id})}" method="post">
+								<button type="submit" class="btn btn-danger">Usuń link</button>
+							</form>
+						</div>
+					</li>
+				</ul>
+
+				<form class="form-row" sec:authorize="hasRole('MANAGER')" th:action="@{/projects/{id}/links(id=${project.id})}" method="post">
+					<div class="form-field">
+						<label for="linkUrl">Adres (http:// lub https://)</label>
+						<input type="url" id="linkUrl" name="url" size="40" maxlength="2048" required th:value="${linkUrl}">
+					</div>
+					<div class="form-field">
+						<label for="linkLabel">Opis (opcjonalnie)</label>
+						<input type="text" id="linkLabel" name="label" size="24" maxlength="255" th:value="${linkLabel}">
+					</div>
+					<button type="submit" class="btn">Dodaj link</button>
+				</form>
+			</div>
 		</div>
 	</main>
 </body>

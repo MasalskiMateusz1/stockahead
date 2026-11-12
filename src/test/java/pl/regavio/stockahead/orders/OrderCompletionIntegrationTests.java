@@ -604,7 +604,8 @@ class OrderCompletionIntegrationTests {
 		mockMvc.perform(get("/orders/{id}", orderA).session(manager))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(TECHNICIAN_EMAIL)))
-			.andExpect(content().string(matchesPattern("(?s).*, <span>" + MINUTE_PATTERN + "</span>.*")))
+			.andExpect(content().string(matchesPattern(
+					"(?s).*Zgłoszono <strong>" + MINUTE_PATTERN + "</strong> przez <strong>" + TECHNICIAN_EMAIL + "</strong>.*")))
 			.andExpect(content().string(containsString("Shared Resistor: pobrano 2 z 10")))
 			.andExpect(content().string(containsString("Brakująca ilość")))
 			.andExpect(content().string(containsString(CONFIRM_BUTTON)))

@@ -8,7 +8,9 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Przyjęcie dostawy</h1>
+		<div class="page-header">
+			<h1>Przyjęcie dostawy</h1>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
@@ -36,7 +38,7 @@
 								</select>
 							</td>
 							<td>
-								<input type="text" size="8" th:name="'quantity' + ${iter.index}" th:value="${row.quantity}" th:id="'quantity' + ${iter.index}">
+								<input type="number" min="1" size="8" th:name="'quantity' + ${iter.index}" th:value="${row.quantity}" th:id="'quantity' + ${iter.index}">
 							</td>
 							<td>
 								<input type="text" size="20" list="known-locations" th:name="'location' + ${iter.index}" th:value="${row.location}" th:id="'location' + ${iter.index}">

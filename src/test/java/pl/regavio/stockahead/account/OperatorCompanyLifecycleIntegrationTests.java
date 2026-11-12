@@ -264,7 +264,7 @@ class OperatorCompanyLifecycleIntegrationTests {
 			.andExpect(content().string(containsString("<dd>" + REGISTRANT_EMAIL + "</dd>")))
 			.andExpect(content().string(containsString("action=\"/operator/companies/" + companyId + "/reject\"")))
 			.andExpect(content().string(containsString(">Odrzuć firmę</button>")))
-			.andExpect(content().string(containsString("href=\"/operator/companies\">Anuluj</a>")));
+			.andExpect(content().string(containsString("href=\"/operator/companies\">Wróć</a>")));
 		assertThat(companyStatus(companyId)).as("the confirm page changes nothing").isEqualTo("PENDING");
 
 		mockMvc.perform(post("/operator/companies/{id}/reject", companyId).session(operator).with(csrf()))
@@ -412,7 +412,7 @@ class OperatorCompanyLifecycleIntegrationTests {
 			.andExpect(content().string(containsString("<dd>" + MANAGER_EMAIL + "</dd>")))
 			.andExpect(content().string(containsString("action=\"/operator/companies/" + companyId + "/block\"")))
 			.andExpect(content().string(containsString(">Zablokuj firmę</button>")))
-			.andExpect(content().string(containsString("href=\"/operator/companies\">Anuluj</a>")));
+			.andExpect(content().string(containsString("href=\"/operator/companies\">Wróć</a>")));
 		assertThat(companyStatus(companyId)).as("the confirm page changes nothing").isEqualTo("ACTIVE");
 
 		MvcResult blocked = mockMvc.perform(post("/operator/companies/{id}/block", companyId)

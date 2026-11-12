@@ -8,7 +8,12 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1>Korekta stanu: <span th:text="${partName}"></span> <span th:unless="${partActive}" class="badge badge-muted">(nieaktywna)</span></h1>
+		<div class="page-header">
+			<h1>Korekta stanu: <span th:text="${partName}"></span> <span th:unless="${partActive}" class="badge badge-muted">(nieaktywna)</span></h1>
+			<div class="page-actions">
+				<a class="btn btn-secondary" th:href="@{/parts}">Powrót do kartoteki części</a>
+			</div>
+		</div>
 
 		<p id="summary" class="summary">
 			Stan: <strong th:text="${quantity}"></strong>,
@@ -18,60 +23,60 @@
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
-		<h2>Ustaw stan po spisie</h2>
-		<form class="card" th:action="@{/parts/{id}/correction/set(id=${partId})}" method="post">
-			<input type="hidden" name="expectedQuantity" th:value="${expectedQuantity}">
-			<div class="form-field">
-				<label for="newQuantity">Nowy stan</label>
-				<input type="text" size="8" id="newQuantity" name="newQuantity" th:value="${newQuantity}">
-			</div>
-			<div class="form-field">
-				<label for="setReason">Powód</label>
-				<input type="text" size="60" maxlength="500" id="setReason" name="reason" th:value="${setReason}">
-			</div>
-			<button type="submit" class="btn">Ustaw stan</button>
-		</form>
+		<div class="panel-stack">
+			<h2>Ustaw stan po spisie</h2>
+			<form class="card form-row panel-fit" th:action="@{/parts/{id}/correction/set(id=${partId})}" method="post">
+				<input type="hidden" name="expectedQuantity" th:value="${expectedQuantity}">
+				<div class="form-field">
+					<label for="newQuantity">Nowy stan</label>
+					<input type="number" min="0" size="8" id="newQuantity" name="newQuantity" th:value="${newQuantity}">
+				</div>
+				<div class="form-field">
+					<label for="setReason">Powód</label>
+					<input type="text" size="40" maxlength="500" id="setReason" name="reason" th:value="${setReason}">
+				</div>
+				<button type="submit" class="btn">Ustaw stan</button>
+			</form>
 
-		<h2>Zmień stan o</h2>
-		<form class="card" th:action="@{/parts/{id}/correction/adjust(id=${partId})}" method="post">
-			<div class="form-field">
-				<label for="delta">Zmiana (np. -3 lub 5)</label>
-				<input type="text" size="8" id="delta" name="delta" th:value="${delta}">
-			</div>
-			<div class="form-field">
-				<label for="adjustReason">Powód</label>
-				<input type="text" size="60" maxlength="500" id="adjustReason" name="reason" th:value="${adjustReason}">
-			</div>
-			<button type="submit" class="btn">Zmień stan</button>
-		</form>
+			<h2>Zmień stan o</h2>
+			<form class="card form-row panel-fit" th:action="@{/parts/{id}/correction/adjust(id=${partId})}" method="post">
+				<div class="form-field">
+					<label for="delta">Zmiana (np. -3 lub 5)</label>
+					<input type="number" size="8" id="delta" name="delta" th:value="${delta}">
+				</div>
+				<div class="form-field">
+					<label for="adjustReason">Powód</label>
+					<input type="text" size="40" maxlength="500" id="adjustReason" name="reason" th:value="${adjustReason}">
+				</div>
+				<button type="submit" class="btn">Zmień stan</button>
+			</form>
 
-		<h2>Poprzednie korekty</h2>
-		<p th:if="${#lists.isEmpty(corrections)}" class="empty">Brak korekt</p>
-		<div class="table-wrap" th:unless="${#lists.isEmpty(corrections)}">
-			<table>
-				<thead>
-					<tr>
-						<th>Data</th>
-						<th>Autor</th>
-						<th>Przed → Po</th>
-						<th>Zmiana</th>
-						<th>Powód</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr th:each="correction : ${corrections}">
-						<td th:text="${@orderMoments.format(correction.createdAt)}"></td>
-						<td th:text="${correction.account.email}"></td>
-						<td th:text="${correction.quantityBefore} + ' → ' + ${correction.quantityAfter}"></td>
-						<td th:text="${correction.delta > 0} ? '+' + ${correction.delta} : ${correction.delta}"></td>
-						<td th:text="${correction.reason}"></td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-
-		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/parts}">Powrót do kartoteki części</a>
+			<h2>Poprzednie korekty</h2>
+			<div class="list-panel panel-fit">
+				<p th:if="${#lists.isEmpty(corrections)}" class="empty">Brak korekt</p>
+				<div class="table-wrap" th:unless="${#lists.isEmpty(corrections)}">
+					<table>
+						<thead>
+							<tr>
+								<th>Data</th>
+								<th>Autor</th>
+								<th>Przed → Po</th>
+								<th>Zmiana</th>
+								<th>Powód</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr th:each="correction : ${corrections}">
+								<td th:text="${@orderMoments.format(correction.createdAt)}"></td>
+								<td th:text="${correction.account.email}"></td>
+								<td th:text="${correction.quantityBefore} + ' → ' + ${correction.quantityAfter}"></td>
+								<td th:text="${correction.delta > 0} ? '+' + ${correction.delta} : ${correction.delta}"></td>
+								<td th:text="${correction.reason}"></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
 		</div>
 	</main>
 </body>

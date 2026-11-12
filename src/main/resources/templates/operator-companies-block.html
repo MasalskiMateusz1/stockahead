@@ -8,22 +8,30 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1 th:text="#{operator.companies.block.title}">Blokada firmy</h1>
+		<div class="page-header">
+			<h1 th:text="#{operator.companies.block.title}">Blokada firmy</h1>
+		</div>
 
-		<dl class="stats">
-			<dt th:text="#{operator.companies.block.name}">Nazwa firmy</dt>
-			<dd th:text="${company.name}"></dd>
-			<dt th:text="#{operator.companies.block.managerEmail}">E-mail kierownika</dt>
-			<dd th:text="${company.managerEmail}"></dd>
-		</dl>
+		<div class="card confirm-summary">
+			<dl class="stats">
+				<div>
+					<dt th:text="#{operator.companies.block.name}">Nazwa firmy</dt>
+					<dd th:text="${company.name}"></dd>
+				</div>
+				<div>
+					<dt th:text="#{operator.companies.block.managerEmail}">E-mail kierownika</dt>
+					<dd th:text="${company.managerEmail}"></dd>
+				</div>
+			</dl>
 
-		<p class="alert alert-info" th:text="#{operator.companies.block.intro}"></p>
+			<p class="alert alert-info" th:text="#{operator.companies.block.intro}"></p>
+		</div>
 
-		<div class="page-actions">
+		<div class="confirm-actions">
 			<form th:action="@{/operator/companies/{id}/block(id=${company.id})}" method="post">
 				<button type="submit" class="btn btn-danger" th:text="#{operator.companies.block.confirm}">Zablokuj firmę</button>
 			</form>
-			<a class="btn btn-secondary" th:href="@{/operator/companies}" th:text="#{operator.companies.block.cancel}">Anuluj</a>
+			<a class="btn btn-secondary" th:href="@{/operator/companies}" th:text="#{operator.companies.block.cancel}">Wróć</a>
 		</div>
 	</main>
 </body>

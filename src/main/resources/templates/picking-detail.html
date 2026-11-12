@@ -8,21 +8,34 @@
 	<header th:replace="~{fragments :: topbar}"></header>
 
 	<main class="container">
-		<h1 th:text="${order.projectName}"></h1>
+		<div class="page-header">
+			<h1 th:text="${order.projectName}"></h1>
+			<p class="page-subtitle" th:if="${order.taken or order.completionReported}">
+				<span th:if="${order.taken}" class="badge badge-muted">Zlecenie podjęte</span>
+				<span th:if="${order.completionReported}" class="badge badge-info"
+					th:text="'Zgłoszone do potwierdzenia' + (${order.builtUnits != null} ? ' — zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} : '')">Zgłoszone do potwierdzenia</span>
+			</p>
+			<div class="page-actions">
+				<a class="btn btn-secondary" th:href="@{/picking}">Powrót do listy kompletacyjnej</a>
+			</div>
+		</div>
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
 		<dl class="stats">
-			<dt>Liczba sztuk:</dt>
-			<dd th:text="${order.quantityUnits}"></dd>
-			<dt>Priorytet:</dt>
-			<dd><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></dd>
-			<dt>Wymagany termin:</dt>
-			<dd th:text="${order.requiredDate}"></dd>
+			<div>
+				<dt>Liczba sztuk:</dt>
+				<dd th:text="${order.quantityUnits}"></dd>
+			</div>
+			<div>
+				<dt>Priorytet:</dt>
+				<dd><span class="badge" th:classappend="|badge-${order.priority.name().toLowerCase()}|" th:text="#{orders.priority.__${order.priority.name().toLowerCase()}__}"></span></dd>
+			</div>
+			<div>
+				<dt>Wymagany termin:</dt>
+				<dd th:text="${order.requiredDate}"></dd>
+			</div>
 		</dl>
-		<p th:if="${order.taken}"><span class="badge badge-muted">Zlecenie podjęte</span></p>
-		<p th:if="${order.completionReported}"><span class="badge badge-info"
-			th:text="'Zgłoszone do potwierdzenia' + (${order.builtUnits != null} ? ' — zbudowano ' + ${order.builtUnits} + ' z ' + ${order.quantityUnits} : '')">Zgłoszone do potwierdzenia</span></p>
 		<form class="card form-inline" th:if="${order.canReportCompletion}" th:action="@{/picking/{orderId}/report-completion(orderId=${orderId})}" method="post">
 			<div class="form-field">
 				<label for="builtUnits">Zbudowano sztuk</label>
@@ -60,7 +73,7 @@
 						<td th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN' and !order.completionReported}">
 							<div class="actions">
 								<form th:action="@{/picking/{orderId}/lines/{lineId}/pick(orderId=${orderId},lineId=${line.lineId})}" method="post">
-									<input type="text" size="6"
+									<input type="number" min="1" size="6"
 										th:id="'quantity-' + ${line.lineId}"
 										name="quantity"
 										th:value="${errorLineId != null and errorLineId == line.lineId} ? ${quantity} : ${line.remainingToPick}">
@@ -71,10 +84,6 @@
 					</tr>
 				</tbody>
 			</table>
-		</div>
-
-		<div class="page-actions">
-			<a class="btn btn-secondary" th:href="@{/picking}">Powrót do listy kompletacyjnej</a>
 		</div>
 	</main>
 </body>

@@ -500,31 +500,31 @@ Add the role-based count cards to the dashboard, restyle the tiles, remove the p
 
 #### Automated
 
-- [x] 2.1 Full build and tests pass: `./mvnw verify`
-- [x] 2.2 No attribute was added to table cells or rows
-- [x] 2.3 The operator companies table is still bare
+- [x] 2.1 Full build and tests pass: `./mvnw verify` — 9d21bae
+- [x] 2.2 No attribute was added to table cells or rows — 9d21bae
+- [x] 2.3 The operator companies table is still bare — 9d21bae
 
 #### Manual
 
-- [x] 2.4 parts-list shows aligned columns, quiet row buttons, header row and filter card
-- [x] 2.5 orders-list pending rows read amber and priority pills are tinted
-- [x] 2.6 Other list views look consistent with parts-list in light and dark
+- [x] 2.4 parts-list shows aligned columns, quiet row buttons, header row and filter card — 9d21bae
+- [x] 2.5 orders-list pending rows read amber and priority pills are tinted — 9d21bae
+- [x] 2.6 Other list views look consistent with parts-list in light and dark — 9d21bae
 - [ ] 2.7 Empty parts-list and accounts-list show the dashed empty state
 
 ### Phase 3: Forms, detail and auth pages
 
 #### Automated
 
-- [ ] 3.1 Full build and tests pass: `./mvnw verify`
-- [ ] 3.2 No inline styles (`TemplateConventionTests`)
-- [ ] 3.3 The honeypot wrapper is untouched
+- [x] 3.1 Full build and tests pass: `./mvnw verify`
+- [x] 3.2 No inline styles (`TemplateConventionTests`)
+- [x] 3.3 The honeypot wrapper is untouched
 
 #### Manual
 
-- [ ] 3.4 Forms show a 40rem column, soft inputs, a teal focus ring and the back link in the header
-- [ ] 3.5 orders-detail shows the fact grid, priority badge and header actions
-- [ ] 3.6 Confirmation pages share one layout
-- [ ] 3.7 Login and register look right in light/dark at 390 and 1280px
+- [x] 3.4 Forms show a 40rem column, soft inputs, a teal focus ring and the back link in the header
+- [x] 3.5 orders-detail shows the fact grid, priority badge and header actions
+- [x] 3.6 Confirmation pages share one layout
+- [x] 3.7 Login and register look right in light/dark at 390 and 1280px
 
 ### Phase 4: Dashboard counts and visual gate
 

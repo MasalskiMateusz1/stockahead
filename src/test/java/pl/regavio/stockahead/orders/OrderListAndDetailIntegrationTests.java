@@ -313,6 +313,22 @@ class OrderListAndDetailIntegrationTests {
 			.andExpect(content().string(not(containsString("Zakończone częściowo"))));
 	}
 
+	@Test
+	void openOrderDetailLinksToItsPickingPageAndClosedOrderDoesNot() throws Exception {
+		MockHttpSession session = managerSession();
+		Long open = seedOrder(seedProject("Picking Link Board", true), 1, "NORMAL", LocalDate.now().plusDays(3));
+		Long completed = seedReportedOrder(seedProject("Done Link Board", true), 2, 2, true, MANAGER_EMAIL);
+
+		mockMvc.perform(get("/orders/" + open).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(containsString("href=\"/picking/" + open + "\">Przejdź do kompletacji</a>")));
+		mockMvc.perform(get("/picking/" + open).session(session))
+			.andExpect(status().isOk());
+		mockMvc.perform(get("/orders/" + completed).session(session))
+			.andExpect(status().isOk())
+			.andExpect(content().string(not(containsString("Przejdź do kompletacji"))));
+	}
+
 	// ---- US-01 acceptance example, through GET /orders/{id} -----------
 
 	@Test
