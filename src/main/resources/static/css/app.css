@@ -1032,6 +1032,12 @@ body:has(> header.topbar) > .container {
 	padding: 4.25rem var(--space-8) 3rem;
 }
 
+/* Pages built on a .panel-stack (project detail, stock correction) are only as wide as their
+   widest block, so the header actions end at the panels' right edge, not the page's. */
+body:has(> header.topbar) > .container:has(> .panel-stack) {
+	width: fit-content;
+}
+
 /* Page header: the h1 (plus an optional muted .page-subtitle under it) on the left, the
    .page-actions group on the right. Stacks under 48rem (see the narrow-screen block). */
 .page-header {
