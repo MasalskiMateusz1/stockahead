@@ -509,33 +509,33 @@ Add the role-based count cards to the dashboard, restyle the tiles, remove the p
 - [x] 2.4 parts-list shows aligned columns, quiet row buttons, header row and filter card — 9d21bae
 - [x] 2.5 orders-list pending rows read amber and priority pills are tinted — 9d21bae
 - [x] 2.6 Other list views look consistent with parts-list in light and dark — 9d21bae
-- [ ] 2.7 Empty parts-list and accounts-list show the dashed empty state
+- [x] 2.7 Empty parts-list and accounts-list show the dashed empty state
 
 ### Phase 3: Forms, detail and auth pages
 
 #### Automated
 
-- [x] 3.1 Full build and tests pass: `./mvnw verify`
-- [x] 3.2 No inline styles (`TemplateConventionTests`)
-- [x] 3.3 The honeypot wrapper is untouched
+- [x] 3.1 Full build and tests pass: `./mvnw verify` — 2c144d6
+- [x] 3.2 No inline styles (`TemplateConventionTests`) — 2c144d6
+- [x] 3.3 The honeypot wrapper is untouched — 2c144d6
 
 #### Manual
 
-- [x] 3.4 Forms show a 40rem column, soft inputs, a teal focus ring and the back link in the header
-- [x] 3.5 orders-detail shows the fact grid, priority badge and header actions
-- [x] 3.6 Confirmation pages share one layout
-- [x] 3.7 Login and register look right in light/dark at 390 and 1280px
+- [x] 3.4 Forms show a 40rem column, soft inputs, a teal focus ring and the back link in the header — 2c144d6
+- [x] 3.5 orders-detail shows the fact grid, priority badge and header actions — 2c144d6
+- [x] 3.6 Confirmation pages share one layout — 2c144d6
+- [x] 3.7 Login and register look right in light/dark at 390 and 1280px — 2c144d6
 
 ### Phase 4: Dashboard counts and visual gate
 
 #### Automated
 
-- [ ] 4.1 Full build and tests pass: `./mvnw verify`
-- [ ] 4.2 The new dashboard tests pass
-- [ ] 4.3 The existing dashboard and role tests pass
-- [ ] 4.4 The ping tile is gone from `dashboard.html`
+- [x] 4.1 Full build and tests pass: `./mvnw verify`
+- [x] 4.2 The new dashboard tests pass
+- [x] 4.3 The existing dashboard and role tests pass
+- [x] 4.4 The ping tile is gone from `dashboard.html`
 
 #### Manual
 
-- [ ] 4.5 Dashboard counts equal the row counts of the linked lists for manager and technician
-- [ ] 4.6 `visual-gate.md` shows a pass for every listed view, theme and width
+- [x] 4.5 Dashboard counts equal the row counts of the linked lists for manager and technician
+- [x] 4.6 `visual-gate.md` shows a pass for every listed view, theme and width

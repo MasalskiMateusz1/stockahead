@@ -9,6 +9,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.HomeController;
+import pl.regavio.stockahead.orders.OrderLineRepository;
+import pl.regavio.stockahead.orders.OrderRepository;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,6 +40,12 @@ class StaticResourceAccessTests {
 
 	@MockitoBean
 	private AccountRepository accountRepository;
+
+	@MockitoBean
+	private OrderRepository orderRepository;
+
+	@MockitoBean
+	private OrderLineRepository orderLineRepository;
 
 	@Test
 	void anonymousCanLoadStylesheet() throws Exception {

@@ -9,6 +9,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.HomeController;
+import pl.regavio.stockahead.orders.OrderLineRepository;
+import pl.regavio.stockahead.orders.OrderRepository;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,6 +35,12 @@ class SecurityRedirectTests {
 
 	@MockitoBean
 	private AccountRepository accountRepository;
+
+	@MockitoBean
+	private OrderRepository orderRepository;
+
+	@MockitoBean
+	private OrderLineRepository orderLineRepository;
 
 	@Test
 	void unauthenticatedRequestRedirectsToLogin() throws Exception {

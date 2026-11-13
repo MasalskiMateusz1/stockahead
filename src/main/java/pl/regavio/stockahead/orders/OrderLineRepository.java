@@ -81,4 +81,15 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Long> {
 			+ "AND ol.requiredQuantity > ol.reservedQuantity + ol.pickedQuantity")
 	List<OrderLine> findOpenLinesWithShortage(@Param("companyId") Long companyId);
 
+	/**
+	 * Number of distinct parts of company {@code companyId} short on at least
+	 * one OPEN order line, under the same condition as
+	 * {@link #findOpenLinesWithShortage(Long)}: the dashboard's "Braki do
+	 * zakupu" count, equal to the shopping list's rows.
+	 */
+	@Query("SELECT COUNT(DISTINCT ol.part.id) FROM OrderLine ol JOIN ol.order o "
+			+ "WHERE o.status = pl.regavio.stockahead.orders.OrderStatus.OPEN AND ol.companyId = :companyId "
+			+ "AND ol.requiredQuantity > ol.reservedQuantity + ol.pickedQuantity")
+	long countPartsWithShortage(@Param("companyId") Long companyId);
+
 }

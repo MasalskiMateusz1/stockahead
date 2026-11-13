@@ -10,6 +10,31 @@
 	<main class="container">
 		<h1>Pulpit</h1>
 
+		<div class="kpis">
+			<a th:if="${pendingConfirmationCount != null}" th:href="@{/orders}" class="kpi"
+					th:classappend="${pendingConfirmationCount > 0} ? 'kpi-warning'">
+				<span class="kpi-label">Do potwierdzenia</span>
+				<span class="kpi-value" th:text="${pendingConfirmationCount}">0</span>
+				<span class="kpi-icon"><svg th:replace="~{fragments :: icon('orders')}"></svg></span>
+			</a>
+			<a th:if="${openOrderCount != null}" th:href="@{/orders}" class="kpi">
+				<span class="kpi-label">Otwarte zlecenia</span>
+				<span class="kpi-value" th:text="${openOrderCount}">0</span>
+				<span class="kpi-icon"><svg th:replace="~{fragments :: icon('orders')}"></svg></span>
+			</a>
+			<a th:if="${shortagePartCount != null}" th:href="@{/purchasing}" class="kpi"
+					th:classappend="${shortagePartCount > 0} ? 'kpi-warning'">
+				<span class="kpi-label">Braki do zakupu</span>
+				<span class="kpi-value" th:text="${shortagePartCount}">0</span>
+				<span class="kpi-icon"><svg th:replace="~{fragments :: icon('purchasing')}"></svg></span>
+			</a>
+			<a th:if="${myPickingCount != null}" th:href="@{/picking}" class="kpi">
+				<span class="kpi-label">Moje zlecenia do kompletacji</span>
+				<span class="kpi-value" th:text="${myPickingCount}">0</span>
+				<span class="kpi-icon"><svg th:replace="~{fragments :: icon('picking')}"></svg></span>
+			</a>
+		</div>
+
 		<div class="tiles">
 			<a th:href="@{/parts}">
 				<span class="tile-icon"><svg th:replace="~{fragments :: icon('parts')}"></svg></span>
@@ -42,10 +67,6 @@
 			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/accounts}">
 				<span class="tile-icon"><svg th:replace="~{fragments :: icon('accounts')}"></svg></span>
 				<span>Konta</span>
-			</a>
-			<a sec:authorize="hasRole('MANAGER')" th:href="@{/manager/ping}">
-				<span class="tile-icon"><svg th:replace="~{fragments :: icon('access')}"></svg></span>
-				<span>Sprawdź dostęp kierownika</span>
 			</a>
 		</div>
 	</main>

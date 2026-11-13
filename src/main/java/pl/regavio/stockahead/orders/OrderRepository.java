@@ -45,4 +45,25 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	/** The order {@code id} if it belongs to company {@code companyId}; empty otherwise, exactly like a missing id. */
 	Optional<Order> findByIdAndCompanyId(Long id, Long companyId);
 
+	/**
+	 * Company {@code companyId}'s orders in {@code status} with a completion
+	 * report awaiting confirmation: the dashboard's "Do potwierdzenia" count,
+	 * equal to the rows of the orders list's pending table.
+	 */
+	long countByCompanyIdAndStatusAndCompletionReportedAtIsNotNull(Long companyId, OrderStatus status);
+
+	/**
+	 * Company {@code companyId}'s orders in {@code status} without a completion
+	 * report: the dashboard's "Otwarte zlecenia" count, equal to the rows of
+	 * the orders list's open table.
+	 */
+	long countByCompanyIdAndStatusAndCompletionReportedAtIsNull(Long companyId, OrderStatus status);
+
+	/**
+	 * Company {@code companyId}'s orders in {@code status} assigned to account
+	 * {@code assigneeId}, reported ones included: the technician's dashboard
+	 * count, equal to the rows of their {@code /picking}.
+	 */
+	long countByCompanyIdAndStatusAndAssigneeId(Long companyId, OrderStatus status, Long assigneeId);
+
 }

@@ -190,9 +190,10 @@ textarea:focus-visible,
 
 /* ---------- Tables ---------- */
 
-/* Every table is a clean list table: text reads left, the header is a small muted label on the
-   card surface, rows get a subtle hover fill. Cells carry no classes (tests match bare cells),
-   so column alignment comes from classes on <table> and from position. */
+/* Every table is a clean list table: every cell (header, text, numbers, row actions) is centred
+   in its column (user request, 2026-11-12), the header is a small muted label on the card
+   surface, rows get a subtle hover fill. Cells carry no classes (tests match bare cells), so
+   per-column rules come from classes on <table> and from position. */
 table {
 	width: 100%;
 	border-collapse: collapse;
@@ -201,11 +202,14 @@ table {
 	color: var(--card-foreground);
 }
 
+/* Row divider: a clearer line than the --border hairline (rows read without zebra stripes), still
+   decorative, mixed from theme tokens so it follows light and dark. Rows get a little more height
+   than form fields so each line has room. */
 th,
 td {
-	text-align: left;
-	padding: var(--space-2) var(--space-3);
-	border-bottom: 1px solid var(--border);
+	text-align: center;
+	padding: var(--space-3) var(--space-3);
+	border-bottom: 1px solid color-mix(in oklab, var(--input) 35%, var(--card));
 	vertical-align: middle;
 }
 
@@ -217,22 +221,36 @@ th {
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	white-space: nowrap;
+	/* Headers may wrap: with seven uppercase labels plus an action column (picking-detail) a
+	   nowrap header row pushed the table past its card at 1280px (visual gate R1). Auto table
+	   layout wraps a label only when the columns run out of room; balance keeps the two lines even. */
+	text-wrap: balance;
 }
 
-/* Pending rows keep their tint (it is painted on the cells). On the fill: --card-foreground
-   light 13.18:1 / dark 11.62:1; --destructive light 5.91:1 / dark 5.37:1. */
+/* The header sits on a firmer rule, so the columns' labels separate from the data. */
+thead th {
+	border-bottom: 1px solid color-mix(in oklab, var(--input) 70%, var(--card));
+}
+
+/* The first column names the row (part, project, order): a heavier weight anchors each line. */
+tbody td:first-child {
+	font-weight: 500;
+}
+
+/* Hover: a faint teal tint plus a teal leading bar, so the row under the pointer is easy to
+   follow. Pending rows keep their amber tint and bar (painted on the cells). On the fill
+   (#e0ebe7 / #1c3c40): --card-foreground light 11.95:1 / dark 10.15:1; --muted-foreground
+   light 4.52:1 / dark 5.40:1; --destructive light 5.36:1 / dark 4.69:1. */
 tbody tr:hover {
-	background: color-mix(in oklab, var(--muted) 60%, var(--card));
+	background: color-mix(in oklab, var(--primary) 14%, var(--card));
 }
 
-/* Action column: the last column of a table whose rows hold buttons sits at the right edge.
-   Tables whose last column is data (inputs, links, text) stay left-aligned. */
-table:has(td:last-child :is(.actions, .btn, button)) :is(th, td):last-child {
-	text-align: right;
+tbody tr:not(.row-pending):hover > td:first-child {
+	box-shadow: inset 3px 0 0 var(--primary);
 }
 
-/* Numeric and date columns, marked by position on <table> (class="num-2 num-4"). */
+/* Numeric and date columns, marked by position on <table> (class="num-2 num-4"): centred like
+   every cell, with tabular digits so numbers of one column share a width. */
 table.num-2 :is(th, td):nth-child(2),
 table.num-3 :is(th, td):nth-child(3),
 table.num-4 :is(th, td):nth-child(4),
@@ -240,17 +258,15 @@ table.num-5 :is(th, td):nth-child(5),
 table.num-6 :is(th, td):nth-child(6),
 table.num-7 :is(th, td):nth-child(7),
 table.num-8 :is(th, td):nth-child(8) {
-	text-align: right;
 	font-variant-numeric: tabular-nums;
 }
 
 /* class="data-table" is kept as a no-op alias: its rules are now the defaults above. */
 
-/* Numeric and date columns of orders-list.html, selected by position. If a column is added to
-   or moved in either table, update these positions. */
+/* Numeric and date columns of orders-list.html (tabular digits), selected by position. If a
+   column is added to or moved in either table, update these positions. */
 #pending-orders table.data-table :is(th, td):is(:nth-child(2), :nth-child(4), :nth-child(6), :nth-child(7)),
 #open-orders table.data-table :is(th, td):is(:nth-child(2), :nth-child(4)) {
-	text-align: right;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -283,13 +299,13 @@ tr.row-pending > td:first-child {
 	box-shadow: inset 3px 0 0 var(--warning);
 }
 
-/* Inline row actions: forms and buttons on one line inside a cell, flush with the right edge. */
+/* Inline row actions: forms and buttons on one line inside a cell, centred like the cell. */
 .actions {
 	display: inline-flex;
 	flex-wrap: wrap;
 	gap: 0.375rem;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: center;
 }
 
 .actions form {
@@ -1220,6 +1236,8 @@ body:has(> header.topbar) > .container {
 	margin: 0 0 1.5rem;
 }
 
+/* Dashboard tile: a link card with an icon chip and its label. --card-foreground on --card:
+   light 14.46:1 / dark 12.75:1; on hover --accent-foreground on --accent: light 10.88:1 / dark 9.55:1. */
 .tiles a {
 	display: flex;
 	align-items: center;
@@ -1229,16 +1247,19 @@ body:has(> header.topbar) > .container {
 	color: var(--card-foreground);
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
+	box-shadow: var(--shadow-sm);
 	text-decoration: none;
-	font-weight: 500;
+	font-weight: 600;
 }
 
 .tiles a:hover {
 	background: var(--accent);
 	color: var(--accent-foreground);
+	border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
 }
 
-/* Icon chip at the start of each dashboard tile. */
+/* Icon chip at the start of each dashboard tile: teal icon on the teal tint
+   (--primary on --primary-surface: light 4.61:1 / dark 5.06:1; icons need >= 3:1). */
 .tile-icon {
 	display: inline-flex;
 	align-items: center;
@@ -1247,17 +1268,91 @@ body:has(> header.topbar) > .container {
 	width: 2.5rem;
 	height: 2.5rem;
 	border-radius: var(--radius-sm);
-	background: var(--muted);
-	color: var(--foreground);
-}
-
-.tiles a:hover .tile-icon {
-	background: var(--background);
+	background: var(--primary-surface);
+	color: var(--primary);
 }
 
 .tile-icon .icon {
 	width: 1.35rem;
 	height: 1.35rem;
+}
+
+/* Dashboard count cards (KPIs) above the tiles: label and icon on the top row, the count below.
+   Each card links to the list whose rows it counts. The label is --muted-foreground on --card
+   (light 5.48:1 / dark 6.78:1), the count --card-foreground on --card (light 14.46:1 /
+   dark 12.75:1); the card keeps its fill on hover, so both pairs hold. */
+.kpis {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+	gap: 0.75rem;
+	margin: 0 0 var(--space-6);
+}
+
+.kpi {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-areas:
+		"label icon"
+		"value icon";
+	align-items: center;
+	gap: var(--space-1) var(--space-3);
+	padding: var(--space-4) var(--space-5);
+	background: var(--card);
+	color: var(--card-foreground);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	box-shadow: var(--shadow-sm);
+	text-decoration: none;
+}
+
+.kpi:hover {
+	border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+}
+
+.kpi-label {
+	grid-area: label;
+	color: var(--muted-foreground);
+	font-size: var(--text-sm);
+	font-weight: 500;
+}
+
+.kpi-value {
+	grid-area: value;
+	font-size: 1.75rem;
+	font-weight: 700;
+	line-height: 1.15;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Section icon chip, same teal pair as .tile-icon (light 4.61:1 / dark 5.06:1). */
+.kpi-icon {
+	grid-area: icon;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: var(--radius-sm);
+	background: var(--primary-surface);
+	color: var(--primary);
+}
+
+/* Something waits for the manager (orders to confirm, parts to buy): amber leading bar and
+   chip, the same hue as the pending rows on the orders list. The chip is --warning-text on
+   --warning-surface (light 8.07:1 / dark 8.64:1); text pairs stay on --card as above. */
+.kpi-warning {
+	border-color: color-mix(in oklab, var(--warning) 45%, var(--border));
+	box-shadow: inset 3px 0 0 var(--warning), var(--shadow-sm);
+}
+
+.kpi-warning:hover {
+	border-color: color-mix(in oklab, var(--warning) 70%, var(--border));
+}
+
+.kpi-warning .kpi-icon {
+	background: var(--warning-surface);
+	color: var(--warning-text);
 }
 
 /* ---------- Messages ---------- */
@@ -1464,15 +1559,21 @@ main {
 	animation: fade-up 200ms var(--ease) backwards;
 }
 
-/* Clickable cards lift on hover. */
-.tiles a {
+/* Clickable cards (dashboard tiles and count cards) lift on hover. */
+.tiles a,
+.kpi {
 	transition-property: background-color, color, border-color, box-shadow, transform;
 	transition-duration: var(--dur-base);
 }
 
-.tiles a:hover {
+.tiles a:hover,
+.kpi:hover {
 	transform: translateY(-2px);
 	box-shadow: var(--shadow-md);
+}
+
+.kpi-warning:hover {
+	box-shadow: inset 3px 0 0 var(--warning), var(--shadow-md);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1481,6 +1582,12 @@ main {
 	*::after {
 		animation: none !important;
 		transition: none !important;
+	}
+
+	/* No lift without motion: hover keeps only the colour and shadow change. */
+	.tiles a:hover,
+	.kpi:hover {
+		transform: none;
 	}
 }
 
@@ -1676,5 +1783,18 @@ main {
 	.auth-page .card,
 	.auth-page .card:has(.form-field) {
 		padding: var(--space-6) var(--space-5);
+	}
+}
+
+/* Phone widths: the compact bar holds menu button, brand, role badge, theme toggle and Wyloguj
+   on one row, and the brand text no longer fits next to a "Kierownik"/"Operator" badge (it was
+   clipped or ran under the badge at 390px). Below 30rem the brand shows only its teal mark;
+   font-size 0 hides the glyphs but keeps "Stockahead" as the link's accessible name, and the
+   mark is sized in rem so it is unaffected. */
+@media (max-width: 30rem) {
+	.topbar .brand {
+		font-size: 0;
+		gap: 0;
+		min-width: 0;
 	}
 }

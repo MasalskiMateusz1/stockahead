@@ -70,8 +70,8 @@
 						<td th:text="${line.reservedQuantity}"></td>
 						<td th:text="${line.pickedQuantity}"></td>
 						<td th:text="${line.remainingToPick}"></td>
-						<td th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN' and !order.completionReported}">
-							<div class="actions">
+						<td>
+							<div class="actions" th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN' and !order.completionReported}">
 								<form th:action="@{/picking/{orderId}/lines/{lineId}/pick(orderId=${orderId},lineId=${line.lineId})}" method="post">
 									<input type="number" min="1" size="6"
 										th:id="'quantity-' + ${line.lineId}"
