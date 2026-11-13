@@ -24,6 +24,9 @@ public class PartLocation {
 	@Column(nullable = false)
 	private String location;
 
+	@Column(nullable = false)
+	private int quantity;
+
 	/**
 	 * The part's company, set by {@link Part#addLocation}. A plain column:
 	 * {@link #part} stays the only writer of {@code part_id}, and the
@@ -62,6 +65,14 @@ public class PartLocation {
 
 	public void setLocation(String location) {
 		this.location = location;
+	}
+
+	public int getQuantity() {
+		return quantity;
+	}
+
+	public void setQuantity(int quantity) {
+		this.quantity = quantity;
 	}
 
 	/**

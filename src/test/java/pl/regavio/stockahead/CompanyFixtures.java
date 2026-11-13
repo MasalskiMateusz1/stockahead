@@ -159,9 +159,12 @@ public class CompanyFixtures {
 			part.setActive(true);
 			part.setCreatedAt(Instant.now());
 			part.setCompany(companyRepository.getReferenceById(company.getId()));
-			for (String location : locations) {
+			for (int i = 0; i < locations.length; i++) {
 				PartLocation partLocation = new PartLocation();
-				partLocation.setLocation(location);
+				partLocation.setLocation(locations[i]);
+				if (i == 0) {
+					partLocation.setQuantity(quantity);
+				}
 				part.addLocation(partLocation);
 			}
 			return partRepository.saveAndFlush(part);

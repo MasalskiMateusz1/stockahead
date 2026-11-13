@@ -59,17 +59,17 @@ Technik lub kierownik w małym zakładzie produkującym urządzenia elektroniczn
   > Socrates: Counter-argument considered: „usunięcie konta gubi historię”. Resolution: zmieniono usuwanie na dezaktywację.
 
 ### Magazyn
-- FR-003: Kierownik może dodawać, edytować i usuwać części w kartotece, wraz z jedną lub kilkoma lokalizacjami (tekst); stan części jest łączny dla wszystkich lokalizacji. Priority: must-have
+- FR-003: Kierownik może dodawać, edytować i usuwać części w kartotece, wraz z jedną lub kilkoma lokalizacjami. Każda lokalizacja ma własny nieujemny stan, a stan części jest ich sumą. Lokalizację z zapasem można przemianować, ale usunąć dopiero po wyzerowaniu. Priority: must-have
   > Socrates: Counter-argument considered: „ręczne wprowadzanie całego magazynu to bariera startu”. Resolution: dodano import CSV jako osobne FR-017 (must-have).
-- FR-004: Technik może przyjąć dostawę części, zwiększając jej stan; lista zakupów przelicza się automatycznie. Priority: must-have
+- FR-004: Technik może przyjąć dostawę części do wskazanej lokalizacji, zwiększając jej stan i łączny stan części; lista zakupów przelicza się automatycznie. Priority: must-have
   > Socrates: Counter-argument considered: „dostawa powinna zdejmować braki z listy zakupów”. Resolution: lista zakupów zawsze pokazuje aktualne braki i przelicza się po przyjęciu dostawy.
-- FR-005: Użytkownik może wyszukać część i zobaczyć jej stan fizyczny, ilość zarezerwowaną, ilość dostępną oraz lokalizację. Priority: must-have
+- FR-005: Użytkownik może wyszukać część i zobaczyć jej łączny stan fizyczny, ilość zarezerwowaną, ilość dostępną oraz stan każdej lokalizacji. Priority: must-have
   > Socrates: Counter-argument considered: „stan bez rezerwacji wprowadza w błąd”. Resolution: wynik pokazuje trzy liczby: stan / zarezerwowane / dostępne.
 - FR-006: Kierownik może przeglądać historię ruchów magazynowych (kto, kiedy, ile przyjął/pobrał). Priority: nice-to-have
   > Socrates: Counter-argument considered: „korekta stanu (inwentaryzacja) ważniejsza niż historia”. Resolution: historia zostaje nice-to-have; dodano korektę stanu jako FR-018 (must-have).
-- FR-017: Kierownik może zaimportować części z pliku CSV; przed zapisem widzi podgląd stanów, jakie będą po zaakceptowaniu pliku. Dla części już istniejących import dopisuje ilość do stanu i dodaje lokalizację z pliku, jeśli jej brak; nowe części są tworzone. Priority: must-have
+- FR-017: Kierownik może zaimportować części z pliku CSV; przed zapisem widzi podgląd stanów, jakie będą po zaakceptowaniu pliku. Każdy wiersz z dodatnią ilością wskazuje lokalizację; import dopisuje ilość do stanu tej lokalizacji (i do łącznego stanu części), dodając lokalizację, jeśli jej brak; nowe części są tworzone. Priority: must-have
   > Socrates: Counter-argument considered: „zły plik = zepsuty magazyn”. Resolution: import najpierw pokazuje stany wynikowe i zapisuje dopiero po akceptacji.
-- FR-018: Kierownik może skorygować stan części (inwentaryzacja), podając powód korekty. Priority: must-have
+- FR-018: Kierownik może skorygować stan jednej lokalizacji części (inwentaryzacja), podając powód korekty; może też przenieść sztuki między lokalizacjami tej samej części bez zmiany łącznego stanu. Priority: must-have
   > Socrates: Counter-argument considered: „korekta bez powodu — po czasie nie wiadomo, czemu stan się zmienił”. Resolution: korekta wymaga podania powodu.
 
 ### Projekty
@@ -88,11 +88,11 @@ Technik lub kierownik w małym zakładzie produkującym urządzenia elektroniczn
 - FR-021: Kierownik może zmienić priorytet i termin realizacji zlecenia, dopóki nie zostało podjęte (pierwsze pobranie części przez technika); rezerwacje zostają przeliczone. Priority: must-have
   > Socrates: Counter-argument considered: „technik traci części w trakcie kompletowania”. Resolution (słowa autora): „Po podjęciu zlecenia brak możliwości zmiany jego priorytetu”. Podjęcie = pierwsze pobranie; po podjęciu zablokowane są priorytet i termin, a niepobrane rezerwacje zlecenia nie mogą zostać przejęte.
 - FR-022: Kierownik może przypisać zlecenie technikowi lub sobie przy zakładaniu (opcjonalnie) i zmienić albo usunąć przypisanie, dopóki zlecenie jest otwarte — także po podjęciu; przypisanie nie wpływa na rezerwacje. Technik widzi na liście do zmontowania tylko zlecenia przypisane do siebie; kierownik widzi wszystkie otwarte zlecenia z filtrem po technikach i „Nieprzypisane” (brak przypisania lub przypisany nieaktywny technik). Priority: must-have
-- FR-011: Kierownik może anulować zlecenie, zwalniając jego rezerwacje; części już pobrane mogą zostać zwrócone na stan. Priority: must-have
+- FR-011: Kierownik może anulować zlecenie, zwalniając jego rezerwacje; części już pobrane mogą zostać zwrócone na stan wskazanej lokalizacji tej części. Priority: must-have
   > Socrates: Counter-argument considered: „anulowanie po częściowym pobraniu”. Resolution: przy anulowaniu technik/kierownik zwraca pobrane części na stan.
 - FR-012: Technik może zobaczyć listę zleceń do zmontowania; każde zlecenie pokazuje listę kompletacyjną: części, ilości i lokalizacje. Priority: must-have
   > Socrates: Counter-argument considered: „lista bez lokalizacji części nie rozwiązuje bólu”. Resolution: zlecenie pokazuje listę kompletacyjną z lokalizacjami.
-- FR-013: Technik może pobrać zarezerwowane części ze stanu, także częściowo (np. 6 z 10). Priority: must-have
+- FR-013: Technik może pobrać zarezerwowane części ze stanu wskazanej lokalizacji, także częściowo (np. 6 z 10); pobranie z kilku lokalizacji to kilka kolejnych pobrań. Priority: must-have
   > Socrates: Counter-argument considered: „pobranie częściowe”. Resolution: pobranie obsługuje ilości częściowe.
 - FR-014: Technik może zgłosić zlecenie jako zakończone, podając liczbę faktycznie zbudowanych sztuk (0…N); liczbę podaje technik, nie jest wyliczana z pobranych części. Priority: must-have
   > Socrates: Counter-argument considered: „zakończenie powinien potwierdzać kierownik”. Resolution: technik zgłasza, kierownik potwierdza (FR-020).
@@ -150,10 +150,10 @@ Kierownik jest nadzbiorem roli technika.
 
 - Harmonogram produkcji / kalendarz — termin realizacji służy wyłącznie do rozstrzygania kolejności przy równym priorytecie; brak planowania obciążenia techników.
 - Zamawianie u dostawców z aplikacji — brak integracji z dostawcami, cen i ofert; lista zakupów kończy się na eksporcie CSV.
-- Wiele zakładów / wiele magazynów — jedna instalacja obsługuje jeden zakład z jednym magazynem; lokalizacje to zwykły tekst, bez stanu per lokalizacja.
+- Wiele magazynów w jednej firmie — każda firma ma jeden magazyn z lokalizacjami i stanem na każdej lokalizacji.
 - Tryb offline i skanowanie kodów kreskowych/QR — aplikacja wymaga połączenia; brak skanera w MVP.
 - Poza MVP (nice-to-have): historia ruchów magazynowych (FR-006), upload plików projektu (FR-008), podgląd PDF w przeglądarce (FR-009, tylko razem z FR-008).
 
 ## Open Questions
 
-Brak otwartych pytań. Kontrola jakości w sesji planistycznej (2026-09-18) nie wykazała luk; pytanie o semantykę importu CSV zostało rozstrzygnięte przed zamknięciem sesji (import dopisuje ilość i dodaje brakującą lokalizację; część może mieć kilka lokalizacji przy łącznym stanie).
+Brak otwartych pytań. Kontrola jakości w sesji planistycznej (2026-09-18) nie wykazała luk; pytanie o semantykę importu CSV zostało rozstrzygnięte przed zamknięciem sesji (import dopisuje ilość i dodaje brakującą lokalizację; część może mieć kilka lokalizacji). Zmiana `stock` (2026-11-13) wprowadziła stan na każdej lokalizacji; łączny stan części jest sumą stanów lokalizacji, a rezerwacje pozostają wspólne dla części.

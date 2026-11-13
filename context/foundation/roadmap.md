@@ -276,7 +276,7 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog.
 - **Billing or plans** — Why parked: prd-v2 § Non-Goals — no subscriptions, pricing tiers or per-company usage limits.
 - **Shared data across companies** — Why parked: prd-v2 § Non-Goals — no shared catalog, no cross-company stock transfers, no user in several companies.
 - **Operator access to company data** — Why parked: prd-v2 § Non-Goals — no support or impersonation mode.
-- **Multiple warehouses per company and stock per location** — Why parked: prd-v2 § Non-Goals — only the "one plant per installation" part of the v1 Non-Goal is lifted.
+- **Multiple warehouses per company** — Why parked: prd-v2 § Non-Goals — stock per location is now in scope within each company's single warehouse.
 - **Ending open sessions immediately on block** — Why parked: FR-027 resolution — blocking takes effect at next login.
 - **Carried from M-1** — stock-movement history (FR-006), project file attachments and PDF preview (FR-008, FR-009), production schedule, supplier ordering, offline mode and barcode scanning, metrics/error tracking — still parked per prd.md § Non-Goals.
 

@@ -193,9 +193,8 @@ setup; the manager creates and deactivates technician accounts (never deletes).
   transfers, no user belonging to several companies.
 - No operator access to company data — no support or impersonation mode; the operator
   never enters a company.
-- One warehouse per company remains — locations stay plain text with no stock per
-  location (carried over from the current PRD; only the "one plant per installation"
-  part of that Non-Goal is lifted).
+- One warehouse per company remains. Each company-owned location carries a nonnegative
+  balance; the part total is the sum of its locations. Reservations stay pooled by part.
 
 ## Open Questions
 
