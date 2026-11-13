@@ -13,7 +13,7 @@ The user's verdict: "the UI still does not look good". The last UI change modern
 
 ## Desired End State
 
-Every page has a left sidebar with icons and the current section highlighted, sitting on cool off-white paper with white cards and a teal action colour. Each page opens with a header row (title on the left, actions on the right). Tables are clean: text left-aligned, numbers right-aligned, quiet row actions. Forms sit in a 40rem column with soft inputs, and detail pages show a fact-card grid. Pages fade up, alerts slide in, cards lift on hover, and all of it switches off under reduced motion. Managers open the app to see "Do potwierdzenia", "Otwarte zlecenia" and "Braki do zakupu"; technicians see "Moje zlecenia do kompletacji".
+Every page has a left sidebar with icons and the current section highlighted, sitting on cool off-white paper with white cards and a teal action colour. Each page opens with a header row (title on the left, actions on the right). Tables are clean: centred cells in tabular digits, quiet row actions. Forms sit in a centred 40rem column with soft inputs and a submit + "Anuluj" footer, and detail pages show a fact-card grid. Pages fade up, alerts slide in, cards lift on hover, and all of it switches off under reduced motion. Managers open the app to see "Do potwierdzenia", "Otwarte zlecenia" and "Braki do zakupu"; technicians see "Moje zlecenia do kompletacji".
 
 ## Key Decisions Made
 
@@ -70,6 +70,8 @@ The sidebar is a CSS grid on `body:has(> header.topbar)`. Nav icons and the acti
 - The `:has()` selector and CSS `mask-image` are assumed to be supported by the plant's browsers (current evergreen Chrome, Edge and Firefox). An old browser would show the stacked layout without icons.
 - The enter animation replays on every full-page navigation; it is kept at 250ms or less so it doesn't feel slow.
 - The `dt` colon text and some `<strong>` texts may be pinned by tests, so the detail restyle is CSS-only on those elements.
+
+> User-approved deviations from this brief are listed in `plan.md` § Deviations.
 
 ## Success Criteria (Summary)
 

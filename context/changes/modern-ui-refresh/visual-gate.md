@@ -145,3 +145,14 @@ Checks:
   headless GTK scrollbar track (`operator-companies-default-dark-390-r2`).
 - **N2 (unchanged).** Parts-list rows at 390px are about 120px tall because the row buttons stack.
 - No regressions found in the views carried over from the first run.
+
+## Changes after the screenshots (staleness note, 2026-11-13)
+
+These changes landed after some or all of the screenshots above were taken, so the matching shots do not show the shipped look:
+
+- Centred table cells and the row-readability rework (divider, padding, hover tint and bar), 2026-11-12.
+- Brand shows only its mark below 30rem (F1); the 390px shots predate it.
+- Table headers wrap with `text-wrap: balance` (R1), 2026-11-13.
+- Header actions aligned with the `.panel-stack` width (commit 78bb18f).
+
+Capture these again before treating the gate as current evidence: parts-list, orders-list and orders-detail at 1280 and 390px, light and dark.

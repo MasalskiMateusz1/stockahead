@@ -23,8 +23,8 @@ On every authenticated view, in light and dark, at 1280px and 390px:
 - A fixed left sidebar holds the brand mark, icon + label nav links with the current section highlighted, and the session block (email, role badge, theme toggle, Wyloguj) at the bottom. Below 48rem it collapses to a compact top bar with a horizontally scrolling nav.
 - The page is cool off-white paper, and cards, tables and forms are white surfaces with hairline borders. The action colour is teal.
 - Each page opens with a header row: the title (plus an optional muted subtitle) on the left and the primary actions on the right.
-- In list tables, text is left-aligned, numbers are right-aligned in tabular digits, and headers are 11–12px uppercase muted labels. Row actions are compact quiet buttons, and destructive row actions are red text, not solid red.
-- Forms sit in a readable column (max about 40rem) with soft-filled inputs. Detail pages show their key facts as a card grid.
+- In list tables, every cell is centred in its column, numbers use tabular digits, and headers are 11–12px uppercase muted labels. Row actions are compact quiet buttons, and destructive row actions are red text, not solid red. (Originally left/right-aligned; see Deviations.)
+- Forms sit in a centred, readable column (max about 40rem) with soft-filled inputs, and the submit and "Anuluj" sit together in a `.form-actions` footer. Detail pages show their key facts as a card grid. (Originally the back link went in the page header; see Deviations.)
 - Buttons, links, rows and inputs fade between states. Content fades up on load, alerts slide in, and clickable cards lift. All motion stops under `prefers-reduced-motion: reduce`.
 - The dashboard shows count cards:
   - **Manager**: Do potwierdzenia, Otwarte zlecenia, Braki do zakupu.
@@ -475,6 +475,24 @@ Add the role-based count cards to the dashboard, restyle the tiles, remove the p
 - Token convention: `src/main/resources/static/css/app.css:1-19`
 - Isolation test pattern: `src/test/java/pl/regavio/stockahead/purchasing/PurchasingCompanyIsolationIntegrationTests.java`
 - Reference sites: https://anki.pl/ (`style.css`), https://boost4body.com/ (status-colour pairs), fetched 2026-11-11
+
+## Deviations (user-approved)
+
+These changes were requested or approved by the user during manual checks. They take precedence over the phase contracts above. The full wording is in `change.md` Notes.
+
+| Date | Area | Plan said | Shipped |
+|---|---|---|---|
+| 2026-11-11 | Light mode | Light and dark both final | Dark accepted; light-mode list styling deferred ("light mode will need rebuilding later") |
+| 2026-11-11 | Copy / tests | No copy change; no test edited | Confirmation-page secondary link reads "Wróć"; two `OperatorCompanyLifecycleIntegrationTests` assertions that pinned "Anuluj" updated |
+| 2026-11-11 | Filters | `.form-inline` filter card only | `static/js/filters.js` auto-submits checkboxes and selects; `.list-panel` wraps filter + table on parts-list, projects-list, picking-list |
+| 2026-11-12 | Form pages | Back link in `.page-header` | Form card centred; `.form-actions` footer (submit left, "Anuluj" right) on orders-new, parts-new, parts-edit, projects-new, accounts-new; deliveries-new, parts-import, parts-correction left as they were |
+| 2026-11-12 | orders-detail | Header actions only | New "Przejdź do kompletacji" link for OPEN orders; `#completion-report` inside `.detail-grid`; report line reads "Zgłoszono <date> przez <email>" |
+| 2026-11-12 | Numeric inputs | No form-field change | Quantity inputs are `type="number"` with `min`; `static/js/stepper.js` adds −/+ buttons |
+| 2026-11-12 | project-detail, parts-correction | Fact grid / form cards | `.list-panel.panel-fit` panels with one-line `.form-row` forms inside a shared-width `.panel-stack`; `.summary` is content-width |
+| 2026-11-12 | picking-detail | — | The action `<td>` always renders (fixes 6 cells under a 7-column header) |
+| 2026-11-12 | Tables | Text left, numbers right, last column right | All cells centred; `num-*` keep `tabular-nums` only; no zebra stripes; stronger row divider, `--space-3` padding, 500-weight first column, teal hover tint and leading bar |
+| 2026-11-12 | Topbar < 30rem | — | Brand shows only its mark (visual gate F1) |
+| 2026-11-13 | Table headers | `white-space: nowrap` | `text-wrap: balance` (visual gate R1) |
 
 ## Progress
 
