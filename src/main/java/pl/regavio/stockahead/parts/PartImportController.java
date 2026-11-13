@@ -84,18 +84,20 @@ public class PartImportController {
 	private final MessageSource messageSource;
 
 	private final ReservationAllocator reservationAllocator;
+	private final StockService stockService;
 
 	private final LockRetry lockRetry;
 
 	private final TransactionTemplate transactionTemplate;
 
 	PartImportController(PartRepository partRepository, CompanyRepository companyRepository,
-			MessageSource messageSource, ReservationAllocator reservationAllocator, LockRetry lockRetry,
+			MessageSource messageSource, ReservationAllocator reservationAllocator, StockService stockService, LockRetry lockRetry,
 			PlatformTransactionManager transactionManager) {
 		this.partRepository = partRepository;
 		this.companyRepository = companyRepository;
 		this.messageSource = messageSource;
 		this.reservationAllocator = reservationAllocator;
+		this.stockService = stockService;
 		this.lockRetry = lockRetry;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 	}
@@ -274,7 +276,10 @@ public class PartImportController {
 			Part part = lockedById.get(matchedId);
 			if (part == null
 					|| !PartsImportFile.nameKey(part.getName()).equals(PartsImportFile.nameKey(lines.get(i).name()))
-					|| part.getQuantity() != snapshots.get(i).quantityBefore()) {
+					|| part.getQuantity() != snapshots.get(i).quantityBefore()
+					|| !part.getLocations().stream().collect(Collectors.toMap(
+						shelf -> PartsImportFile.nameKey(shelf.getLocation()), PartLocation::getQuantity))
+						.equals(snapshots.get(i).shelfQuantities())) {
 				stale = true;
 			}
 		}
@@ -321,7 +326,6 @@ public class PartImportController {
 				continue;
 			}
 			Part part = lockedById.get(matchedId);
-			part.setQuantity(newQuantities.get(matchedId));
 			addMissingLocations(part, line, resolvedSpellings);
 			if (line.quantity() > 0) {
 				raisedIds.add(matchedId);
@@ -335,7 +339,7 @@ public class PartImportController {
 			ImportLine line = lines.get(i);
 			Part part = new Part();
 			part.setName(line.name());
-			part.setQuantity(Math.toIntExact(line.quantity()));
+			part.setQuantity(0);
 			part.setActive(true);
 			part.setCreatedAt(now);
 			part.setCompany(company);
@@ -350,7 +354,7 @@ public class PartImportController {
 	}
 
 	/** Adds each line location the part lacks ({@link PartLocation#sameLocation}) in its resolved spelling. */
-	private static void addMissingLocations(Part part, ImportLine line, Map<String, String> resolvedSpellings) {
+	private void addMissingLocations(Part part, ImportLine line, Map<String, String> resolvedSpellings) {
 		for (String location : line.locations()) {
 			boolean present = part.getLocations()
 				.stream()
@@ -360,6 +364,12 @@ public class PartImportController {
 				partLocation.setLocation(resolvedSpellings.get(location));
 				part.addLocation(partLocation);
 			}
+		}
+		for (Map.Entry<String, Long> entry : line.quantitiesByLocation().entrySet()) {
+			PartLocation shelf = part.getLocations().stream()
+				.filter(existing -> PartLocation.sameLocation(existing.getLocation(), entry.getKey()))
+				.findFirst().orElseThrow();
+			stockService.changeLocked(part, shelf, Math.toIntExact(entry.getValue()));
 		}
 	}
 

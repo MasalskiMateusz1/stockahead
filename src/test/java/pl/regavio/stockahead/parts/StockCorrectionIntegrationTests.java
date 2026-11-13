@@ -142,8 +142,8 @@ class StockCorrectionIntegrationTests {
 			Long id = jdbcTemplate.queryForObject(
 					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, ?, ?) RETURNING id",
 					Long.class, name, quantity, active, company().getId());
-			jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
-					id, location, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id, quantity) VALUES (?, ?, ?, ?)",
+					id, location, company().getId(), quantity);
 			return id;
 		});
 	}
@@ -224,6 +224,7 @@ class StockCorrectionIntegrationTests {
 			String expectedQuantity, String reason) {
 		return post("/parts/{id}/correction/set", partId).session(session)
 			.with(csrf())
+			.param("locationId", shelf(partId))
 			.param("newQuantity", newQuantity)
 			.param("expectedQuantity", expectedQuantity)
 			.param("reason", reason);
@@ -233,6 +234,7 @@ class StockCorrectionIntegrationTests {
 			String reason) {
 		return post("/parts/{id}/correction/adjust", partId).session(session)
 			.with(csrf())
+			.param("locationId", shelf(partId))
 			.param("delta", delta)
 			.param("reason", reason);
 	}
@@ -264,8 +266,16 @@ class StockCorrectionIntegrationTests {
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", shelf(jdbcTemplate.queryForObject(
+					"SELECT part_id FROM order_lines WHERE id = ?", Long.class, lineId)))
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection());
+	}
+
+	private String shelf(Long partId) {
+		List<Long> ids = jdbcTemplate.queryForList("SELECT id FROM part_locations WHERE part_id = ? ORDER BY id LIMIT 1",
+			Long.class, partId);
+		return ids.isEmpty() ? "-1" : ids.get(0).toString();
 	}
 
 	private String correctionPage(MockHttpSession session, Long partId) throws Exception {
@@ -516,6 +526,7 @@ class StockCorrectionIntegrationTests {
 		String pickHtml = mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId)
 			.session(session)
 			.with(csrf())
+			.param("locationId", shelf(partId))
 			.param("quantity", "6"))
 			.andExpect(status().isOk())
 			.andReturn().getResponse().getContentAsString();
@@ -549,6 +560,7 @@ class StockCorrectionIntegrationTests {
 				"Stan części zmienił się w międzyczasie i wynosi teraz 40.");
 		assertRejected(post("/parts/{id}/correction/set", resistorId).session(session)
 			.with(csrf())
+			.param("locationId", shelf(resistorId))
 			.param("newQuantity", "30")
 			.param("reason", "Spis"), "Stan części zmienił się w międzyczasie i wynosi teraz 40.");
 	}

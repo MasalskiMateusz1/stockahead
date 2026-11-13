@@ -23,6 +23,7 @@
 						<th>Stan przed</th>
 						<th>Dodawana ilość</th>
 						<th>Stan po</th>
+						<th>Stany lokalizacji po imporcie</th>
 						<th>Nowe lokalizacje</th>
 					</tr>
 				</thead>
@@ -36,6 +37,9 @@
 						<td th:text="${row.quantityBefore}"></td>
 						<td th:text="${row.quantityAdded}"></td>
 						<td th:text="${row.quantityAfter}"></td>
+						<td>
+							<span th:each="shelf : ${row.shelfBalancesAfter}" th:text="${shelf.key} + ': ' + ${shelf.value} + ' '"></span>
+						</td>
 						<td th:text="${#strings.listJoin(row.locationsToAdd, ', ')}"></td>
 					</tr>
 				</tbody>

@@ -74,16 +74,19 @@ public class DeliveryController {
 
 	private final ReservationAllocator reservationAllocator;
 
+	private final StockService stockService;
+
 	private final LockRetry lockRetry;
 
 	private final TransactionTemplate transactionTemplate;
 
 	DeliveryController(PartRepository partRepository, MessageSource messageSource,
-			ReservationAllocator reservationAllocator, LockRetry lockRetry,
+			ReservationAllocator reservationAllocator, StockService stockService, LockRetry lockRetry,
 			PlatformTransactionManager transactionManager) {
 		this.partRepository = partRepository;
 		this.messageSource = messageSource;
 		this.reservationAllocator = reservationAllocator;
+		this.stockService = stockService;
 		this.lockRetry = lockRetry;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 	}
@@ -194,15 +197,16 @@ public class DeliveryController {
 		}
 
 		for (Part part : lockedParts) {
-			part.setQuantity(newQuantities.get(part.getId()));
-			for (String location : lines.get(part.getId()).locations()) {
-				boolean present = part.getLocations().stream()
-					.anyMatch(existing -> PartLocation.sameLocation(existing.getLocation(), location));
-				if (!present) {
-					PartLocation partLocation = new PartLocation();
-					partLocation.setLocation(resolvedSpellings.get(location));
-					part.addLocation(partLocation);
+			for (Map.Entry<String, Integer> entry : lines.get(part.getId()).quantitiesByLocation().entrySet()) {
+				PartLocation shelf = part.getLocations().stream()
+					.filter(existing -> PartLocation.sameLocation(existing.getLocation(), entry.getKey()))
+					.findFirst().orElse(null);
+				if (shelf == null) {
+					shelf = new PartLocation();
+					shelf.setLocation(resolvedSpellings.get(entry.getKey()));
+					part.addLocation(shelf);
 				}
+				stockService.changeLocked(part, shelf, entry.getValue());
 			}
 		}
 		// Flush BEFORE reallocating: the allocator reads stock with a scalar query,
@@ -254,6 +258,9 @@ public class DeliveryController {
 			}
 
 			String location = PartLocation.normalize(row.location());
+			if (location.isEmpty()) {
+				return ReceiptValidation.error(rowError("deliveries.error.locationRequired", rowNumber, locale));
+			}
 			if (location.length() > MAX_LOCATION_LENGTH) {
 				return ReceiptValidation.error(messageSource.getMessage("deliveries.error.locationTooLong",
 						new Object[] { rowNumber, MAX_LOCATION_LENGTH }, locale));
@@ -335,14 +342,13 @@ public class DeliveryController {
 
 		private int quantity;
 
-		private final Set<String> locations = new LinkedHashSet<>();
+		private final Map<String, Integer> quantitiesByLocation = new LinkedHashMap<>();
 
 		void add(int rowQuantity, String location) {
 			quantity += rowQuantity;
-			if (!location.isEmpty()
-					&& locations.stream().noneMatch(known -> PartLocation.sameLocation(known, location))) {
-				locations.add(location);
-			}
+			String key = quantitiesByLocation.keySet().stream()
+				.filter(known -> PartLocation.sameLocation(known, location)).findFirst().orElse(location);
+			quantitiesByLocation.merge(key, rowQuantity, Integer::sum);
 		}
 
 		int quantity() {
@@ -350,7 +356,11 @@ public class DeliveryController {
 		}
 
 		Set<String> locations() {
-			return Collections.unmodifiableSet(locations);
+			return Collections.unmodifiableSet(quantitiesByLocation.keySet());
+		}
+
+		Map<String, Integer> quantitiesByLocation() {
+			return Collections.unmodifiableMap(quantitiesByLocation);
 		}
 
 	}

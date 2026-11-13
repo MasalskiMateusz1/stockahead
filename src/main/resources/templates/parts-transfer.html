@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Przeniesienie części')}">
+	<meta charset="UTF-8">
+	<title>Przeniesienie części — Stockahead</title>
+</head>
+<body data-section="parts">
+	<header th:replace="~{fragments :: topbar}"></header>
+	<main class="container">
+		<div class="page-header"><h1 th:text="'Przenieś: ' + ${part.name}"></h1></div>
+		<div th:replace="~{fragments :: alerts}"></div>
+		<form class="card" th:action="@{/parts/{id}/transfer(id=${part.id})}" method="post">
+			<div class="form-field">
+				<label for="sourceId">Z lokalizacji</label>
+				<select id="sourceId" name="sourceId" required>
+					<option value="">Wybierz</option>
+					<option th:each="shelf : ${part.locations}" th:value="${shelf.id}"
+						th:text="${shelf.location} + ' (' + ${shelf.quantity} + ')'">Lokalizacja</option>
+				</select>
+			</div>
+			<div class="form-field">
+				<label for="destinationId">Do lokalizacji</label>
+				<select id="destinationId" name="destinationId" required>
+					<option value="">Wybierz</option>
+					<option th:each="shelf : ${part.locations}" th:value="${shelf.id}"
+						th:text="${shelf.location} + ' (' + ${shelf.quantity} + ')'">Lokalizacja</option>
+				</select>
+			</div>
+			<div class="form-field"><label for="quantity">Ilość</label>
+				<input id="quantity" name="quantity" type="number" min="1" required></div>
+			<div class="form-actions"><button class="btn" type="submit">Przenieś</button>
+				<a class="btn btn-secondary" th:href="@{/parts}">Anuluj</a></div>
+		</form>
+	</main>
+</body>
+</html>

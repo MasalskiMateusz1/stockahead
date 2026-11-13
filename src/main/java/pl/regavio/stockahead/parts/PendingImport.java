@@ -2,6 +2,7 @@ package pl.regavio.stockahead.parts;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import pl.regavio.stockahead.parts.PartsImportFile.ImportLine;
@@ -22,7 +23,14 @@ record PendingImport(String token, List<ImportLine> lines, List<Snapshot> snapsh
 	 * ({@code null} for a new part) and that part's stock at preview time
 	 * ({@code 0} for a new part).
 	 */
-	record Snapshot(Long partId, int quantityBefore) implements Serializable {
+	record Snapshot(Long partId, int quantityBefore, Map<String, Integer> shelfQuantities) implements Serializable {
+		Snapshot {
+			shelfQuantities = Map.copyOf(shelfQuantities);
+		}
+
+		Snapshot(Long partId, int quantityBefore) {
+			this(partId, quantityBefore, Map.of());
+		}
 	}
 
 	PendingImport {

@@ -189,6 +189,7 @@ class StockMovementsCompanyIsolationIntegrationTests {
 			String expectedQuantity) {
 		return post("/parts/{id}/correction/set", partId).session(session)
 			.with(csrf())
+			.param("locationId", jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = ? LIMIT 1", Long.class, partId).toString())
 			.param("newQuantity", newQuantity)
 			.param("expectedQuantity", expectedQuantity)
 			.param("reason", "Inwentaryzacja");
@@ -197,6 +198,7 @@ class StockMovementsCompanyIsolationIntegrationTests {
 	private MockHttpServletRequestBuilder adjustBy(MockHttpSession session, Long partId, String delta) {
 		return post("/parts/{id}/correction/adjust", partId).session(session)
 			.with(csrf())
+			.param("locationId", jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = ? LIMIT 1", Long.class, partId).toString())
 			.param("delta", delta)
 			.param("reason", "Inwentaryzacja");
 	}
@@ -286,7 +288,7 @@ class StockMovementsCompanyIsolationIntegrationTests {
 
 		assertDeliveryPartNotFound(delivery(sessionB,
 				"partId0", partB.getId().toString(), "quantity0", "4", "location0", "B2",
-				"partId1", partA.getId().toString(), "quantity1", "6"));
+				"partId1", partA.getId().toString(), "quantity1", "6", "location1", "Regał N1"));
 
 		assertThat(quantityOf(partA)).isEqualTo(5);
 		assertThat(quantityOf(partB)).isEqualTo(5);
@@ -350,7 +352,7 @@ class StockMovementsCompanyIsolationIntegrationTests {
 		assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM stock_corrections WHERE company_id = ?",
 				Integer.class, companyA.getId())).isEqualTo(1);
 
-		mockMvc.perform(delivery(sessionA, "partId0", partA.getId().toString(), "quantity0", "1"))
+		mockMvc.perform(delivery(sessionA, "partId0", partA.getId().toString(), "quantity0", "1", "location0", SHELF_A))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(redirectedUrl("/parts"));
 
@@ -386,7 +388,7 @@ class StockMovementsCompanyIsolationIntegrationTests {
 			assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
 
 			Future<String> deliveryB = executor.submit(() -> mockMvc
-				.perform(delivery(technicianB, "partId0", partA.getId().toString(), "quantity0", "10"))
+				.perform(delivery(technicianB, "partId0", partA.getId().toString(), "quantity0", "10", "location0", "Regał N1"))
 				.andExpect(status().isOk())
 				.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8));
 			assertThat(deliveryB.get(15, TimeUnit.SECONDS)).contains(PART_NOT_FOUND);

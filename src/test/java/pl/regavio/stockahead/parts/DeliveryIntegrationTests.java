@@ -155,8 +155,8 @@ class DeliveryIntegrationTests {
 			Long id = jdbcTemplate.queryForObject(
 					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, ?, ?) RETURNING id",
 					Long.class, name, quantity, active, company().getId());
-			jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
-					id, location, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id, quantity) VALUES (?, ?, ?, ?)",
+					id, location, company().getId(), quantity);
 			return id;
 		});
 	}
@@ -183,6 +183,9 @@ class DeliveryIntegrationTests {
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", jdbcTemplate.queryForObject(
+					"SELECT id FROM part_locations WHERE part_id = (SELECT part_id FROM order_lines WHERE id = ?)",
+					Long.class, lineId).toString())
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection());
 	}
@@ -396,7 +399,7 @@ class DeliveryIntegrationTests {
 
 		String html = assertRejected(session, "Wiersz 3: wybierz część i podaj ilość.",
 				"rows", "5",
-				"partId0", resistorId.toString(), "quantity0", "4",
+				"partId0", resistorId.toString(), "quantity0", "4", "location0", "Regał A1",
 				"partId2", "", "quantity2", "", "location2", "Regał Q7");
 
 		assertThat(html).contains(inputValue("location2", "Regał Q7"));
@@ -432,7 +435,7 @@ class DeliveryIntegrationTests {
 
 		String html = assertRejected(session, "Wiersz 2: ilość musi być liczbą całkowitą.",
 				"rows", "5",
-				"partId0", resistorId.toString(), "quantity0", "5",
+				"partId0", resistorId.toString(), "quantity0", "5", "location0", "Regał A1",
 				"partId1", capacitorId.toString(), "quantity1", "2.5", "location1", "Regał B2");
 
 		assertThat(html).contains(selectedOption(capacitorId));
@@ -513,7 +516,7 @@ class DeliveryIntegrationTests {
 
 		assertRejected(session, "Dodaj co najmniej jedną pozycję dostawy.",
 				"rows", "5",
-				"partId5", resistorId.toString(), "quantity5", "10");
+				"partId5", resistorId.toString(), "quantity5", "10", "location5", "Regał A1");
 	}
 
 	// ---- write path ---------------------------------------------------
@@ -534,7 +537,7 @@ class DeliveryIntegrationTests {
 			.andExpect(content().string(containsString("Mikrokontroler")));
 		MockHttpSession technician = technicianSession();
 
-		receive(technician, "rows", "5", "partId0", partId.toString(), "quantity0", "4");
+		receive(technician, "rows", "5", "partId0", partId.toString(), "quantity0", "4", "location0", "A1");
 
 		assertThat(stockOf(partId)).isEqualTo(10);
 		assertThat(reservedOf(lineId)).isEqualTo(10);
@@ -555,7 +558,7 @@ class DeliveryIntegrationTests {
 		Long highLineId = seedOrderLine(highOrderId, partId, 10, 0);
 		MockHttpSession session = technicianSession();
 
-		receive(session, "rows", "5", "partId0", partId.toString(), "quantity0", "15");
+		receive(session, "rows", "5", "partId0", partId.toString(), "quantity0", "15", "location0", "A1");
 
 		assertThat(stockOf(partId)).isEqualTo(15);
 		assertThat(reservedOf(highLineId)).isEqualTo(10);
@@ -582,7 +585,7 @@ class DeliveryIntegrationTests {
 		assertThat(stockOf(partId)).isEqualTo(2);
 		assertThat(reservedOf(takenLineId)).isEqualTo(2);
 
-		receive(session, "rows", "5", "partId0", partId.toString(), "quantity0", "5");
+		receive(session, "rows", "5", "partId0", partId.toString(), "quantity0", "5", "location0", "A1");
 
 		assertThat(stockOf(partId)).isEqualTo(7);
 		// Unmet = 10 required - 2 picked - 2 reserved = 6; the pool has 7 - 2 = 5 left.
@@ -600,11 +603,11 @@ class DeliveryIntegrationTests {
 		Long lineId = seedOrderLine(orderId, partId, 20, 0);
 		MockHttpSession session = technicianSession();
 
-		receive(session, "rows", "5", "partId0", partId.toString(), "quantity0", "5");
+		receive(session, "rows", "5", "partId0", partId.toString(), "quantity0", "5", "location0", "A1");
 		assertThat(stockOf(partId)).isEqualTo(5);
 		assertThat(reservedOf(lineId)).isEqualTo(5);
 
-		receive(session, "rows", "5", "partId0", partId.toString(), "quantity0", "7");
+		receive(session, "rows", "5", "partId0", partId.toString(), "quantity0", "7", "location0", "A1");
 		assertThat(stockOf(partId)).isEqualTo(12);
 		assertThat(reservedOf(lineId)).isEqualTo(12);
 	}
@@ -629,7 +632,7 @@ class DeliveryIntegrationTests {
 		receive(session,
 				"rows", "5",
 				"partId0", resistorId.toString(), "quantity0", "10", "location0", "  Regał A1  ",
-				"partId1", capacitorId.toString(), "quantity1", "3");
+				"partId1", capacitorId.toString(), "quantity1", "3", "location1", "Regał B2");
 
 		assertThat(stockOf(resistorId)).isEqualTo(50);
 		assertThat(stockOf(capacitorId)).isEqualTo(10);
@@ -760,7 +763,7 @@ class DeliveryIntegrationTests {
 		String html = assertRejected(session, "Jedna z wybranych części nie istnieje.",
 				"rows", "5",
 				"partId0", resistorId.toString(), "quantity0", "10", "location0", "Regał N1",
-				"partId1", unknownId.toString(), "quantity1", "4");
+				"partId1", unknownId.toString(), "quantity1", "4", "location1", "Regał N3");
 
 		assertThat(html).contains(inputValue("quantity0", "10"));
 		assertThat(html).contains(inputValue("location0", "Regał N1"));
@@ -787,7 +790,7 @@ class DeliveryIntegrationTests {
 
 		String html = assertRejected(session, "Nie udało się zapisać dostawy. Spróbuj ponownie.",
 				"rows", "5",
-				"partId0", capacitorId.toString(), "quantity0", "3",
+				"partId0", capacitorId.toString(), "quantity0", "3", "location0", "Regał B2",
 				"partId1", resistorId.toString(), "quantity1", "10", "location1", "Regał N2");
 
 		assertThat(html).contains(inputValue("location1", "Regał N2"));
@@ -803,8 +806,8 @@ class DeliveryIntegrationTests {
 		MvcResult result = mockMvc.perform(receipt(session,
 				"rows", "5",
 				"partId0", resistorId.toString(), "quantity0", "50", "location0", "Regał A2",
-				"partId1", resistorId.toString(), "quantity1", "30",
-				"partId2", inactiveId.toString(), "quantity2", "1003"))
+				"partId1", resistorId.toString(), "quantity1", "30", "location1", "Regał A1",
+				"partId2", inactiveId.toString(), "quantity2", "1003", "location2", "Regał Z9"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(redirectedUrl("/parts"))
 			.andExpect(flash().attribute("deliveryReceived", summary))

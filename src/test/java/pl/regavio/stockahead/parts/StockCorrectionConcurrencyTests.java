@@ -185,9 +185,24 @@ class StockCorrectionConcurrencyTests {
 	}
 
 	private Long seedPart(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, company_id, location, quantity) VALUES (?, ?, 'A1', ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
+	}
+
+	private String shelf(Long partId) {
+		return jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = ?",
+			Long.class, partId).toString();
+	}
+
+	private String shelfForLine(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT part_id FROM order_lines WHERE id = ?", Long.class, lineId)
+			.toString();
 	}
 
 	private Long seedBomLine(Long project, Long part, int quantityPerUnit) {
@@ -220,6 +235,7 @@ class StockCorrectionConcurrencyTests {
 		Long line = seedOrderLine(order, partId, 10, 10);
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", order, line).session(technician)
 			.with(csrf())
+			.param("locationId", shelf(partId))
 			.param("quantity", "1"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + order));
@@ -229,6 +245,7 @@ class StockCorrectionConcurrencyTests {
 	private MvcResult postPick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", shelf(Long.valueOf(shelfForLine(lineId))))
 			.param("quantity", Integer.toString(quantity))).andReturn();
 	}
 
@@ -237,12 +254,14 @@ class StockCorrectionConcurrencyTests {
 			.with(csrf())
 			.param("rows", "5")
 			.param("partId0", partId.toString())
+			.param("location0", "A1")
 			.param("quantity0", Integer.toString(quantity))).andReturn();
 	}
 
 	private MvcResult postAdjust(MockHttpSession session, Long partId, int delta) throws Exception {
 		return mockMvc.perform(post("/parts/{id}/correction/adjust", partId).session(session)
 			.with(csrf())
+			.param("locationId", shelf(partId))
 			.param("delta", Integer.toString(delta))
 			.param("reason", "Inwentaryzacja")).andReturn();
 	}
@@ -251,6 +270,7 @@ class StockCorrectionConcurrencyTests {
 			throws Exception {
 		return mockMvc.perform(post("/parts/{id}/correction/set", partId).session(session)
 			.with(csrf())
+			.param("locationId", shelf(partId))
 			.param("newQuantity", Integer.toString(newQuantity))
 			.param("expectedQuantity", Integer.toString(expectedQuantity))
 			.param("reason", "Inwentaryzacja")).andReturn();

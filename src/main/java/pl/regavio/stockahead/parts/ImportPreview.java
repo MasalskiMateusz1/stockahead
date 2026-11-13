@@ -2,6 +2,8 @@ package pl.regavio.stockahead.parts;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -35,10 +37,12 @@ final class ImportPreview {
 	 * part all of them.
 	 */
 	record Row(String displayName, boolean newPart, boolean inactive, int quantityBefore, long quantityAdded,
-			long quantityAfter, List<String> locationsToAdd) {
+			long quantityAfter, List<String> locationsToAdd, Map<String, Long> shelfBalancesAfter) {
 
 		Row {
 			locationsToAdd = List.copyOf(locationsToAdd);
+			// Keep the shelf order (existing shelves first, then new ones) for display.
+			shelfBalancesAfter = Collections.unmodifiableMap(new LinkedHashMap<>(shelfBalancesAfter));
 		}
 
 	}
@@ -103,8 +107,9 @@ final class ImportPreview {
 					errors.add(ImportError.ofRow(firstRow, "partsImport.error.newPartLocationRequired", line.name()));
 					continue;
 				}
-				rows.add(new Row(line.name(), true, false, 0, line.quantity(), line.quantity(), line.locations()));
-				snapshots.add(new Snapshot(null, 0));
+				rows.add(new Row(line.name(), true, false, 0, line.quantity(), line.quantity(), line.locations(),
+						line.quantitiesByLocation()));
+				snapshots.add(new Snapshot(null, 0, Map.of()));
 				newParts++;
 				unitsAdded += line.quantity();
 				continue;
@@ -122,9 +127,26 @@ final class ImportPreview {
 					.stream()
 					.noneMatch(existing -> PartLocation.sameLocation(existing.getLocation(), location)))
 				.toList();
+			Map<String, Long> shelfAfter = new LinkedHashMap<>();
+			for (PartLocation shelf : part.getLocations()) {
+				shelfAfter.put(shelf.getLocation(), (long) shelf.getQuantity());
+			}
+			for (Map.Entry<String, Long> entry : line.quantitiesByLocation().entrySet()) {
+				String name = shelfAfter.keySet().stream()
+					.filter(known -> PartLocation.sameLocation(known, entry.getKey()))
+					.findFirst().orElse(entry.getKey());
+				long after = shelfAfter.getOrDefault(name, 0L) + entry.getValue();
+				if (after > Integer.MAX_VALUE) {
+					errors.add(ImportError.ofRow(firstRow, "partsImport.error.stockOverflow", part.getName(),
+							Integer.MAX_VALUE));
+				}
+				shelfAfter.put(name, after);
+			}
 			rows.add(new Row(part.getName(), false, !part.isActive(), part.getQuantity(), line.quantity(),
-					quantityAfter, locationsToAdd));
-			snapshots.add(new Snapshot(part.getId(), part.getQuantity()));
+					quantityAfter, locationsToAdd, shelfAfter));
+			snapshots.add(new Snapshot(part.getId(), part.getQuantity(), part.getLocations().stream()
+				.collect(Collectors.toMap(shelf -> PartsImportFile.nameKey(shelf.getLocation()),
+					PartLocation::getQuantity))));
 			updatedParts++;
 			unitsAdded += line.quantity();
 		}

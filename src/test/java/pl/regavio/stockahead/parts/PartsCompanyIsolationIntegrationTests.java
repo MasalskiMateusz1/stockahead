@@ -230,6 +230,7 @@ class PartsCompanyIsolationIntegrationTests {
 		mockMvc.perform(post("/parts").session(session).with(csrf())
 				.param("name", "R 10k")
 				.param("quantity", "3")
+				.param("initialLocation", "A1")
 				.param("locations", "A1"))
 			.andExpect(status().is3xxRedirection());
 
@@ -344,6 +345,7 @@ class PartsCompanyIsolationIntegrationTests {
 				.with(csrf())
 				.param("name", "R 10k")
 				.param("quantity", "1")
+				.param("initialLocation", "A1")
 				.param("locations", "A1")).andReturn());
 			awaitSleepingWriter();
 
@@ -351,6 +353,7 @@ class PartsCompanyIsolationIntegrationTests {
 				.with(csrf())
 				.param("name", "R 10k")
 				.param("quantity", "1")
+				.param("initialLocation", "a1")
 				.param("locations", "a1")).andReturn();
 
 			assertThat(createA.isDone()).as("company A still holds its locks when B commits").isFalse();

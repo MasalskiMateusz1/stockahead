@@ -27,6 +27,10 @@
 				<label for="locations">Lokalizacje (jedna na linię)</label>
 				<textarea id="locations" name="locations" rows="5" th:text="${locations}"></textarea>
 			</div>
+			<div class="form-field">
+				<label for="initialLocation">Lokalizacja początkowego stanu (wymagana, gdy stan jest dodatni)</label>
+				<input type="text" id="initialLocation" name="initialLocation" th:value="${initialLocation}">
+			</div>
 			<div class="form-actions">
 				<button type="submit" class="btn">Dodaj część</button>
 				<a class="btn btn-secondary" th:href="@{/parts}">Anuluj</a>

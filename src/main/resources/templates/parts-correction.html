@@ -23,34 +23,39 @@
 
 		<div th:replace="~{fragments :: alerts}"></div>
 
-		<div class="panel-stack">
-			<h2>Ustaw stan po spisie</h2>
+		<div class="panel-stack" th:each="shelf : ${locations}">
+			<h2 th:text="'Lokalizacja ' + ${shelf.location} + ' — stan ' + ${shelf.quantity}"></h2>
+			<h3>Ustaw stan po spisie</h3>
 			<form class="card form-row panel-fit" th:action="@{/parts/{id}/correction/set(id=${partId})}" method="post">
-				<input type="hidden" name="expectedQuantity" th:value="${expectedQuantity}">
+				<input type="hidden" name="locationId" th:value="${shelf.id}">
+				<input type="hidden" name="expectedQuantity" th:value="${shelf.quantity}">
 				<div class="form-field">
-					<label for="newQuantity">Nowy stan</label>
-					<input type="number" min="0" size="8" id="newQuantity" name="newQuantity" th:value="${newQuantity}">
+					<label th:for="'newQuantity-' + ${shelf.id}">Nowy stan</label>
+					<input type="number" min="0" size="8" th:id="'newQuantity-' + ${shelf.id}" name="newQuantity" th:value="${newQuantity}">
 				</div>
 				<div class="form-field">
-					<label for="setReason">Powód</label>
-					<input type="text" size="40" maxlength="500" id="setReason" name="reason" th:value="${setReason}">
+					<label th:for="'setReason-' + ${shelf.id}">Powód</label>
+					<input type="text" size="40" maxlength="500" th:id="'setReason-' + ${shelf.id}" name="reason" th:value="${setReason}">
 				</div>
 				<button type="submit" class="btn">Ustaw stan</button>
 			</form>
 
-			<h2>Zmień stan o</h2>
+			<h3>Zmień stan o</h3>
 			<form class="card form-row panel-fit" th:action="@{/parts/{id}/correction/adjust(id=${partId})}" method="post">
+				<input type="hidden" name="locationId" th:value="${shelf.id}">
 				<div class="form-field">
-					<label for="delta">Zmiana (np. -3 lub 5)</label>
-					<input type="number" size="8" id="delta" name="delta" th:value="${delta}">
+					<label th:for="'delta-' + ${shelf.id}">Zmiana (np. -3 lub 5)</label>
+					<input type="number" size="8" th:id="'delta-' + ${shelf.id}" name="delta" th:value="${delta}">
 				</div>
 				<div class="form-field">
-					<label for="adjustReason">Powód</label>
-					<input type="text" size="40" maxlength="500" id="adjustReason" name="reason" th:value="${adjustReason}">
+					<label th:for="'adjustReason-' + ${shelf.id}">Powód</label>
+					<input type="text" size="40" maxlength="500" th:id="'adjustReason-' + ${shelf.id}" name="reason" th:value="${adjustReason}">
 				</div>
 				<button type="submit" class="btn">Zmień stan</button>
 			</form>
 
+		</div>
+		<div class="panel-stack">
 			<h2>Poprzednie korekty</h2>
 			<div class="list-panel panel-fit">
 				<p th:if="${#lists.isEmpty(corrections)}" class="empty">Brak korekt</p>
@@ -60,6 +65,7 @@
 							<tr>
 								<th>Data</th>
 								<th>Autor</th>
+								<th>Lokalizacja</th>
 								<th>Przed → Po</th>
 								<th>Zmiana</th>
 								<th>Powód</th>
@@ -69,6 +75,7 @@
 							<tr th:each="correction : ${corrections}">
 								<td th:text="${@orderMoments.format(correction.createdAt)}"></td>
 								<td th:text="${correction.account.email}"></td>
+								<td th:text="${correction.locationName}"></td>
 								<td th:text="${correction.quantityBefore} + ' → ' + ${correction.quantityAfter}"></td>
 								<td th:text="${correction.delta > 0} ? '+' + ${correction.delta} : ${correction.delta}"></td>
 								<td th:text="${correction.reason}"></td>

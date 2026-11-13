@@ -72,13 +72,15 @@ public class StockCorrectionController {
 
 	private final ReservationAllocator reservationAllocator;
 
+	private final StockService stockService;
+
 	private final LockRetry lockRetry;
 
 	private final TransactionTemplate transactionTemplate;
 
 	StockCorrectionController(PartRepository partRepository, OrderLineRepository orderLineRepository,
 			StockCorrectionRepository stockCorrectionRepository, AccountRepository accountRepository,
-			MessageSource messageSource, ReservationAllocator reservationAllocator, LockRetry lockRetry,
+			MessageSource messageSource, ReservationAllocator reservationAllocator, StockService stockService, LockRetry lockRetry,
 			PlatformTransactionManager transactionManager) {
 		this.partRepository = partRepository;
 		this.orderLineRepository = orderLineRepository;
@@ -86,6 +88,7 @@ public class StockCorrectionController {
 		this.accountRepository = accountRepository;
 		this.messageSource = messageSource;
 		this.reservationAllocator = reservationAllocator;
+		this.stockService = stockService;
 		this.lockRetry = lockRetry;
 		this.transactionTemplate = new TransactionTemplate(transactionManager);
 	}
@@ -96,6 +99,59 @@ public class StockCorrectionController {
 		return renderForm(model, principal.companyId(), id, FormInput.BLANK, null);
 	}
 
+	@GetMapping("/parts/{id}/transfer")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String transferForm(@PathVariable Long id, @AuthenticationPrincipal CompanyUser principal, Model model) {
+		return renderTransfer(model, principal.companyId(), id, null);
+	}
+
+	@PostMapping("/parts/{id}/transfer")
+	@PreAuthorize("hasRole('MANAGER')")
+	public String transfer(@PathVariable Long id, @RequestParam(required = false) String sourceId,
+			@RequestParam(required = false) String destinationId,
+			@RequestParam(required = false) String quantity,
+			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale) {
+		Long source;
+		Long destination;
+		int units;
+		try {
+			source = Long.valueOf(sourceId.trim());
+			destination = Long.valueOf(destinationId.trim());
+			units = Integer.parseInt(quantity.trim());
+		}
+		catch (NumberFormatException | NullPointerException ex) {
+			return renderTransfer(model, principal.companyId(), id, message("transfer.error.invalidInput", locale));
+		}
+		if (units <= 0) {
+			return renderTransfer(model, principal.companyId(), id, message("transfer.error.invalidInput", locale));
+		}
+		if (source.equals(destination)) {
+			return renderTransfer(model, principal.companyId(), id, message("transfer.error.sameLocation", locale));
+		}
+		try {
+			lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
+				Part part = stockService.lock(principal.companyId(), id);
+				PartLocation from = stockService.location(part, principal.companyId(), source);
+				PartLocation to = stockService.location(part, principal.companyId(), destination);
+				stockService.transferLocked(part, from, to, units);
+				partRepository.flush();
+				return null;
+			}));
+		}
+		catch (IllegalArgumentException | ArithmeticException ex) {
+			return renderTransfer(model, principal.companyId(), id, message("transfer.error.insufficient", locale));
+		}
+		return "redirect:/parts";
+	}
+
+	private String renderTransfer(Model model, Long companyId, Long partId, String error) {
+		Part part = partRepository.findByIdAndCompanyId(partId, companyId)
+			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+		model.addAttribute("part", part);
+		model.addAttribute("error", error);
+		return "parts-transfer";
+	}
+
 	/**
 	 * Sets the counted total. Rejected when the stock locked in the write
 	 * transaction differs from the {@code expectedQuantity} the form was
@@ -103,7 +159,8 @@ public class StockCorrectionController {
 	 */
 	@PostMapping("/parts/{id}/correction/set")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String set(@PathVariable Long id, @RequestParam(required = false) String newQuantity,
+	public String set(@PathVariable Long id, @RequestParam(required = false) Long locationId,
+			@RequestParam(required = false) String newQuantity,
 			@RequestParam(required = false) String expectedQuantity, @RequestParam(required = false) String reason,
 			@AuthenticationPrincipal CompanyUser principal, Model model, Locale locale,
 			RedirectAttributes redirectAttributes) {
@@ -130,7 +187,7 @@ public class StockCorrectionController {
 
 		int target = parsed.intValueExact();
 		Integer expected = parseExpected(expectedQuantity);
-		return apply(id, input.setReason().strip(), principal, model, input, locale, redirectAttributes,
+		return apply(id, locationId, input.setReason().strip(), principal, model, input, locale, redirectAttributes,
 				current -> {
 					if (expected == null || expected != current) {
 						return Target.rejected(message("corrections.error.stale", locale, current));
@@ -148,7 +205,8 @@ public class StockCorrectionController {
 	 */
 	@PostMapping("/parts/{id}/correction/adjust")
 	@PreAuthorize("hasRole('MANAGER')")
-	public String adjust(@PathVariable Long id, @RequestParam(required = false) String delta,
+	public String adjust(@PathVariable Long id, @RequestParam(required = false) Long locationId,
+			@RequestParam(required = false) String delta,
 			@RequestParam(required = false) String reason, @AuthenticationPrincipal CompanyUser principal,
 			Model model, Locale locale, RedirectAttributes redirectAttributes) {
 		FormInput input = new FormInput("", orEmpty(delta), "", orEmpty(reason));
@@ -172,7 +230,7 @@ public class StockCorrectionController {
 		}
 
 		int change = parsed.intValueExact();
-		return apply(id, input.adjustReason().strip(), principal, model, input, locale, redirectAttributes,
+		return apply(id, locationId, input.adjustReason().strip(), principal, model, input, locale, redirectAttributes,
 				current -> {
 					int after;
 					try {
@@ -193,12 +251,12 @@ public class StockCorrectionController {
 	 * outcome into a redirect with the {@code stockCorrected} flash, or a
 	 * re-render of the page with the inputs kept.
 	 */
-	private String apply(Long id, String reason, CompanyUser principal, Model model, FormInput input,
+	private String apply(Long id, Long locationId, String reason, CompanyUser principal, Model model, FormInput input,
 			Locale locale, RedirectAttributes redirectAttributes, IntFunction<Target> rule) {
 		Outcome outcome;
 		try {
 			outcome = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-				Outcome result = applyCorrection(id, reason, principal, rule);
+				Outcome result = applyCorrection(id, locationId, reason, principal, rule);
 				if (result.error() != null) {
 					status.setRollbackOnly();
 				}
@@ -224,28 +282,26 @@ public class StockCorrectionController {
 	 * reallocates the part. Returns the outcome; on a rejection nothing has
 	 * been mutated.
 	 */
-	private Outcome applyCorrection(Long id, String reason, CompanyUser principal, IntFunction<Target> rule) {
-		List<Part> locked = partRepository.findByIdInAndCompanyIdForUpdate(Set.of(id), principal.companyId());
-		if (locked.isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-		}
-		Part part = locked.get(0);
+	private Outcome applyCorrection(Long id, Long locationId, String reason, CompanyUser principal, IntFunction<Target> rule) {
+		Part part = stockService.lock(principal.companyId(), id);
+		PartLocation shelf = stockService.location(part, principal.companyId(), locationId);
 		int before = part.getQuantity();
-		Target target = rule.apply(before);
+		Target target = rule.apply(shelf.getQuantity());
 		if (target.error() != null) {
 			return Outcome.rejected(target.error());
 		}
 
 		Account author = accountRepository.findByIdAndCompanyId(principal.accountId(), principal.companyId())
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
-		int after = target.quantity();
-		part.setQuantity(after);
+		stockService.changeLocked(part, shelf, target.quantity() - shelf.getQuantity());
+		int after = part.getQuantity();
 
 		StockCorrection correction = new StockCorrection();
 		correction.setPart(part);
 		correction.setAccount(author);
 		correction.setQuantityBefore(before);
 		correction.setQuantityAfter(after);
+		correction.setLocationName(shelf.getLocation());
 		correction.setReason(reason);
 		correction.setCreatedAt(Instant.now());
 		stockCorrectionRepository.save(correction);
@@ -308,6 +364,7 @@ public class StockCorrectionController {
 		model.addAttribute("partName", part.getName());
 		model.addAttribute("partActive", part.isActive());
 		model.addAttribute("quantity", quantity);
+		model.addAttribute("locations", part.getLocations());
 		model.addAttribute("reserved", reserved);
 		model.addAttribute("available", quantity - reserved);
 		model.addAttribute("corrections", stockCorrectionRepository.findByPartIdNewestFirst(id, Limit.of(HISTORY_LIMIT)));

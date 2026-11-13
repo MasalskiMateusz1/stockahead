@@ -171,9 +171,14 @@ class DeliveryConcurrencyTests {
 	}
 
 	private Long seedPart(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id, quantity) VALUES (?, 'A1', ?, ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
 	}
 
 	private Long seedBomLine(Long project, Long part, int quantityPerUnit) {
@@ -199,6 +204,7 @@ class DeliveryConcurrencyTests {
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = (SELECT part_id FROM order_lines WHERE id = ?)", Long.class, lineId).toString())
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + orderId));
@@ -209,7 +215,13 @@ class DeliveryConcurrencyTests {
 			.with(csrf())
 			.param("rows", "5")
 			.param("partId0", partId.toString())
+			.param("location0", "A1")
 			.param("quantity0", Integer.toString(quantity))).andReturn();
+	}
+
+	private Long shelfOf(Long partId, String location) {
+		return jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = ? AND location = ?",
+				Long.class, partId, location);
 	}
 
 	private int stockOf(Long partId) {
@@ -345,6 +357,7 @@ class DeliveryConcurrencyTests {
 				return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", takenOrder, takenLine)
 					.session(technician)
 					.with(csrf())
+					.param("locationId", shelfOf(partId, "A1").toString())
 					.param("quantity", "3")).andReturn();
 			}, () -> {
 				Thread.sleep(receiptDelayMillis);

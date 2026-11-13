@@ -51,12 +51,20 @@ final class PartsImportFile {
 	 * locations and the Excel row numbers it came from. Plain values only, so
 	 * it can be kept in the HTTP session.
 	 */
-	record ImportLine(String name, long quantity, List<String> locations, List<Integer> rowNumbers)
+	record ImportLine(String name, long quantity, List<String> locations, List<Integer> rowNumbers,
+			Map<String, Long> quantitiesByLocation)
 			implements Serializable {
 
 		ImportLine {
 			locations = List.copyOf(locations);
 			rowNumbers = List.copyOf(rowNumbers);
+			// Ordered as in the file; an unmodifiable LinkedHashMap stays serializable for the session.
+			quantitiesByLocation = Collections.unmodifiableMap(new LinkedHashMap<>(quantitiesByLocation));
+		}
+
+		ImportLine(String name, long quantity, List<String> locations, List<Integer> rowNumbers) {
+			this(name, quantity, locations, rowNumbers,
+					locations.size() == 1 ? Map.of(locations.get(0), quantity) : Map.of());
 		}
 
 	}
@@ -109,6 +117,10 @@ final class PartsImportFile {
 			}
 
 			String location = PartLocation.normalize(record.location());
+			if (quantity > 0 && location.isEmpty()) {
+				errors.add(ImportError.ofRow(row, "partsImport.error.destinationRequired"));
+				valid = false;
+			}
 			if (location.length() > MAX_LOCATION_LENGTH) {
 				errors.add(ImportError.ofRow(row, "partsImport.error.locationTooLong", MAX_LOCATION_LENGTH));
 				valid = false;
@@ -175,6 +187,7 @@ final class PartsImportFile {
 		private long quantity;
 
 		private final List<String> locations = new ArrayList<>();
+		private final Map<String, Long> quantitiesByLocation = new LinkedHashMap<>();
 
 		private final List<Integer> rowNumbers = new ArrayList<>();
 
@@ -192,10 +205,15 @@ final class PartsImportFile {
 					&& locations.stream().noneMatch(known -> PartLocation.sameLocation(known, location))) {
 				locations.add(location);
 			}
+			if (!location.isEmpty()) {
+				String key = locations.stream().filter(known -> PartLocation.sameLocation(known, location))
+					.findFirst().orElse(location);
+				quantitiesByLocation.merge(key, rowQuantity, Long::sum);
+			}
 		}
 
 		ImportLine build() {
-			return new ImportLine(name, quantity, locations, rowNumbers);
+			return new ImportLine(name, quantity, locations, rowNumbers, quantitiesByLocation);
 		}
 
 	}

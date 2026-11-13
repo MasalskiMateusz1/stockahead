@@ -152,9 +152,12 @@ class PartsCatalogIntegrationTests {
 		part.setActive(active);
 		part.setCreatedAt(Instant.now());
 		part.setCompany(company());
-		for (String location : locations) {
+		for (int i = 0; i < locations.length; i++) {
 			PartLocation partLocation = new PartLocation();
-			partLocation.setLocation(location);
+			partLocation.setLocation(locations[i]);
+			if (i == 0) {
+				partLocation.setQuantity(quantity);
+			}
 			part.addLocation(partLocation);
 		}
 		transactionTemplate.executeWithoutResult(status -> partRepository.saveAndFlush(part));
@@ -241,6 +244,7 @@ class PartsCatalogIntegrationTests {
 		mockMvc.perform(post("/parts").session(session).with(csrf())
 				.param("name", "Resistor 10k")
 				.param("quantity", "42")
+				.param("initialLocation", "A1")
 				.param("locations", "A1\nB2"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/parts"));
@@ -315,6 +319,7 @@ class PartsCatalogIntegrationTests {
 				.perform(post("/parts").session(session).with(csrf())
 					.param("name", "Race Condition Part")
 					.param("quantity", "2")
+					.param("initialLocation", "Racer Shelf")
 					.param("locations", "Racer Shelf"))
 				.andReturn());
 
@@ -554,6 +559,7 @@ class PartsCatalogIntegrationTests {
 		mockMvc.perform(post("/parts").session(session).with(csrf())
 				.param("name", "kondensator")
 				.param("quantity", "3")
+				.param("initialLocation", "B2")
 				.param("locations", "B2"))
 			.andExpect(status().isOk())
 			.andExpect(view().name("parts-new"))
@@ -636,6 +642,7 @@ class PartsCatalogIntegrationTests {
 		mockMvc.perform(post("/parts").session(session).with(csrf())
 				.param("name", "Part Y")
 				.param("quantity", "2")
+				.param("initialLocation", "a1")
 				.param("locations", "a1\nB7"))
 			.andExpect(status().is3xxRedirection());
 
@@ -706,6 +713,7 @@ class PartsCatalogIntegrationTests {
 		mockMvc.perform(post("/parts").session(session).with(csrf())
 				.param("name", "Pasted Widget")
 				.param("quantity", "4")
+				.param("initialLocation", "Regał A1")
 				.param("locations", "Regał\u00A0A1\u00A0\nB2\u202F"))
 			.andExpect(status().is3xxRedirection());
 
@@ -762,7 +770,7 @@ class PartsCatalogIntegrationTests {
 	@Test
 	void editFromAbToBcRetainsBDeletesAAndCreatesCOnce() throws Exception {
 		seedManager();
-		Long partId = seedPart("Reshuffled Widget", 3, true, "A", "B");
+		Long partId = seedPart("Reshuffled Widget", 0, true, "A", "B");
 		Long idA = locationIdOf(partId, "A");
 		Long idB = locationIdOf(partId, "B");
 

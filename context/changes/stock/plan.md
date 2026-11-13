@@ -283,23 +283,23 @@ V22 intentionally discards current physical stock and live reservations while re
 
 #### Automated
 
-- [x] 1.1 V22 migrates populated PostgreSQL data while preserving catalog and order records and zeroing old stock and live reservations.
-- [x] 1.2 Database checks reject a negative location balance, and service tests preserve the shelf-sum invariant under concurrent writes.
+- [x] 1.1 V22 migrates populated PostgreSQL data while preserving catalog and order records and zeroing old stock and live reservations. — 73d1bc4
+- [x] 1.2 Database checks reject a negative location balance, and service tests preserve the shelf-sum invariant under concurrent writes. — 73d1bc4
 
 #### Manual
 
-- [x] 1.3 A restored pre-change test database starts with the same parts and locations, zero physical stock, and zero live reservations.
+- [x] 1.3 A restored pre-change test database starts with the same parts and locations, zero physical stock, and zero live reservations. — 73d1bc4
 
 ### Phase 2: Stock entering and moving
 
 #### Automated
 
-- [ ] 2.1 Creation, delivery, and CSV tests keep per-row shelf quantities, reject positive rows without a location, and update the part total exactly once.
-- [ ] 2.2 Correction, transfer, and catalog-edit tests cover overflow, insufficient stock, stale input, nonempty removal, rename, role denial, and foreign-company 404.
+- [x] 2.1 Creation, delivery, and CSV tests keep per-row shelf quantities, reject positive rows without a location, and update the part total exactly once.
+- [x] 2.2 Correction, transfer, and catalog-edit tests cover overflow, insufficient stock, stale input, nonempty removal, rename, role denial, and foreign-company 404.
 
 #### Manual
 
-- [ ] 2.3 A manager can receive and move units between two shelves, see the expected balances, and cannot delete a stocked shelf.
+- [x] 2.3 A manager can receive and move units between two shelves, see the expected balances, and cannot delete a stocked shelf.
 
 ### Phase 3: Stock leaving and returning
 

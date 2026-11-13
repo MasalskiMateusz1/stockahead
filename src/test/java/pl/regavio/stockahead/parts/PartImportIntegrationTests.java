@@ -193,9 +193,9 @@ class PartImportIntegrationTests {
 			Long id = jdbcTemplate.queryForObject(
 					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, ?, ?) RETURNING id",
 					Long.class, name, quantity, active, company().getId());
-			for (String location : locations) {
-				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
-						id, location, company().getId());
+			for (int i = 0; i < locations.length; i++) {
+				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id, quantity) VALUES (?, ?, ?, ?)",
+						id, locations[i], company().getId(), i == 0 ? quantity : 0);
 			}
 			return id;
 		});
@@ -265,7 +265,15 @@ class PartImportIntegrationTests {
 	private static String rowOf(String html, String name) {
 		Matcher matcher = TABLE_ROW.matcher(html);
 		while (matcher.find()) {
-			String text = matcher.group(1).replaceAll("<[^>]+>", " ").replaceAll("[\\s\\u00A0]+", " ").trim();
+			Matcher cells = Pattern.compile("(?s)<td[^>]*>.*?</td>").matcher(matcher.group(1));
+			StringBuilder oldColumns = new StringBuilder();
+			int column = 0;
+			while (cells.find()) {
+				if (column++ != 4) {
+					oldColumns.append(cells.group());
+				}
+			}
+			String text = oldColumns.toString().replaceAll("<[^>]+>", " ").replaceAll("[\\s\\u00A0]+", " ").trim();
 			if (text.contains(name)) {
 				return text;
 			}
@@ -449,7 +457,7 @@ class PartImportIntegrationTests {
 		seedPart("Stary układ", 3, false, "Z9");
 		MockHttpSession session = loginAs(MANAGER_EMAIL);
 
-		String html = preview(session, csv(HEADER + "Stary układ;2;\r\n"));
+		String html = preview(session, csv(HEADER + "Stary układ;2;Z9\r\n"));
 
 		assertThat(rowOf(html, "Stary układ")).isEqualTo("Stary układ (nieaktywna) 3 2 5");
 	}
@@ -488,7 +496,7 @@ class PartImportIntegrationTests {
 		seedPart("łącznik", 2, true, "C3");
 		MockHttpSession session = loginAs(MANAGER_EMAIL);
 
-		String html = preview(session, csv(HEADER + "ŁĄCZNIK;1;\r\n"));
+		String html = preview(session, csv(HEADER + "ŁĄCZNIK;1;C3\r\n"));
 
 		assertThat(rowOf(html, "łącznik")).isEqualTo("łącznik 2 1 3");
 		assertThat(html).doesNotContain("NOWA");
@@ -499,7 +507,7 @@ class PartImportIntegrationTests {
 		seedPart("Bezpiecznik\u00A0", 4, true, "D4");
 		MockHttpSession session = loginAs(MANAGER_EMAIL);
 
-		String html = preview(session, csv(HEADER + "bezpiecznik;1;\r\n"));
+		String html = preview(session, csv(HEADER + "bezpiecznik;1;D4\r\n"));
 
 		assertThat(rowOf(html, "Bezpiecznik")).isEqualTo("Bezpiecznik 4 1 5");
 		assertThat(html).doesNotContain("NOWA");
@@ -518,7 +526,7 @@ class PartImportIntegrationTests {
 		assertThat(pending).isNotNull();
 		assertThat(pending.lines()).extracting(PartsImportFile.ImportLine::name)
 			.containsExactly("Rezystor 10k", "Dioda");
-		assertThat(pending.snapshots()).containsExactly(new PendingImport.Snapshot(resistorId, 6),
+		assertThat(pending.snapshots()).containsExactly(new PendingImport.Snapshot(resistorId, 6, java.util.Map.of("a1", 6)),
 				new PendingImport.Snapshot(null, 0));
 		assertThat(html).contains("action=\"/parts/import/confirm\"")
 			.contains("name=\"token\" value=\"" + pending.token() + "\"")
@@ -562,8 +570,9 @@ class PartImportIntegrationTests {
 				+ "Dioda;1;\r\n"
 				+ "dioda;2; \r\n"));
 
-		assertThat(html).contains("Wiersz 3: nowa część „Dioda” musi mieć co najmniej jedną lokalizację.")
-			.doesNotContain("Wiersz 2:")
+		assertThat(html).contains("Wiersz 2: podaj lokalizację dla dodatniej ilości.",
+				"Wiersz 3: podaj lokalizację dla dodatniej ilości.",
+				"Wiersz 4: podaj lokalizację dla dodatniej ilości.")
 			.doesNotContain("Zatwierdź import");
 		assertThat(pendingOf(session)).isNull();
 		assertThat(partCount()).isEqualTo(partsBefore);
@@ -602,7 +611,7 @@ class PartImportIntegrationTests {
 				+ "Dioda;1;\r\n"
 				+ "Zener;x;B1\r\n"));
 
-		assertThat(html.indexOf("Wiersz 2: nowa część „Dioda”")).isPositive()
+		assertThat(html.indexOf("Wiersz 2: podaj lokalizację dla dodatniej ilości.")).isPositive()
 			.isLessThan(html.indexOf("Wiersz 3: ilość musi być liczbą całkowitą."));
 	}
 
@@ -690,7 +699,7 @@ class PartImportIntegrationTests {
 	void inactivePartStaysInactiveWithItsStockRaised() throws Exception {
 		Long oldId = seedPart("Stary układ", 3, false, "Z9");
 		MockHttpSession session = loginAs(MANAGER_EMAIL);
-		preview(session, csv(HEADER + "Stary układ;2;\r\n"));
+		preview(session, csv(HEADER + "Stary układ;2;Z9\r\n"));
 
 		confirmPending(session);
 
@@ -726,7 +735,7 @@ class PartImportIntegrationTests {
 		mockMvc.perform(get("/purchasing").session(session))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString("Mikrokontroler")));
-		preview(session, csv(HEADER + "Mikrokontroler;4;\r\n"));
+		preview(session, csv(HEADER + "Mikrokontroler;4;Regał M1\r\n"));
 
 		confirmPending(session);
 
@@ -744,7 +753,7 @@ class PartImportIntegrationTests {
 				Instant.now());
 		Long lineId = seedOrderLine(orderId, partId, 10, 6);
 		MockHttpSession session = loginAs(MANAGER_EMAIL);
-		preview(session, csv(HEADER + "Mikrokontroler;10;\r\n"));
+		preview(session, csv(HEADER + "Mikrokontroler;10;Regał M1\r\n"));
 
 		confirmPending(session);
 
@@ -753,7 +762,8 @@ class PartImportIntegrationTests {
 		String parts = mockMvc.perform(get("/parts").session(session))
 			.andExpect(status().isOk())
 			.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
-		assertThat(rowOf(parts, "Mikrokontroler")).startsWith("Mikrokontroler 16 10 6 Regał M1");
+		assertThat(rowOf(parts, "Mikrokontroler")).startsWith("Mikrokontroler 16 10 6");
+		assertThat(parts).contains("Regał M1: 16");
 	}
 
 	@Test
@@ -766,6 +776,7 @@ class PartImportIntegrationTests {
 		String token = pendingOf(session).token();
 		int partsBefore = partCount();
 		jdbcTemplate.update("UPDATE parts SET quantity = 8 WHERE id = ?", resistorId);
+		jdbcTemplate.update("UPDATE part_locations SET quantity = 8 WHERE part_id = ?", resistorId);
 
 		String html = confirmExpectingPreview(session);
 
@@ -775,7 +786,7 @@ class PartImportIntegrationTests {
 		assertThat(locationsOf(resistorId)).containsExactly("A1");
 		assertThat(partCount()).isEqualTo(partsBefore);
 		assertThat(pendingOf(session).token()).isEqualTo(token);
-		assertThat(pendingOf(session).snapshots().get(0)).isEqualTo(new PendingImport.Snapshot(resistorId, 8));
+		assertThat(pendingOf(session).snapshots().get(0)).isEqualTo(new PendingImport.Snapshot(resistorId, 8, java.util.Map.of("a1", 8)));
 
 		confirmPending(session);
 

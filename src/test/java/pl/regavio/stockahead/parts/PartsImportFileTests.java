@@ -99,18 +99,20 @@ class PartsImportFileTests {
 		assertThat(file.errors()).containsExactly(ImportError.ofRow(3, "partsImport.error.nameRequired"),
 				ImportError.ofRow(3, "partsImport.error.quantityNotInteger"),
 				ImportError.ofRow(5, "partsImport.error.quantityNegative"),
-				ImportError.ofRow(5, "partsImport.error.locationTooLong", 255));
+				ImportError.ofRow(5, "partsImport.error.locationTooLong", 255),
+				ImportError.ofRow(6, "partsImport.error.destinationRequired"));
 	}
 
 	@Test
 	void rowsNamingTheSamePartIgnoringCaseAndSpacesMerge() {
 		PartsImportFile file = parse(row(2, "rezystor 10K", "5", "A1"), row(3, "Rezystor 10k ", "7", "a1"),
-				row(4, "Dioda", "1", "C3"), row(5, " REZYSTOR 10K", "0", "B2"), row(6, "rezystor 10k", "2", ""));
+				row(4, "Dioda", "1", "C3"), row(5, " REZYSTOR 10K", "0", "B2"), row(6, "rezystor 10k", "2", "B2"));
 
 		assertThat(file.errors()).isEmpty();
 		assertThat(file.lines()).containsOnlyKeys("rezystor 10k", "dioda");
 		assertThat(file.lines().get("rezystor 10k")).isEqualTo(
-				new PartsImportFile.ImportLine("rezystor 10K", 14, List.of("A1", "B2"), List.of(2, 3, 5, 6)));
+				new PartsImportFile.ImportLine("rezystor 10K", 14, List.of("A1", "B2"), List.of(2, 3, 5, 6),
+						java.util.Map.of("A1", 12L, "B2", 2L)));
 		assertThat(file.lines().keySet()).containsExactly("rezystor 10k", "dioda");
 	}
 

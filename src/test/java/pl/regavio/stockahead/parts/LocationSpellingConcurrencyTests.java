@@ -144,11 +144,11 @@ class LocationSpellingConcurrencyTests {
 	private Long seedPart(String name, String... locations) {
 		return transactionTemplate.execute(status -> {
 			Long partId = jdbcTemplate.queryForObject(
-					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, 1, true, ?) RETURNING id",
-					Long.class, name, company().getId());
-			for (String location : locations) {
-				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
-						partId, location, company().getId());
+					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
+					Long.class, name, locations.length == 0 ? 0 : 1, company().getId());
+			for (int i = 0; i < locations.length; i++) {
+				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id, quantity) VALUES (?, ?, ?, ?)",
+						partId, locations[i], company().getId(), i == 0 ? 1 : 0);
 			}
 			return partId;
 		});
@@ -249,12 +249,14 @@ class LocationSpellingConcurrencyTests {
 				.with(csrf())
 				.param("name", "New Shelf P " + current)
 				.param("quantity", "1")
+				.param("initialLocation", "n9")
 				.param("locations", "n9")).andReturn(), () -> {
 					Thread.sleep(secondDelayMillis);
 					return mockMvc.perform(post("/parts").session(manager)
 						.with(csrf())
 						.param("name", "New Shelf Q " + current)
 						.param("quantity", "1")
+						.param("initialLocation", "N9")
 						.param("locations", "N9")).andReturn();
 				});
 

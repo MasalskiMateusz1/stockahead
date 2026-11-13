@@ -48,6 +48,9 @@ public class StockCorrection {
 	@Column(name = "quantity_after", nullable = false)
 	private int quantityAfter;
 
+	@Column(name = "location_name")
+	private String locationName;
+
 	@Column(nullable = false, length = 500)
 	private String reason;
 
@@ -94,6 +97,14 @@ public class StockCorrection {
 
 	public int getQuantityAfter() {
 		return quantityAfter;
+	}
+
+	public String getLocationName() {
+		return locationName;
+	}
+
+	public void setLocationName(String locationName) {
+		this.locationName = locationName;
 	}
 
 	public void setQuantityAfter(int quantityAfter) {

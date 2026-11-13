@@ -211,9 +211,9 @@ class PartImportConcurrencyTests {
 			Long id = jdbcTemplate.queryForObject(
 					"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
 					Long.class, name, quantity, company().getId());
-			for (String location : locations) {
-				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
-						id, location, company().getId());
+			for (int i = 0; i < locations.length; i++) {
+				jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id, quantity) VALUES (?, ?, ?, ?)",
+						id, locations[i], company().getId(), i == 0 ? quantity : 0);
 			}
 			return id;
 		});
@@ -271,12 +271,14 @@ class PartImportConcurrencyTests {
 			.with(csrf())
 			.param("rows", "5")
 			.param("partId0", partId.toString())
+			.param("location0", "A1")
 			.param("quantity0", Integer.toString(quantity))).andReturn();
 	}
 
 	private MvcResult postPick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = (SELECT part_id FROM order_lines WHERE id = ?)", Long.class, lineId).toString())
 			.param("quantity", Integer.toString(quantity))).andReturn();
 	}
 
@@ -286,6 +288,7 @@ class PartImportConcurrencyTests {
 			.with(csrf())
 			.param("name", name)
 			.param("quantity", Integer.toString(quantity))
+			.param("initialLocation", locations.split("\\R")[0])
 			.param("locations", locations)).andReturn();
 	}
 
@@ -432,6 +435,11 @@ class PartImportConcurrencyTests {
 	 * The text of the preview table row whose cells contain {@code name}, tags
 	 * stripped and whitespace (non-breaking spaces included) collapsed.
 	 */
+	private Long shelfOf(Long partId, String location) {
+		return jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = ? AND location = ?",
+				Long.class, partId, location);
+	}
+
 	private static String rowOf(String html, String name) {
 		Matcher matcher = TABLE_ROW.matcher(html);
 		while (matcher.find()) {
@@ -478,7 +486,7 @@ class PartImportConcurrencyTests {
 			else {
 				String html = assertRePreviewed(results[0].result(), iteration);
 				assertThat(rowOf(html, name)).as("iteration %d: refreshed row", iteration)
-					.isEqualTo(name + " 40 10 50");
+					.isEqualTo(name + " 40 10 50 A1: 50");
 				assertThat(stockOf(partId)).as("iteration %d: stock after the receipt alone", iteration)
 					.isEqualTo(40);
 				assertRedirectedTo(confirmImport(manager), "/parts", "second confirm", iteration);
@@ -514,6 +522,7 @@ class PartImportConcurrencyTests {
 			Long waitingLine = seedOrderLine(waitingOrder, partId, 20, 0);
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", takenOrder, takenLine).session(technician)
 				.with(csrf())
+				.param("locationId", shelfOf(partId, "A1").toString())
 				.param("quantity", "1"))
 				.andExpect(status().is3xxRedirection())
 				.andExpect(header().string("Location", "/picking/" + takenOrder));
@@ -528,7 +537,7 @@ class PartImportConcurrencyTests {
 			if (!applied(results[0].result())) {
 				String html = assertRePreviewed(results[0].result(), iteration);
 				assertThat(rowOf(html, name)).as("iteration %d: refreshed row", iteration)
-					.isEqualTo(name + " 1 10 11");
+					.isEqualTo(name + " 1 10 11 A1: 11");
 				assertThat(stockOf(partId)).as("iteration %d: stock after the pick alone", iteration).isEqualTo(1);
 				assertRedirectedTo(confirmImport(manager), "/parts", "second confirm", iteration);
 			}
@@ -631,7 +640,7 @@ class PartImportConcurrencyTests {
 				assertRedirectedTo(createResult, "/parts", "manual create", iteration);
 				String html = assertRePreviewed(importResult, iteration);
 				assertThat(rowOf(html, manualName)).as("iteration %d: refreshed row", iteration)
-					.isEqualTo(manualName + " 3 5 8 A1");
+					.isEqualTo(manualName + " 3 5 8 B2: 3 A1: 5 A1");
 				assertThat(html).as("iteration %d: no new part in the refreshed preview", iteration)
 					.doesNotContain("NOWA");
 				assertRedirectedTo(confirmImport(importing), "/parts", "second confirm", iteration);
@@ -689,7 +698,7 @@ class PartImportConcurrencyTests {
 				assertRedirectedTo(renameResult, "/parts", "rename", iteration);
 				String html = assertRePreviewed(importResult, iteration);
 				assertThat(rowOf(html, "nowa CZĘŚĆ")).as("iteration %d: refreshed row", iteration)
-					.isEqualTo("nowa CZĘŚĆ 2 5 7 A1");
+					.isEqualTo("nowa CZĘŚĆ 2 5 7 B2: 2 A1: 5 A1");
 				assertRedirectedTo(confirmImport(importing), "/parts", "second confirm", iteration);
 				assertThat(partCount()).as("iteration %d: parts", iteration).isEqualTo(1);
 				assertThat(onlyPartName()).as("iteration %d: name", iteration).isEqualTo("nowa CZĘŚĆ");
@@ -742,7 +751,7 @@ class PartImportConcurrencyTests {
 			MvcResult loserResult = firstWon ? results[1].result() : results[0].result();
 			MvcResult winnerResult = firstWon ? results[0].result() : results[1].result();
 			String winnerName = firstWon ? "Nowa część" : "nowa CZĘŚĆ";
-			String loserRow = firstWon ? winnerName + " 5 3 8 B2" : winnerName + " 3 5 8 A1";
+			String loserRow = firstWon ? winnerName + " 5 3 8 A1: 5 B2: 3 B2" : winnerName + " 3 5 8 B2: 3 A1: 5 A1";
 
 			assertRedirectedTo(winnerResult, "/parts", "winning import", iteration);
 			String html = assertRePreviewed(loserResult, iteration);
