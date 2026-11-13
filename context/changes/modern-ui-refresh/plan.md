@@ -509,7 +509,7 @@ Add the role-based count cards to the dashboard, restyle the tiles, remove the p
 - [x] 2.4 parts-list shows aligned columns, quiet row buttons, header row and filter card — 9d21bae
 - [x] 2.5 orders-list pending rows read amber and priority pills are tinted — 9d21bae
 - [x] 2.6 Other list views look consistent with parts-list in light and dark — 9d21bae
-- [x] 2.7 Empty parts-list and accounts-list show the dashed empty state
+- [x] 2.7 Empty parts-list and accounts-list show the dashed empty state — e0e1f98
 
 ### Phase 3: Forms, detail and auth pages
 
@@ -530,12 +530,12 @@ Add the role-based count cards to the dashboard, restyle the tiles, remove the p
 
 #### Automated
 
-- [x] 4.1 Full build and tests pass: `./mvnw verify`
-- [x] 4.2 The new dashboard tests pass
-- [x] 4.3 The existing dashboard and role tests pass
-- [x] 4.4 The ping tile is gone from `dashboard.html`
+- [x] 4.1 Full build and tests pass: `./mvnw verify` — e0e1f98
+- [x] 4.2 The new dashboard tests pass — e0e1f98
+- [x] 4.3 The existing dashboard and role tests pass — e0e1f98
+- [x] 4.4 The ping tile is gone from `dashboard.html` — e0e1f98
 
 #### Manual
 
-- [x] 4.5 Dashboard counts equal the row counts of the linked lists for manager and technician
-- [x] 4.6 `visual-gate.md` shows a pass for every listed view, theme and width
+- [x] 4.5 Dashboard counts equal the row counts of the linked lists for manager and technician — e0e1f98
+- [x] 4.6 `visual-gate.md` shows a pass for every listed view, theme and width — e0e1f98

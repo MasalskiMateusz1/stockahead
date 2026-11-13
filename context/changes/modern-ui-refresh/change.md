@@ -1,9 +1,9 @@
 ---
 change_id: modern-ui-refresh
 title: Modern UI refresh inspired by boost4body.com and anki.pl
-status: implementing
+status: implemented
 created: 2026-11-11
-updated: 2026-11-12
+updated: 2026-11-13
 archived_at: null
 ---
 
