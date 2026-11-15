@@ -305,12 +305,12 @@ V22 intentionally discards current physical stock and live reservations while re
 
 #### Automated
 
-- [x] 3.1 Repeated partial picks from different shelves preserve live-counter, part-total, and reservation invariants.
-- [x] 3.2 Pick and cancellation tests cover insufficient shelf stock, stale submissions, concurrent pick/return, wrong role, and foreign-company 404 without stock mutation.
+- [x] 3.1 Repeated partial picks from different shelves preserve live-counter, part-total, and reservation invariants. — ca911b5
+- [x] 3.2 Pick and cancellation tests cover insufficient shelf stock, stale submissions, concurrent pick/return, wrong role, and foreign-company 404 without stock mutation. — ca911b5
 
 #### Manual
 
-- [ ] 3.3 A picker can take six units from one shelf and two from another in two actions; cancellation can return selected units to a chosen shelf.
+- [x] 3.3 A picker can take six units from one shelf and two from another in two actions; cancellation can return selected units to a chosen shelf. — ca911b5
 
 ### Phase 4: Views and verification
 
