@@ -1,6 +1,7 @@
 package pl.regavio.stockahead.orders;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -139,8 +140,21 @@ class PickingListAndDetailIntegrationTests {
 
 	private void seedPartLocation(Long partId, String location) {
 		transactionTemplate.executeWithoutResult(status -> jdbcTemplate.update(
-				"INSERT INTO part_locations (part_id, location, company_id) VALUES (?, ?, ?)",
-				partId, location, company().getId()));
+				"INSERT INTO part_locations (part_id, location, company_id, quantity) "
+					+ "VALUES (?, ?, ?, CASE WHEN (SELECT count(*) FROM part_locations WHERE part_id = ?) = 0 "
+					+ "THEN (SELECT quantity FROM parts WHERE id = ?) ELSE 0 END)",
+				partId, location, company().getId(), partId, partId));
+	}
+
+	private String shelfForLine(Long lineId) {
+		Long partId = jdbcTemplate.queryForObject("SELECT part_id FROM order_lines WHERE id = ?", Long.class, lineId);
+		List<Long> shelves = jdbcTemplate.queryForList("SELECT id FROM part_locations WHERE part_id = ? ORDER BY id",
+			Long.class, partId);
+		if (shelves.isEmpty()) {
+			seedPartLocation(partId, "A1");
+			shelves = jdbcTemplate.queryForList("SELECT id FROM part_locations WHERE part_id = ?", Long.class, partId);
+		}
+		return shelves.get(0).toString();
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
@@ -201,6 +215,7 @@ class PickingListAndDetailIntegrationTests {
 
 		mockMvc.perform(post("/picking/" + orderId + "/lines/" + lineId + "/pick").session(session)
 			.with(csrf())
+			.param("locationId", shelfForLine(lineId))
 			.param("quantity", "4"))
 			.andExpect(status().is3xxRedirection());
 
@@ -231,6 +246,7 @@ class PickingListAndDetailIntegrationTests {
 
 		mockMvc.perform(post("/picking/" + orderId + "/lines/" + lineId + "/pick").session(technician)
 			.with(csrf())
+			.param("locationId", shelfForLine(lineId))
 			.param("quantity", "8"))
 			.andExpect(status().is3xxRedirection());
 
@@ -330,6 +346,7 @@ class PickingListAndDetailIntegrationTests {
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", shelfForLine(lineId))
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection());
 	}

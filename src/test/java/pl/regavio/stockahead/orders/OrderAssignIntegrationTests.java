@@ -142,9 +142,14 @@ class OrderAssignIntegrationTests {
 	}
 
 	private Long seedPart(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, company_id, location, quantity) VALUES (?, ?, 'A1', ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
 	}
 
 	private Long seedOrder() {
@@ -164,6 +169,9 @@ class OrderAssignIntegrationTests {
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", jdbcTemplate.queryForObject(
+					"SELECT l.id FROM part_locations l JOIN order_lines ol ON ol.part_id = l.part_id WHERE ol.id = ?",
+					Long.class, lineId).toString())
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection());
 	}

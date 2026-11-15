@@ -294,19 +294,19 @@ V22 intentionally discards current physical stock and live reservations while re
 
 #### Automated
 
-- [x] 2.1 Creation, delivery, and CSV tests keep per-row shelf quantities, reject positive rows without a location, and update the part total exactly once.
-- [x] 2.2 Correction, transfer, and catalog-edit tests cover overflow, insufficient stock, stale input, nonempty removal, rename, role denial, and foreign-company 404.
+- [x] 2.1 Creation, delivery, and CSV tests keep per-row shelf quantities, reject positive rows without a location, and update the part total exactly once. — b3f3e6c
+- [x] 2.2 Correction, transfer, and catalog-edit tests cover overflow, insufficient stock, stale input, nonempty removal, rename, role denial, and foreign-company 404. — b3f3e6c
 
 #### Manual
 
-- [x] 2.3 A manager can receive and move units between two shelves, see the expected balances, and cannot delete a stocked shelf.
+- [x] 2.3 A manager can receive and move units between two shelves, see the expected balances, and cannot delete a stocked shelf. — b3f3e6c
 
 ### Phase 3: Stock leaving and returning
 
 #### Automated
 
-- [ ] 3.1 Repeated partial picks from different shelves preserve live-counter, part-total, and reservation invariants.
-- [ ] 3.2 Pick and cancellation tests cover insufficient shelf stock, stale submissions, concurrent pick/return, wrong role, and foreign-company 404 without stock mutation.
+- [x] 3.1 Repeated partial picks from different shelves preserve live-counter, part-total, and reservation invariants.
+- [x] 3.2 Pick and cancellation tests cover insufficient shelf stock, stale submissions, concurrent pick/return, wrong role, and foreign-company 404 without stock mutation.
 
 #### Manual
 

@@ -71,7 +71,8 @@ class PickingDetailModel {
 		List<LineView> lines = order.getLines().stream()
 			.map(line -> new LineView(line.getId(), line.getPart().getName(), joinLocations(line.getPart()),
 					line.getRequiredQuantity(), line.getReservedQuantity(), line.getPickedQuantity(),
-					line.getReservedQuantity()))
+					line.getReservedQuantity(), line.getPart().getLocations().stream()
+						.map(shelf -> new ShelfView(shelf.getId(), shelf.getLocation(), shelf.getQuantity())).toList()))
 			.sorted(Comparator.comparing(LineView::partName))
 			.toList();
 		OrderView orderView = new OrderView(order.getProject().getName(), order.getQuantityUnits(),
@@ -81,7 +82,9 @@ class PickingDetailModel {
 	}
 
 	private static String joinLocations(Part part) {
-		return part.getLocations().stream().map(PartLocation::getLocation).collect(Collectors.joining(", "));
+		return part.getLocations().stream()
+			.map(shelf -> shelf.getLocation() + " (" + shelf.getQuantity() + ")")
+			.collect(Collectors.joining(", "));
 	}
 
 	record OrderView(String projectName, int quantityUnits, Priority priority, LocalDate requiredDate,
@@ -97,7 +100,10 @@ class PickingDetailModel {
 	 * "remaining to pick" column.
 	 */
 	record LineView(Long lineId, String partName, String locations, int requiredQuantity, int reservedQuantity,
-			int pickedQuantity, int remainingToPick) {
+			int pickedQuantity, int remainingToPick, List<ShelfView> shelves) {
+	}
+
+	record ShelfView(Long id, String name, int quantity) {
 	}
 
 	private record DetailData(OrderView order, List<LineView> lines) {

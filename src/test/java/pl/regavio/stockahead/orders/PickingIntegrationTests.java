@@ -146,9 +146,19 @@ class PickingIntegrationTests {
 	}
 
 	private Long seedPart(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, company_id, location, quantity) VALUES (?, ?, 'A1', ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
+	}
+
+	private String shelfForLine(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = "
+				+ "(SELECT part_id FROM order_lines WHERE id = ?)", Long.class, lineId).toString();
 	}
 
 	private Long seedOrder(Long project, int quantityUnits, Priority priority, LocalDate requiredDate,
@@ -169,7 +179,7 @@ class PickingIntegrationTests {
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
-			.param("quantity", Integer.toString(quantity)))
+			.param("locationId", shelfForLine(lineId)).param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection());
 	}
 
@@ -213,7 +223,7 @@ class PickingIntegrationTests {
 
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
-			.param("quantity", "3"))
+			.param("locationId", shelfForLine(lineId)).param("quantity", "3"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", matchesPattern("/picking/" + orderId)));
 
@@ -235,7 +245,7 @@ class PickingIntegrationTests {
 
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
-			.param("quantity", "10"))
+			.param("locationId", shelfForLine(lineId)).param("quantity", "10"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(
 					containsString("Nie można pobrać więcej niż 5 szt. (tyle pozostało zarezerwowane).")));
@@ -281,7 +291,7 @@ class PickingIntegrationTests {
 
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 				.with(csrf())
-				.param("quantity", "2"))
+				.param("locationId", shelfForLine(lineId)).param("quantity", "2"))
 				.andExpect(status().isOk())
 				.andExpect(content().string(containsString(ORDER_NOT_OPEN_ERROR)));
 
@@ -311,7 +321,7 @@ class PickingIntegrationTests {
 		for (int attempt = 0; attempt < 2; attempt++) {
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 				.with(csrf())
-				.param("quantity", "2"))
+				.param("locationId", shelfForLine(lineId)).param("quantity", "2"))
 				.andExpect(status().isOk())
 				.andExpect(content().string(containsString(COMPLETION_REPORTED_ERROR)));
 
@@ -338,7 +348,7 @@ class PickingIntegrationTests {
 		// formula double-counts the first pick.
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
-			.param("quantity", "7"))
+			.param("locationId", shelfForLine(lineId)).param("quantity", "7"))
 			.andExpect(status().is3xxRedirection());
 
 		Timestamp takenAtAfterFirstPick = takenAtOf(orderId);
@@ -347,7 +357,7 @@ class PickingIntegrationTests {
 
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
-			.param("quantity", "3"))
+			.param("locationId", shelfForLine(lineId)).param("quantity", "3"))
 			.andExpect(status().is3xxRedirection());
 
 		assertThat(stockOf(partId)).isEqualTo(10);

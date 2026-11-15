@@ -281,6 +281,8 @@ class PickingCompanyIsolationIntegrationTests {
 
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderB, lineB).session(session)
 				.with(csrf())
+				.param("locationId", jdbcTemplate.queryForObject(
+						"SELECT id FROM part_locations WHERE part_id = ?", Long.class, partB.getId()).toString())
 				.param("quantity", "1"))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(redirectedUrl("/picking/" + orderB));

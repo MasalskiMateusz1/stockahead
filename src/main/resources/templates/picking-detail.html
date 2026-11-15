@@ -73,6 +73,11 @@
 						<td>
 							<div class="actions" th:if="${line.remainingToPick > 0 and order.status.name() == 'OPEN' and !order.completionReported}">
 								<form th:action="@{/picking/{orderId}/lines/{lineId}/pick(orderId=${orderId},lineId=${line.lineId})}" method="post">
+									<select name="locationId" required>
+										<option value="">Wybierz lokalizację</option>
+										<option th:each="shelf : ${line.shelves}" th:if="${shelf.quantity > 0}"
+											th:value="${shelf.id}" th:text="${shelf.name} + ' (' + ${shelf.quantity} + ')'">Lokalizacja</option>
+									</select>
 									<input type="number" min="1" size="6"
 										th:id="'quantity-' + ${line.lineId}"
 										name="quantity"

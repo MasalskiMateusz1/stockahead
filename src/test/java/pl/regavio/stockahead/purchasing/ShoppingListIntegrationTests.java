@@ -140,9 +140,17 @@ class ShoppingListIntegrationTests {
 	}
 
 	private Long seedPart(String name, int quantity, boolean active) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, ?, ?) RETURNING id",
-				Long.class, name, quantity, active, company().getId()));
+				Long.class, name, quantity, active, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, location, company_id, quantity) VALUES (?, 'A1', ?, ?)", id, company().getId(), quantity);
+			return id;
+		});
+	}
+
+	private Long locationIdOf(Long partId) {
+		return jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = ?", Long.class, partId);
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, String priority, LocalDate requiredDate) {
@@ -226,7 +234,7 @@ class ShoppingListIntegrationTests {
 
 		for (int quantity : new int[] { 4, 2 }) {
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId)
-				.session(session).with(csrf()).param("quantity", Integer.toString(quantity)))
+				.session(session).with(csrf()).param("locationId", locationIdOf(partId).toString()).param("quantity", Integer.toString(quantity)))
 				.andExpect(status().is3xxRedirection());
 			assertShortage(session, blockedEntry, csvRow);
 		}
@@ -267,7 +275,7 @@ class ShoppingListIntegrationTests {
 		Long completedOrderId = seedOrder(completedProjectId, 1, "NORMAL", LocalDate.now().plusDays(3));
 		Long completedLineId = seedOrderLine(completedOrderId, completedPartId, 5, 2);
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", completedOrderId, completedLineId)
-			.session(session).with(csrf()).param("quantity", "1"))
+			.session(session).with(csrf()).param("locationId", locationIdOf(completedPartId).toString()).param("quantity", "1"))
 			.andExpect(status().is3xxRedirection());
 		mockMvc.perform(post("/picking/{orderId}/report-completion", completedOrderId).session(session).with(csrf()).param("builtUnits", "1"))
 			.andExpect(status().is3xxRedirection());

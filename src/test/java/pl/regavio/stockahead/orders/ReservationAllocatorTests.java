@@ -109,9 +109,14 @@ class ReservationAllocatorTests {
 	}
 
 	private Long seedPart(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, company_id, location, quantity) VALUES (?, ?, 'A1', ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
 	}
 
 	private Long seedOrder(Long projectId, int quantityUnits, Priority priority, LocalDate requiredDate,
@@ -144,6 +149,7 @@ class ReservationAllocatorTests {
 
 	private void setStock(Long partId, int quantity) {
 		jdbcTemplate.update("UPDATE parts SET quantity = ? WHERE id = ?", quantity, partId);
+		jdbcTemplate.update("UPDATE part_locations SET quantity = ? WHERE part_id = ?", quantity, partId);
 	}
 
 	private Company company() {
@@ -175,6 +181,9 @@ class ReservationAllocatorTests {
 	private void pick(Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(technicianSession())
 			.with(csrf())
+			.param("locationId", jdbcTemplate.queryForObject(
+					"SELECT id FROM part_locations WHERE part_id = (SELECT part_id FROM order_lines WHERE id = ?)",
+					Long.class, lineId).toString())
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection());
 	}

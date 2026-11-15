@@ -30,6 +30,8 @@ import pl.regavio.stockahead.account.Account;
 import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
+import pl.regavio.stockahead.parts.PartLocation;
+import pl.regavio.stockahead.parts.StockService;
 import pl.regavio.stockahead.security.CompanyUser;
 
 /**
@@ -76,6 +78,8 @@ public class PickingController {
 
 	private final PartRepository partRepository;
 
+	private final StockService stockService;
+
 	private final OrderLineRepository orderLineRepository;
 
 	private final PickingDetailModel pickingDetailModel;
@@ -88,12 +92,13 @@ public class PickingController {
 
 	private final MessageSource messageSource;
 
-	PickingController(OrderRepository orderRepository, PartRepository partRepository,
+	PickingController(OrderRepository orderRepository, PartRepository partRepository, StockService stockService,
 			OrderLineRepository orderLineRepository, PickingDetailModel pickingDetailModel, LockRetry lockRetry,
 			PlatformTransactionManager transactionManager, AccountRepository accountRepository,
 			MessageSource messageSource) {
 		this.orderRepository = orderRepository;
 		this.partRepository = partRepository;
+		this.stockService = stockService;
 		this.orderLineRepository = orderLineRepository;
 		this.pickingDetailModel = pickingDetailModel;
 		this.lockRetry = lockRetry;
@@ -165,6 +170,7 @@ public class PickingController {
 			@PathVariable Long orderId,
 			@PathVariable Long lineId,
 			@RequestParam(required = false) String quantity,
+			@RequestParam(required = false) Long locationId,
 			@AuthenticationPrincipal CompanyUser principal,
 			Model model,
 			Locale locale) {
@@ -178,11 +184,16 @@ public class PickingController {
 			return renderPickError(model, companyId, orderId, lineId, quantityError, quantity);
 		}
 		int parsedQuantity = Integer.parseInt(quantity.trim());
+		if (locationId == null) {
+			return renderPickError(model, companyId, orderId, lineId,
+					messageSource.getMessage("picking.error.locationRequired", null, locale), quantity);
+		}
 
 		String businessError;
 		try {
 			businessError = lockRetry.executeWithLockRetry(() -> transactionTemplate.execute(status -> {
-				partRepository.findByIdInAndCompanyIdForUpdate(Set.of(partId), companyId);
+				Part lockedPart = stockService.lock(companyId, partId);
+				PartLocation shelf = stockService.location(lockedPart, companyId, locationId);
 				OrderLine line = findLine(companyId, orderId, lineId);
 				Order order = line.getOrder();
 
@@ -202,8 +213,11 @@ public class PickingController {
 							new Object[] { maxPickable }, locale);
 				}
 
-				Part part = line.getPart();
-				part.setQuantity(part.getQuantity() - parsedQuantity);
+				if (parsedQuantity > shelf.getQuantity()) {
+					return messageSource.getMessage("picking.error.quantityExceedsShelf",
+							new Object[] { shelf.getQuantity(), shelf.getLocation() }, locale);
+				}
+				stockService.changeLocked(lockedPart, shelf, -parsedQuantity);
 				line.setReservedQuantity(line.getReservedQuantity() - parsedQuantity);
 				line.setPickedQuantity(line.getPickedQuantity() + parsedQuantity);
 				if (order.getTakenAt() == null) {

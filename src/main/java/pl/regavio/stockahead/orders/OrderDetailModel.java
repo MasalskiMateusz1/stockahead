@@ -150,7 +150,8 @@ class OrderDetailModel {
 			List<CancelLineView> lines = picked.stream()
 				.map(line -> new CancelLineView(line.getId(), line.getPart().getName(),
 						joinLocations(line.getPart()), line.getPickedQuantity(),
-						Integer.toString(line.getPickedQuantity())))
+						Integer.toString(line.getPickedQuantity()), line.getPart().getLocations().stream()
+							.map(shelf -> new ShelfView(shelf.getId(), shelf.getLocation(), shelf.getQuantity())).toList()))
 				.sorted(Comparator.comparing(CancelLineView::partName))
 				.toList();
 			return new CancelPage(order.getProject().getName(), order.canCancel(), lines);
@@ -182,7 +183,7 @@ class OrderDetailModel {
 		List<CancelLineView> lines = page.lines().stream()
 			.map(line -> submittedReturns.containsKey(line.lineId())
 					? new CancelLineView(line.lineId(), line.partName(), line.locations(), line.pickedQuantity(),
-							submittedReturns.get(line.lineId()))
+							submittedReturns.get(line.lineId()), line.shelves())
 					: line)
 			.toList();
 		model.addAttribute("orderId", orderId);
@@ -196,7 +197,9 @@ class OrderDetailModel {
 	}
 
 	private static String joinLocations(Part part) {
-		return part.getLocations().stream().map(PartLocation::getLocation).collect(Collectors.joining(", "));
+		return part.getLocations().stream()
+			.map(shelf -> shelf.getLocation() + " (" + shelf.getQuantity() + ")")
+			.collect(Collectors.joining(", "));
 	}
 
 	/**
@@ -251,7 +254,10 @@ class OrderDetailModel {
 	 * amount; {@code returnValue} is the raw text shown in the return field.
 	 */
 	record CancelLineView(Long lineId, String partName, String locations, int pickedQuantity,
-			String returnValue) {
+			String returnValue, List<ShelfView> shelves) {
+	}
+
+	record ShelfView(Long id, String name, int quantity) {
 	}
 
 	/**

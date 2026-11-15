@@ -11,6 +11,13 @@
 
 set -euo pipefail
 
+# grep -P (used to read tokens and ids from the pages) needs a UTF-8 locale; Git Bash
+# on Windows often starts without one, and grep then refuses to run.
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+	*[Uu][Tt][Ff]-8* | *[Uu][Tt][Ff]8*) ;;
+	*) export LC_ALL=C.UTF-8 ;;
+esac
+
 cd "$(dirname "$0")/.."
 
 PORT="${PORT:-8080}"
@@ -78,8 +85,17 @@ post() {
 post_with_token() {
 	local user="$1" token="$2" action="$3"
 	shift 3
-	local args=()
-	for kv in "$@"; do args+=(--data-urlencode "$kv"); done
+	local args=() i=0
+	# Each value goes through a file: on Windows, curl re-encodes its arguments to the ANSI
+	# codepage, which mangles non-ASCII form values ("Złącze" -> "Zlacze", or an HTTP 400).
+	for kv in "$@"; do
+		i=$((i + 1))
+		local field="$WORK_DIR/field-$i"
+		printf '%s' "${kv#*=}" >"$field"
+		# A native Windows curl needs a Windows path; elsewhere cygpath is absent and the path is kept.
+		command -v cygpath >/dev/null && field="$(cygpath -m "$field")"
+		args+=(--data-urlencode "${kv%%=*}@$field")
+	done
 	curl -sS -o "$WORK_DIR/last-body.html" -w '%{http_code} %{redirect_url}' \
 		-b "$(jar "$user")" -c "$(jar "$user")" \
 		--data-urlencode "_csrf=$token" "${args[@]}" "$BASE_URL$action"
@@ -166,7 +182,10 @@ seed_warehouse() {
 	log "Manager: parts"
 	local part
 	while IFS='|' read -r name qty locs; do
-		expect_redirect "$(post mgr /parts/new /parts "name=$name" "quantity=$qty" "locations=$locs")" "creating part $name"
+		# Positive opening stock goes onto the part's (single) location.
+		local initial=()
+		[[ "$qty" != 0 ]] && initial=("initialLocation=$locs")
+		expect_redirect "$(post mgr /parts/new /parts "name=$name" "quantity=$qty" "locations=$locs" "${initial[@]}")" "creating part $name"
 	done <<'EOF'
 Rezystor 10k 0603|500|A-01-01
 Kondensator 100nF 0603|300|A-01-02
@@ -235,15 +254,20 @@ EOF
 	local first_order
 	first_order="$(get tech /picking | grep -oP 'href="/picking/\K[0-9]+' | head -n1 || true)"
 	[[ -n "$first_order" ]] || fail "technician sees no orders on /picking"
-	get tech "/picking/$first_order" | tr "\n\t" "  " >"$page"
+	# Flatten \r too: the page may come with CRLF, and PCRE's "." does not match \r.
+	get tech "/picking/$first_order" | tr "\r\n\t" "   " >"$page"
 	local line
 	for line in $(grep -oP "/picking/$first_order/lines/\K[0-9]+(?=/pick)" "$page" | sort -u); do
 		local qty
 		qty="$(grep -oP "id=\"quantity-$line\"[^>]*value=\"\K[0-9]+" "$page" | head -n1 || true)"
 		[[ -n "$qty" && "$qty" != 0 ]] || continue
-		expect_redirect "$(post tech "/picking/$first_order" "/picking/$first_order/lines/$line/pick" "quantity=$qty")" "picking line $line"
+		# Pick from the first shelf offered for this line (each seeded part has one shelf).
+		local shelf
+		shelf="$(grep -oP "/picking/$first_order/lines/$line/pick\"(?:(?!</form>).)*?<option value=\"\K[0-9]+" "$page" | head -n1 || true)"
+		[[ -n "$shelf" ]] || fail "no shelf offered for picking line $line"
+		expect_redirect "$(post tech "/picking/$first_order" "/picking/$first_order/lines/$line/pick" "locationId=$shelf" "quantity=$qty")" "picking line $line"
 	done
-	get tech "/picking/$first_order" | tr "\n\t" "  " >"$page"
+	get tech "/picking/$first_order" | tr "\r\n\t" "   " >"$page"
 	local built
 	built="$(grep -oP 'id="builtUnits"[^>]*value="\K[0-9]+' "$page" | head -n1 || true)"
 	expect_redirect "$(post tech "/picking/$first_order" "/picking/$first_order/report-completion" "builtUnits=${built:-1}")" \

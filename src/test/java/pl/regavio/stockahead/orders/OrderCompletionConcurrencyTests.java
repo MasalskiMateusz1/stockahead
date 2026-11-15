@@ -173,15 +173,23 @@ class OrderCompletionConcurrencyTests {
 	}
 
 	private Long seedPart(String name) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
-				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, INITIAL_STOCK, company().getId()));
+		return seedPartWithStock(name, INITIAL_STOCK);
 	}
 
 	private Long seedPartWithStock(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, company_id, location, quantity) VALUES (?, ?, 'A1', ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
+	}
+
+	private String shelfForLine(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = "
+				+ "(SELECT part_id FROM order_lines WHERE id = ?)", Long.class, lineId).toString();
 	}
 
 	/** A not-yet-taken OPEN order holding the given reservation, as the allocator would leave it. */
@@ -241,6 +249,7 @@ class OrderCompletionConcurrencyTests {
 			// Take the order through the real first pick, so it can be reported.
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 				.with(csrf())
+				.param("locationId", shelfForLine(lineId))
 				.param("quantity", Integer.toString(FIRST_PICK_QUANTITY)))
 				.andExpect(status().is3xxRedirection());
 			// Alternate between both requests starting together and the report
@@ -256,6 +265,7 @@ class OrderCompletionConcurrencyTests {
 				return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId)
 					.session(session)
 					.with(csrf())
+					.param("locationId", shelfForLine(lineId))
 					.param("quantity", Integer.toString(PICK_QUANTITY))).andReturn();
 			};
 			Callable<MvcResult> reportTask = () -> {
@@ -336,7 +346,7 @@ class OrderCompletionConcurrencyTests {
 			Long confirmedLineId = lineIdOf(confirmedOrderId);
 
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", confirmedOrderId, confirmedLineId)
-				.session(technician).with(csrf()).param("quantity", "2"))
+				.session(technician).with(csrf()).param("locationId", shelfForLine(confirmedLineId)).param("quantity", "2"))
 				.andExpect(status().is3xxRedirection());
 			mockMvc.perform(post("/picking/{orderId}/report-completion", confirmedOrderId)
 				.session(technician).with(csrf()).param("builtUnits", "1"))
@@ -430,10 +440,10 @@ class OrderCompletionConcurrencyTests {
 			Long shortLineId = lineIdOf(shortOrderId);
 
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", confirmedOrderId, confirmedLineId)
-				.session(technician).with(csrf()).param("quantity", "1"))
+				.session(technician).with(csrf()).param("locationId", shelfForLine(confirmedLineId)).param("quantity", "1"))
 				.andExpect(status().is3xxRedirection());
 			mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", shortOrderId, shortLineId)
-				.session(technician).with(csrf()).param("quantity", "1"))
+				.session(technician).with(csrf()).param("locationId", shelfForLine(shortLineId)).param("quantity", "1"))
 				.andExpect(status().is3xxRedirection());
 			mockMvc.perform(post("/picking/{orderId}/report-completion", confirmedOrderId)
 				.session(technician).with(csrf()).param("builtUnits", "1"))
@@ -461,6 +471,7 @@ class OrderCompletionConcurrencyTests {
 				return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", shortOrderId, shortLineId)
 					.session(technician)
 					.with(csrf())
+					.param("locationId", shelfForLine(shortLineId))
 					.param("quantity", "4")).andReturn();
 			};
 

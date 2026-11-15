@@ -223,9 +223,19 @@ class OrderCancelConcurrencyTests {
 	}
 
 	private Long seedPart(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, company_id, location, quantity) VALUES (?, ?, 'A1', ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
+	}
+
+	private String shelfForLine(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT l.id FROM part_locations l JOIN order_lines ol ON ol.part_id = l.part_id "
+				+ "WHERE ol.id = ?", Long.class, lineId).toString();
 	}
 
 	/** An untaken OPEN order with an explicit priority, date and created-at. */
@@ -246,6 +256,7 @@ class OrderCancelConcurrencyTests {
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", shelfForLine(lineId))
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + orderId));
@@ -359,13 +370,15 @@ class OrderCancelConcurrencyTests {
 				return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId)
 					.session(technician)
 					.with(csrf())
+					.param("locationId", shelfForLine(lineId))
 					.param("quantity", Integer.toString(RACE_PICK_QUANTITY))).andReturn();
 			}, () -> {
 				Thread.sleep(cancelDelayMillis);
 				return mockMvc.perform(post("/orders/{id}/cancel", orderId).session(manager)
 					.with(csrf())
 					.param("seenPicked_" + lineId, Integer.toString(FIRST_PICK_QUANTITY))
-					.param("returned_" + lineId, Integer.toString(FIRST_PICK_QUANTITY))).andReturn();
+					.param("returned_" + lineId, Integer.toString(FIRST_PICK_QUANTITY))
+					.param("location_" + lineId, shelfForLine(lineId))).andReturn();
 			});
 			MvcResult pickResult = results[0];
 			MvcResult cancelResult = results[1];
@@ -437,6 +450,7 @@ class OrderCancelConcurrencyTests {
 				return mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId)
 					.session(technician)
 					.with(csrf())
+					.param("locationId", shelfForLine(lineId))
 					.param("quantity", Integer.toString(RACE_PICK_QUANTITY))).andReturn();
 			}, () -> {
 				Thread.sleep(changeDelayMillis);
@@ -509,8 +523,10 @@ class OrderCancelConcurrencyTests {
 			.with(csrf())
 			.param("seenPicked_" + shownLine, "2")
 			.param("returned_" + shownLine, "2")
+			.param("location_" + shownLine, shelfForLine(shownLine))
 			.param("seenPicked_" + hiddenLine, "1")
-			.param("returned_" + hiddenLine, "1"))
+			.param("returned_" + hiddenLine, "1")
+			.param("location_" + hiddenLine, shelfForLine(hiddenLine)))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(PICKED_CHANGED_ERROR)));
 		assertThat(snapshotRows()).isEqualTo(before);
@@ -519,7 +535,8 @@ class OrderCancelConcurrencyTests {
 		mockMvc.perform(post("/orders/{id}/cancel", orderId).session(manager)
 			.with(csrf())
 			.param("seenPicked_" + shownLine, "5")
-			.param("returned_" + shownLine, "5"))
+			.param("returned_" + shownLine, "5")
+			.param("location_" + shownLine, shelfForLine(shownLine)))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(PICKED_CHANGED_ERROR)));
 		assertThat(snapshotRows()).isEqualTo(before);
@@ -536,6 +553,7 @@ class OrderCancelConcurrencyTests {
 			.with(csrf())
 			.param("seenPicked_" + shownLine, "5")
 			.param("returned_" + shownLine, "5")
+			.param("location_" + shownLine, shelfForLine(shownLine))
 			.param("seenPicked_" + hiddenLine, "1")
 			.param("returned_" + hiddenLine, "0"))
 			.andExpect(status().is3xxRedirection())

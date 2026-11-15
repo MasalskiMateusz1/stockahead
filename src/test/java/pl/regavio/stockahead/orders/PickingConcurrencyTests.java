@@ -141,9 +141,19 @@ class PickingConcurrencyTests {
 	}
 
 	private Long seedPart(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, company_id, location, quantity) VALUES (?, ?, 'A1', ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
+	}
+
+	private String shelfForLine(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT id FROM part_locations WHERE part_id = "
+				+ "(SELECT part_id FROM order_lines WHERE id = ?)", Long.class, lineId).toString();
 	}
 
 	private Long seedBomLine(Long project, Long part, int quantityPerUnit) {
@@ -217,6 +227,7 @@ class PickingConcurrencyTests {
 			try {
 				mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 					.with(csrf())
+					.param("locationId", shelfForLine(lineId))
 					.param("quantity", "3"));
 			}
 			catch (Exception ex) {
@@ -274,6 +285,7 @@ class PickingConcurrencyTests {
 				mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", existingOrderId, existingLineId)
 					.session(session)
 					.with(csrf())
+					.param("locationId", shelfForLine(existingLineId))
 					.param("quantity", "2"));
 			}
 			catch (Exception ex) {
@@ -348,6 +360,7 @@ class PickingConcurrencyTests {
 			mockMvc
 				.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineAId).session(session)
 					.with(csrf())
+					.param("locationId", shelfForLine(lineAId))
 					.param("quantity", "2"))
 				.andExpect(status().is3xxRedirection());
 			return null;
@@ -358,6 +371,7 @@ class PickingConcurrencyTests {
 			mockMvc
 				.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineBId).session(session)
 					.with(csrf())
+					.param("locationId", shelfForLine(lineBId))
 					.param("quantity", "3"))
 				.andExpect(status().is3xxRedirection());
 			return null;

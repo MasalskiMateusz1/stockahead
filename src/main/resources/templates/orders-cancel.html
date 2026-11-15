@@ -27,6 +27,7 @@
 								<th>Lokalizacje</th>
 								<th>Pobrana ilość</th>
 								<th>Ilość do zwrotu</th>
+								<th>Lokalizacja zwrotu</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -40,6 +41,13 @@
 										th:id="'returned-' + ${line.lineId}"
 										th:name="'returned_' + ${line.lineId}"
 										th:value="${line.returnValue}">
+								</td>
+								<td>
+									<select th:name="'location_' + ${line.lineId}">
+										<option value="">Wybierz lokalizację</option>
+										<option th:each="shelf : ${line.shelves}" th:value="${shelf.id}"
+											th:text="${shelf.name} + ' (' + ${shelf.quantity} + ')'">Lokalizacja</option>
+									</select>
 								</td>
 							</tr>
 						</tbody>

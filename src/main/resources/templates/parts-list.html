@@ -58,11 +58,14 @@
 							<td th:text="${row.part.quantity}"></td>
 							<td th:text="${row.reserved}"></td>
 							<td th:text="${row.available}"></td>
-							<td th:text="${#strings.listJoin(row.part.locations.![location], ', ')}"></td>
+							<td>
+								<span th:each="shelf : ${row.part.locations}" th:text="${shelf.location} + ': ' + ${shelf.quantity} + ' '"></span>
+							</td>
 							<td sec:authorize="hasRole('MANAGER')">
 								<div class="actions">
 									<a class="btn btn-secondary" th:href="@{/parts/{id}/edit(id=${row.part.id})}">Edytuj</a>
 									<a class="btn btn-secondary" th:href="@{/parts/{id}/correction(id=${row.part.id})}">Koryguj stan</a>
+									<a class="btn btn-secondary" th:href="@{/parts/{id}/transfer(id=${row.part.id})}">Przenieś</a>
 									<form th:if="${row.part.active}" th:action="@{/parts/{id}/deactivate(id=${row.part.id})}" method="post">
 										<button type="submit" class="btn btn-danger">Dezaktywuj</button>
 									</form>

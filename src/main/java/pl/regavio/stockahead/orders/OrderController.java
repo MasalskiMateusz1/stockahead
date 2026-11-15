@@ -36,6 +36,8 @@ import pl.regavio.stockahead.account.AccountRepository;
 import pl.regavio.stockahead.account.Role;
 import pl.regavio.stockahead.parts.Part;
 import pl.regavio.stockahead.parts.PartRepository;
+import pl.regavio.stockahead.parts.PartLocation;
+import pl.regavio.stockahead.parts.StockService;
 import pl.regavio.stockahead.projects.BomLine;
 import pl.regavio.stockahead.projects.Project;
 import pl.regavio.stockahead.projects.ProjectRepository;
@@ -86,6 +88,7 @@ public class OrderController {
 	private static final String RETURNED_PARAM_PREFIX = "returned_";
 
 	private static final String SEEN_PICKED_PARAM_PREFIX = "seenPicked_";
+	private static final String LOCATION_PARAM_PREFIX = "location_";
 
 	private final ProjectRepository projectRepository;
 
@@ -94,6 +97,7 @@ public class OrderController {
 	private final OrderLineRepository orderLineRepository;
 
 	private final PartRepository partRepository;
+	private final StockService stockService;
 
 	private final ReservationAllocator reservationAllocator;
 
@@ -108,7 +112,7 @@ public class OrderController {
 	private final MessageSource messageSource;
 
 	OrderController(ProjectRepository projectRepository, OrderRepository orderRepository,
-			OrderLineRepository orderLineRepository, PartRepository partRepository,
+			OrderLineRepository orderLineRepository, PartRepository partRepository, StockService stockService,
 			ReservationAllocator reservationAllocator, OrderDetailModel orderDetailModel, LockRetry lockRetry,
 			PlatformTransactionManager transactionManager, AccountRepository accountRepository,
 			MessageSource messageSource) {
@@ -116,6 +120,7 @@ public class OrderController {
 		this.orderRepository = orderRepository;
 		this.orderLineRepository = orderLineRepository;
 		this.partRepository = partRepository;
+		this.stockService = stockService;
 		this.reservationAllocator = reservationAllocator;
 		this.orderDetailModel = orderDetailModel;
 		this.lockRetry = lockRetry;
@@ -339,6 +344,7 @@ public class OrderController {
 		Long companyId = principal.companyId();
 		Map<Long, String> rawReturns = paramsByLineId(params, RETURNED_PARAM_PREFIX);
 		Map<Long, String> rawSeenPicked = paramsByLineId(params, SEEN_PICKED_PARAM_PREFIX);
+		Map<Long, String> rawLocations = paramsByLineId(params, LOCATION_PARAM_PREFIX);
 		Function<String, String> renderError = error -> orderDetailModel.renderCancel(model, companyId, id, error,
 				rawReturns);
 
@@ -351,6 +357,7 @@ public class OrderController {
 			returns.put(entry.getKey(), parsed);
 		}
 		Map<Long, Integer> seenPicked = new HashMap<>();
+		Map<Long, Long> returnLocations = new HashMap<>();
 		for (Map.Entry<Long, String> entry : rawSeenPicked.entrySet()) {
 			if (!returns.containsKey(entry.getKey())) {
 				// A shown line without its return field: missing is an error, not 0.
@@ -361,6 +368,17 @@ public class OrderController {
 				return renderError.apply(messageSource.getMessage("orders.error.pickedChanged", null, locale));
 			}
 			seenPicked.put(entry.getKey(), parsed);
+		}
+		for (Map.Entry<Long, Integer> entry : returns.entrySet()) {
+			if (entry.getValue() > 0) {
+				try {
+					returnLocations.put(entry.getKey(), Long.valueOf(rawLocations.get(entry.getKey())));
+				}
+				catch (NumberFormatException | NullPointerException ex) {
+					return renderError
+						.apply(messageSource.getMessage("orders.error.returnLocationRequired", null, locale));
+				}
+			}
 		}
 
 		return transitionOrder(companyId, id, locale, "orders.error.cancelFailed", renderError, "redirect:/orders/" + id,
@@ -382,6 +400,17 @@ public class OrderController {
 							return messageSource.getMessage("orders.error.returnExceedsPicked",
 									new Object[] { line.getPickedQuantity(), line.getPart().getName() }, locale);
 						}
+						if (returned != null && returned > 0) {
+							PartLocation shelf = stockService.location(line.getPart(), companyId,
+									returnLocations.get(line.getId()));
+							try {
+								Math.addExact(shelf.getQuantity(), returned);
+								Math.addExact(line.getPart().getQuantity(), returned);
+							}
+							catch (ArithmeticException ex) {
+								return messageSource.getMessage("orders.error.cancelFailed", null, locale);
+							}
+						}
 					}
 
 					Account canceller = accountRepository.findByIdAndCompanyId(principal.accountId(), companyId)
@@ -389,7 +418,10 @@ public class OrderController {
 					for (OrderLine line : order.getLines()) {
 						int returned = returns.getOrDefault(line.getId(), 0);
 						Part part = line.getPart();
-						part.setQuantity(part.getQuantity() + returned);
+						if (returned > 0) {
+							stockService.changeLocked(part,
+									stockService.location(part, companyId, returnLocations.get(line.getId())), returned);
+						}
 						line.setReturnedQuantity(returned);
 					}
 					for (OrderLine line : order.getLines()) {

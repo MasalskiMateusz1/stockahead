@@ -178,9 +178,19 @@ class OrderCancelIntegrationTests {
 	}
 
 	private Long seedPart(String name, int quantity) {
-		return transactionTemplate.execute(status -> jdbcTemplate.queryForObject(
+		return transactionTemplate.execute(status -> {
+			Long id = jdbcTemplate.queryForObject(
 				"INSERT INTO parts (name, quantity, active, company_id) VALUES (?, ?, true, ?) RETURNING id",
-				Long.class, name, quantity, company().getId()));
+				Long.class, name, quantity, company().getId());
+			jdbcTemplate.update("INSERT INTO part_locations (part_id, company_id, location, quantity) VALUES (?, ?, 'A1', ?)",
+					id, company().getId(), quantity);
+			return id;
+		});
+	}
+
+	private String shelfForLine(Long lineId) {
+		return jdbcTemplate.queryForObject("SELECT l.id FROM part_locations l JOIN order_lines ol ON ol.part_id = l.part_id "
+				+ "WHERE ol.id = ? ORDER BY l.id LIMIT 1", Long.class, lineId).toString();
 	}
 
 	/**
@@ -210,6 +220,7 @@ class OrderCancelIntegrationTests {
 	private void pick(MockHttpSession session, Long orderId, Long lineId, int quantity) throws Exception {
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(session)
 			.with(csrf())
+			.param("locationId", shelfForLine(lineId))
 			.param("quantity", Integer.toString(quantity)))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(header().string("Location", "/picking/" + orderId));
@@ -246,7 +257,8 @@ class OrderCancelIntegrationTests {
 		}
 		for (int i = 0; i < lineReturns.length; i += 3) {
 			request = request.param("seenPicked_" + lineReturns[i], Long.toString(lineReturns[i + 1]))
-				.param("returned_" + lineReturns[i], Long.toString(lineReturns[i + 2]));
+				.param("returned_" + lineReturns[i], Long.toString(lineReturns[i + 2]))
+				.param("location_" + lineReturns[i], shelfForLine(lineReturns[i]));
 		}
 		return request;
 	}
@@ -610,6 +622,7 @@ class OrderCancelIntegrationTests {
 
 		mockMvc.perform(post("/picking/{orderId}/lines/{lineId}/pick", orderId, lineId).session(technician)
 			.with(csrf())
+			.param("locationId", shelfForLine(lineId))
 			.param("quantity", "1"))
 			.andExpect(status().isOk())
 			.andExpect(content().string(containsString(ORDER_NOT_OPEN_ERROR)));
